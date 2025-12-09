@@ -1,5 +1,5 @@
 {
-  "name": "@aluvia/agent-connect-node",
+  "name": "@aluvia/aluvia-node",
   "version": "1.0.0",
   "description": "Local smart proxy for AI agents - Node.js client for Aluvia",
   "main": "dist/index.js",

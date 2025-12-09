@@ -7,9 +7,9 @@ export type GatewayProtocol = 'http' | 'https';
  */
 export type LogLevel = 'silent' | 'info' | 'debug';
 /**
- * Options for creating an AgentConnectClient instance.
+ * Options for creating an AluviaClient instance.
  */
-export type AgentConnectClientOptions = {
+export type AluviaClientOptions = {
     /**
      * Required: user API token (Bearer).
      * This is the token for a single Aluvia user/agent.
@@ -17,7 +17,7 @@ export type AgentConnectClientOptions = {
     token: string;
     /**
      * Optional: base URL for the Aluvia API.
-     * Default: 'https://api.aluvia.io'
+     * Default: 'https://api.aluvia.io/v1'
      */
     apiBaseUrl?: string;
     /**
@@ -54,9 +54,9 @@ export type AgentConnectClientOptions = {
     logLevel?: LogLevel;
 };
 /**
- * Represents an active Agent Connect session.
+ * Represents an active Aluvia Client session.
  */
-export type AgentConnectSession = {
+export type AluviaClientSession = {
     /**
      * Local host where the proxy listens.
      * Always '127.0.0.1' for MVP.

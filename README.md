@@ -1,15 +1,15 @@
-# @aluvia/agent-connect-node
+# @aluvia/aluvia-node
 
 Local smart proxy for AI agents - Node.js client for Aluvia.
 
 ## Installation
 
 ```bash
-npm install @aluvia/agent-connect-node
+npm install @aluvia/aluvia-node
 # or
-yarn add @aluvia/agent-connect-node
+yarn add @aluvia/aluvia-node
 # or
-pnpm add @aluvia/agent-connect-node
+pnpm add @aluvia/aluvia-node
 ```
 
 ## Requirements
@@ -19,9 +19,9 @@ pnpm add @aluvia/agent-connect-node
 ## Quick Start
 
 ```typescript
-import { AgentConnectClient } from '@aluvia/agent-connect-node';
+import { AluviaClient } from '@aluvia/aluvia-node';
 
-const client = new AgentConnectClient({
+const client = new AluviaClient({
   token: process.env.ALV_USER_TOKEN, // Required: your Aluvia user API token
 });
 
@@ -47,13 +47,13 @@ await session.stop();
 ## Configuration Options
 
 ```typescript
-const client = new AgentConnectClient({
+const client = new AluviaClient({
   // Required: your Aluvia user API token
   token: process.env.ALV_USER_TOKEN,
 
   // Optional: base URL for the Aluvia API
-  // Default: 'https://api.aluvia.io'
-  apiBaseUrl: 'https://api.aluvia.io',
+  // Default: 'https://api.aluvia.io/v1'
+  apiBaseUrl: 'https://api.aluvia.io/v1',
 
   // Optional: polling interval for refreshing config
   // Default: 5000 (ms)
@@ -79,9 +79,9 @@ const client = new AgentConnectClient({
 
 ## API Reference
 
-### AgentConnectClient
+### AluviaClient
 
-#### `new AgentConnectClient(options)`
+#### `new AluviaClient(options)`
 
 Creates a new client instance.
 
@@ -94,7 +94,7 @@ Creates a new client instance.
 - `localPort` (optional): Local proxy port
 - `logLevel` (optional): `'silent'` | `'info'` | `'debug'`
 
-#### `client.start(): Promise<AgentConnectSession>`
+#### `client.start(): Promise<AluviaClientSession>`
 
 Starts the proxy session:
 1. Fetches initial configuration from Aluvia
@@ -111,7 +111,7 @@ Returns a session object with:
 
 Stops the proxy server and configuration polling.
 
-### AgentConnectSession
+### AluviaClientSession
 
 #### `session.stop(): Promise<void>`
 
@@ -121,15 +121,15 @@ Stops this specific session, closing the proxy server and stopping config pollin
 
 ```typescript
 import { 
-  AgentConnectClient,
+  AluviaClient,
   MissingUserTokenError,
   InvalidUserTokenError,
   ApiError,
   ProxyStartError 
-} from '@aluvia/agent-connect-node';
+} from '@aluvia/aluvia-node';
 
 try {
-  const client = new AgentConnectClient({ token: '' });
+  const client = new AluviaClient({ token: '' });
 } catch (error) {
   if (error instanceof MissingUserTokenError) {
     console.error('Token is required');
@@ -153,9 +153,9 @@ try {
 
 ```typescript
 import { chromium } from 'playwright';
-import { AgentConnectClient } from '@aluvia/agent-connect-node';
+import { AluviaClient } from '@aluvia/aluvia-node';
 
-const client = new AgentConnectClient({
+const client = new AluviaClient({
   token: process.env.ALV_USER_TOKEN,
 });
 
@@ -179,9 +179,9 @@ await session.stop();
 ```typescript
 import axios from 'axios';
 import { HttpsProxyAgent } from 'https-proxy-agent';
-import { AgentConnectClient } from '@aluvia/agent-connect-node';
+import { AluviaClient } from '@aluvia/aluvia-node';
 
-const client = new AgentConnectClient({
+const client = new AluviaClient({
   token: process.env.ALV_USER_TOKEN,
 });
 

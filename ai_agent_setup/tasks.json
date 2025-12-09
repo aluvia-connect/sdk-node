@@ -1,11 +1,11 @@
 {
-    "project": "Aluvia Agent Connect Client (Node.js)",
+    "project": "Aluvia Client (Node.js)",
     "description": "Node-only local HTTP(S) proxy client that connects to Aluvia using a user API token, fetches /user config, maintains rules via polling, and exposes a local proxy URL on 127.0.0.1:<PORT>.",
     "tasks": [
       {
         "id": "0.1",
         "title": "Initialize Node/TypeScript project",
-        "description": "Create the basic Node.js + TypeScript scaffold for @aluvia/agent-connect-node.",
+        "description": "Create the basic Node.js + TypeScript scaffold for @aluvia/aluvia-node.",
         "files": [
           "package.json",
           "tsconfig.json",
@@ -26,12 +26,12 @@
       {
         "id": "0.2",
         "title": "Define package metadata",
-        "description": "Configure package.json for publishing the library as @aluvia/agent-connect-node.",
+        "description": "Configure package.json for publishing the library as @aluvia/aluvia-node.",
         "files": [
           "package.json"
         ],
         "steps": [
-          "Set `name` to `\"@aluvia/agent-connect-node\"`.",
+          "Set `name` to `\"@aluvia/aluvia-node\"`.",
           "Set `main` to `\"dist/index.js\"` and `types` to `\"dist/index.d.ts\"`.",
           "Ensure scripts include at least `\"build\": \"tsc\"` and `\"prepare\": \"npm run build\"`.",
           "Optionally set `\"engines\"` to require Node 18+ if relying on native fetch.",
@@ -51,15 +51,15 @@
           "src/index.ts"
         ],
         "steps": [
-          "Create `src/types.ts` and define `GatewayProtocol`, `AgentConnectClientOptions`, and `AgentConnectSession`:",
+          "Create `src/types.ts` and define `GatewayProtocol`, `AluviaClientOptions`, and `AluviaClientSession`:",
           "GatewayProtocol = 'http' | 'https'.",
-          "AgentConnectClientOptions fields: `token` (required), `apiBaseUrl?`, `pollIntervalMs?`, `gatewayProtocol?`, `gatewayPort?`, `localPort?`, `logLevel?`.",
-          "AgentConnectSession fields: `host`, `port`, `url`, and async `stop()`.",
+          "AluviaClientOptions fields: `token` (required), `apiBaseUrl?`, `pollIntervalMs?`, `gatewayProtocol?`, `gatewayPort?`, `localPort?`, `logLevel?`.",
+          "AluviaClientSession fields: `host`, `port`, `url`, and async `stop()`.",
           "Export these types from `src/types.ts`.",
           "Ensure `src/index.ts` re-exports these types."
         ],
         "acceptanceCriteria": [
-          "The types compile successfully and are importable from `@aluvia/agent-connect-node`.",
+          "The types compile successfully and are importable from `@aluvia/aluvia-node`.",
           "All fields match the latest spec, including optional `localPort` and gateway protocol/port options."
         ]
       },
@@ -69,16 +69,16 @@
         "description": "Expose the main public API from index.ts.",
         "files": [
           "src/index.ts",
-          "src/AgentConnectClient.ts",
+          "src/AluviaClient.ts",
           "src/types.ts"
         ],
         "steps": [
-          "Create `src/AgentConnectClient.ts` (can be a stub class for now).",
-          "In `src/index.ts`, export `AgentConnectClient` from `./AgentConnectClient`.",
-          "Re-export `AgentConnectClientOptions`, `AgentConnectSession`, and `GatewayProtocol` from `./types`."
+          "Create `src/AluviaClient.ts` (can be a stub class for now).",
+          "In `src/index.ts`, export `AluviaClient` from `./AluviaClient`.",
+          "Re-export `AluviaClientOptions`, `AluviaClientSession`, and `GatewayProtocol` from `./types`."
         ],
         "acceptanceCriteria": [
-          "A consumer can write `import { AgentConnectClient } from '@aluvia/agent-connect-node';` without type or module resolution errors.",
+          "A consumer can write `import { AluviaClient } from '@aluvia/aluvia-node';` without type or module resolution errors.",
           "Public types are accessible from the package root."
         ]
       },
@@ -403,21 +403,21 @@
       },
       {
         "id": "7.1",
-        "title": "Implement AgentConnectClient constructor",
-        "description": "Wire options, defaults, ConfigManager, and ProxyServer in AgentConnectClient.",
+        "title": "Implement AluviaClient constructor",
+        "description": "Wire options, defaults, ConfigManager, and ProxyServer in AluviaClient.",
         "files": [
-          "src/AgentConnectClient.ts",
+          "src/AluviaClient.ts",
           "src/types.ts",
           "src/errors.ts",
           "src/ConfigManager.ts",
           "src/ProxyServer.ts"
         ],
         "steps": [
-          "Create `AgentConnectClient` class.",
-          "In the constructor, accept `AgentConnectClientOptions`.",
+          "Create `AluviaClient` class.",
+          "In the constructor, accept `AluviaClientOptions`.",
           "If `options.token` is missing or empty, throw `MissingUserTokenError`.",
           "Apply defaults:",
-          "  - `apiBaseUrl = options.apiBaseUrl ?? 'https://api.aluvia.io'`.",
+          "  - `apiBaseUrl = options.apiBaseUrl ?? 'https://api.aluvia.io/v1'`.",
           "  - `pollIntervalMs = options.pollIntervalMs ?? 5000`.",
           "  - `gatewayProtocol = options.gatewayProtocol ?? 'http'`.",
           "  - `gatewayPort` default: 8080 for http, 8443 for https, unless `options.gatewayPort` is provided.",
@@ -427,17 +427,17 @@
           "Initialize internal state: `this.session = null`, `this.started = false`."
         ],
         "acceptanceCriteria": [
-          "Instantiating AgentConnectClient with a valid token and no other options succeeds.",
+          "Instantiating AluviaClient with a valid token and no other options succeeds.",
           "Instantiating without `token` throws `MissingUserTokenError`.",
           "Defaults for gateway protocol and port align with the spec (http->8080, https->8443)."
         ]
       },
       {
         "id": "7.2",
-        "title": "Implement AgentConnectClient.start()",
-        "description": "Start config manager, proxy server, polling, and return an AgentConnectSession.",
+        "title": "Implement AluviaClient.start()",
+        "description": "Start config manager, proxy server, polling, and return an AluviaClientSession.",
         "files": [
-          "src/AgentConnectClient.ts"
+          "src/AluviaClient.ts"
         ],
         "steps": [
           "If `this.started` is true and `this.session` is non-null, return the existing session.",
@@ -445,7 +445,7 @@
           "Call `await this.proxyServer.start(options.localPort)`.",
           "Extract `host`, `port`, `url` from the result.",
           "Call `this.configManager.startPolling()`.",
-          "Create an `AgentConnectSession` object:",
+          "Create an `AluviaClientSession` object:",
           "  - `host`, `port`, `url` from above.",
           "  - `stop()` method that stops the proxy server and polling, and clears internal state.",
           "Set `this.session` and `this.started = true`.",
@@ -460,10 +460,10 @@
       },
       {
         "id": "7.3",
-        "title": "Implement AgentConnectClient.stop()",
+        "title": "Implement AluviaClient.stop()",
         "description": "Provide a top-level method to stop the proxy and polling.",
         "files": [
-          "src/AgentConnectClient.ts"
+          "src/AluviaClient.ts"
         ],
         "steps": [
           "If `this.started` is false, return immediately with no error.",
@@ -482,7 +482,7 @@
         "description": "Test the happy-path flow end-to-end with mocks.",
         "files": [
           "test/integration.test.ts",
-          "src/AgentConnectClient.ts",
+          "src/AluviaClient.ts",
           "src/ConfigManager.ts",
           "src/ProxyServer.ts",
           "src/httpClient.ts"
@@ -490,7 +490,7 @@
         "steps": [
           "Set up a test runner (e.g., Jest, Vitest, or Node's built-in test).",
           "Mock `getUser()` to return a valid config with `rules: ['*']`, dummy credentials, and ETag.",
-          "Instantiate `AgentConnectClient` with a fake token and `logLevel: 'silent'`.",
+          "Instantiate `AluviaClient` with a fake token and `logLevel: 'silent'`.",
           "Call `client.start()` and assert that a session is returned with host, port, and url.",
           "Optionally, perform an HTTP request through the local proxy to a simple test server to verify the connection path (can be basic)."
         ],
@@ -508,8 +508,8 @@
           "README.md"
         ],
         "steps": [
-          "Add install instructions: `npm install @aluvia/agent-connect-node`.",
-          "Show a code snippet using `new AgentConnectClient({ token: process.env.ALV_USER_TOKEN })` and `await client.start()`.",
+          "Add install instructions: `npm install @aluvia/aluvia-node`.",
+          "Show a code snippet using `new AluviaClient({ token: process.env.ALV_USER_TOKEN })` and `await client.start()`.",
           "Demonstrate using `session.url` with Playwright (via `proxy: { server: session.url }`).",
           "Demonstrate using `session.url` with Axios + `HttpsProxyAgent`.",
           "Mention how to optionally set `gatewayProtocol`, `gatewayPort`, and `localPort`."

@@ -1,4 +1,4 @@
-// Logger utility for Aluvia Agent Connect
+// Logger utility for Aluvia Client
 
 import type { LogLevel } from './types';
 

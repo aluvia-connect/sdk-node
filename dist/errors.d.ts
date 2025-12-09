@@ -1,5 +1,5 @@
 /**
- * Thrown when the user token is not provided to AgentConnectClient.
+ * Thrown when the user token is not provided to AluviaClient.
  */
 export declare class MissingUserTokenError extends Error {
     constructor(message?: string);

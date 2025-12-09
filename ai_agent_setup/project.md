@@ -2,7 +2,7 @@
 
 
 
-# Aluvia Agent Connect Client (Node.js)
+# Aluvia Client (Node.js)
 
 _Local smart proxy for AI agents_
 
@@ -25,7 +25,7 @@ Give an AI agent (running on Node / Playwright / Puppeteer / HTTP clients) a **l
 
 This library is:
 
-- A **Node.js package** (e.g. `@aluvia/agent-connect-node`).
+- A **Node.js package** (e.g. `@aluvia/aluvia-node`).
     
 - It runs entirely in Node (no Go binary, no cross-compilation).
     
@@ -33,7 +33,7 @@ This library is:
     
 
 
-The **Agent Connect Client** itself focuses on:
+The **Aluvia Client** itself focuses on:
 
 - Connectivity (local proxy server).
     
@@ -47,11 +47,11 @@ The **Agent Connect Client** itself focuses on:
 ### 2.1 Installation
 
 ```bash
-npm install @aluvia/agent-connect-node
+npm install @aluvia/aluvia-node
 # or
-yarn add @aluvia/agent-connect-node
+yarn add @aluvia/aluvia-node
 # or
-pnpm add @aluvia/agent-connect-node
+pnpm add @aluvia/aluvia-node
 ```
 
 ### 2.2 Runtime usage
@@ -75,9 +75,9 @@ Basic example:
             
 
 ```ts
-import { AgentConnectClient } from '@aluvia/agent-connect-node';
+import { AluviaClient } from '@aluvia/aluvia-node';
 
-const client = new AgentConnectClient({
+const client = new AluviaClient({
   token: process.env.ALV_USER_TOKEN,   // required: user API token
 
   // OPTIONAL: where the local proxy listens (127.0.0.1:<localPort>)
@@ -126,7 +126,7 @@ await client.stop(); // optional global cleanup
 ```ts
 export type GatewayProtocol = 'http' | 'https';
 
-export type AgentConnectClientOptions = {
+export type AluviaClientOptions = {
   /**
    * Required: user API token (Bearer).
    * This is the token for a single Aluvia user/agent.
@@ -135,7 +135,7 @@ export type AgentConnectClientOptions = {
 
   /**
    * Optional: base URL for the Aluvia API.
-   * Default: 'https://api.aluvia.io'
+   * Default: 'https://api.aluvia.io/v1'
    */
   apiBaseUrl?: string;
 
@@ -177,7 +177,7 @@ export type AgentConnectClientOptions = {
   logLevel?: 'silent' | 'info' | 'debug';
 };
 
-export type AgentConnectSession = {
+export type AluviaClientSession = {
   /**
    * Local host where the proxy listens.
    * Always '127.0.0.1' for MVP.
@@ -207,18 +207,18 @@ export type AgentConnectSession = {
   stop(): Promise<void>;
 };
 
-export class AgentConnectClient {
-  constructor(options: AgentConnectClientOptions);
+export class AluviaClient {
+  constructor(options: AluviaClientOptions);
 
   /**
-   * Start the Agent Connect session:
+   * Start the Agent Client session:
    * - Fetch initial /user config from Aluvia.
    * - Start polling for config updates.
    * - Start a local HTTP(S) proxy on 127.0.0.1:<localPort or free port>.
    *
    * Returns the active session with host/port/url and a stop() method.
    */
-  start(): Promise<AgentConnectSession>;
+  start(): Promise<AluviaClientSession>;
 
   /**
    * Global cleanup:
@@ -237,8 +237,8 @@ export class AgentConnectClient {
 Conceptual modules:
 
 ```text
-@aluvia/agent-connect-node
-├── AgentConnectClient      (public API)
+@aluvia/aluvia-node
+├── AluviaClient      (public API)
 │    ├── ConfigManager      (control plane: /user + polling)
 │    └── ProxyServer        (local HTTP(S) proxy on 127.0.0.1:<port>)
 └── utils                   (rules, HTTP client, logging, errors, etc.)
@@ -264,7 +264,7 @@ Responsibilities:
             
     - If proxied, routes traffic through `gateway.aluvia.io` with user credentials.
         
-3. **AgentConnectClient**
+3. **AluviaClient**
     
     - Validates input options and token.
         
@@ -336,7 +336,7 @@ The **Config Manager** owns a `UserNetworkConfig | null` and exposes:
 export class ConfigManager {
   constructor(options: {
     token: string;                 // user API token
-    apiBaseUrl: string;            // e.g. https://api.aluvia.io
+    apiBaseUrl: string;            // e.g. https://api.aluvia.io/v1
     pollIntervalMs: number;        // e.g. 5000
     gatewayProtocol?: GatewayProtocol; // default 'http'
     gatewayPort?: number;          // default 8080 (or 8443 if https)
@@ -399,7 +399,7 @@ Steps:
 4. Store this `UserNetworkConfig` in memory.
     
 
-If this call fails (network error or 5xx) and there is **no** existing config in memory, `init()` rejects. The outer `AgentConnectClient.start()` then throws a clear error instead of starting a proxy with unknown credentials.
+If this call fails (network error or 5xx) and there is **no** existing config in memory, `init()` rejects. The outer `AluviaClient.start()` then throws a clear error instead of starting a proxy with unknown credentials.
 
 If `init()` succeeds once, the proxy can keep working off that configuration even if later polls temporarily fail.
 
@@ -638,13 +638,13 @@ You do not need to over-engineer the rule engine initially, but the structure sh
 
 ---
 
-## 6. AgentConnectClient orchestration
+## 6. AluviaClient orchestration
 
 This is the **public** class exposed by the package.
 
 ### 6.1 Class responsibilities
 
-`AgentConnectClient`:
+`AluviaClient`:
 
 - Validates constructor options (e.g. ensures `token` is provided).
     
@@ -654,24 +654,24 @@ This is the **public** class exposed by the package.
     
 - Manages lifecycle (`start` / `stop`) of both.
     
-- Returns a simple `AgentConnectSession` object.
+- Returns a simple `AluviaClientSession` object.
     
 
-### 6.2 `AgentConnectClient` outline
+### 6.2 `AluviaClient` outline
 
 ```ts
-export class AgentConnectClient {
+export class AluviaClient {
   private readonly configManager: ConfigManager;
   private readonly proxyServer: ProxyServer;
-  private session: AgentConnectSession | null = null;
+  private session: AluviaClientSession | null = null;
   private started = false;
 
-  constructor(private readonly options: AgentConnectClientOptions) {
+  constructor(private readonly options: AluviaClientOptions) {
     if (!options.token) {
       throw new MissingUserTokenError('Aluvia user token is required');
     }
 
-    const apiBaseUrl = options.apiBaseUrl ?? 'https://api.aluvia.io';
+    const apiBaseUrl = options.apiBaseUrl ?? 'https://api.aluvia.io/v1';
     const pollIntervalMs = options.pollIntervalMs ?? 5000;
     const gatewayProtocol = options.gatewayProtocol ?? 'http';
     const gatewayPort =
@@ -691,7 +691,7 @@ export class AgentConnectClient {
     });
   }
 
-  async start(): Promise<AgentConnectSession> {
+  async start(): Promise<AluviaClientSession> {
     if (this.started && this.session) return this.session;
 
     // 1. Fetch initial config
@@ -704,7 +704,7 @@ export class AgentConnectClient {
     this.configManager.startPolling();
 
     // 4. Build session object
-    const session: AgentConnectSession = {
+    const session: AluviaClientSession = {
       host,
       port,
       url,
@@ -790,7 +790,7 @@ Logging:
 
 Summarising defaults:
 
-- `apiBaseUrl`: `https://api.aluvia.io`
+- `apiBaseUrl`: `https://api.aluvia.io/v1`
     
 - `pollIntervalMs`: `5000`
     
@@ -819,12 +819,12 @@ Node requirements:
 Recommended TypeScript layout:
 
 ```text
-agent-connect-node/
+aluvia-node/
   package.json
   tsconfig.json
   src/
-    index.ts               # export AgentConnectClient
-    AgentConnectClient.ts  # public orchestration class
+    index.ts               # export AluviaClient
+    AluviaClient.ts  # public orchestration class
     ConfigManager.ts       # control-plane (/user + polling)
     ProxyServer.ts         # local HTTP(S) proxy implementation
     rules.ts               # shouldProxy + wildcard logic

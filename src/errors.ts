@@ -1,7 +1,7 @@
-// Error classes for Aluvia Agent Connect
+// Error classes for Aluvia Client
 
 /**
- * Thrown when the user token is not provided to AgentConnectClient.
+ * Thrown when the user token is not provided to AluviaClient.
  */
 export class MissingUserTokenError extends Error {
   constructor(message = 'Aluvia user token is required') {

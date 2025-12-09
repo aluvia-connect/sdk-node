@@ -1,15 +1,15 @@
-// Integration smoke test for Aluvia Agent Connect Client
+// Integration smoke test for Aluvia Client
 
 import { test, mock, describe, beforeEach, afterEach } from 'node:test';
 import assert from 'node:assert';
 import * as httpClient from '../src/httpClient';
-import { AgentConnectClient } from '../src/AgentConnectClient';
+import { AluviaClient } from '../src/AluviaClient';
 import { MissingUserTokenError, InvalidUserTokenError } from '../src/errors';
 
 // Mock getUser function
 const mockGetUser = mock.fn<typeof httpClient.getUser>();
 
-describe('AgentConnectClient', () => {
+describe('AluviaClient', () => {
   beforeEach(() => {
     mockGetUser.mock.resetCalls();
   });
@@ -20,13 +20,13 @@ describe('AgentConnectClient', () => {
 
   test('throws MissingUserTokenError when token is not provided', () => {
     assert.throws(
-      () => new AgentConnectClient({ token: '' }),
+      () => new AluviaClient({ token: '' }),
       MissingUserTokenError
     );
   });
 
   test('can be instantiated with valid token', () => {
-    const client = new AgentConnectClient({
+    const client = new AluviaClient({
       token: 'test-token',
       logLevel: 'silent',
     });
@@ -35,7 +35,7 @@ describe('AgentConnectClient', () => {
 
   test('applies default options correctly', () => {
     // This test verifies defaults are applied (constructor doesn't throw)
-    const client = new AgentConnectClient({
+    const client = new AluviaClient({
       token: 'test-token',
     });
     assert.ok(client);

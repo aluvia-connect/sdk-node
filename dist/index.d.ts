@@ -1,2 +1,3 @@
-export { AgentConnectClient } from './AgentConnectClient';
-export type { GatewayProtocol, LogLevel, AgentConnectClientOptions, AgentConnectSession, } from './types';
+export { AluviaClient } from './AluviaClient';
+export { MissingUserTokenError, InvalidUserTokenError, ApiError, ProxyStartError, } from './errors';
+export type { GatewayProtocol, LogLevel, AluviaClientOptions, AluviaClientSession, } from './types';

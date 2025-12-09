@@ -1,13 +1,21 @@
-// Aluvia Agent Connect Node Client
+// Aluvia Client Node
 // Main entry point
 
 // Public class
-export { AgentConnectClient } from './AgentConnectClient';
+export { AluviaClient } from './AluviaClient';
+
+// Public error classes
+export {
+  MissingUserTokenError,
+  InvalidUserTokenError,
+  ApiError,
+  ProxyStartError,
+} from './errors';
 
 // Public types
 export type {
   GatewayProtocol,
   LogLevel,
-  AgentConnectClientOptions,
-  AgentConnectSession,
+  AluviaClientOptions,
+  AluviaClientSession,
 } from './types';

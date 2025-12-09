@@ -5,7 +5,7 @@ exports.getUser = getUser;
 /**
  * Fetch user configuration from the Aluvia API.
  *
- * @param apiBaseUrl - Base URL for the Aluvia API (e.g., 'https://api.aluvia.io')
+ * @param apiBaseUrl - Base URL for the Aluvia API (e.g., 'https://api.aluvia.io/v1')
  * @param token - User API token (Bearer token)
  * @param etag - Optional ETag for conditional request (If-None-Match)
  * @returns GetUserResult with status, etag, and body (null on 304)

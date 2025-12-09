@@ -6,17 +6,17 @@ Each task is:
 * Has a clear start and end
 * Focused on one concern
 
-All tasks are derived from the current spec in **“Aluvia Agent Connect Client (Node.js)”**. 
+All tasks are derived from the current spec in **“Aluvia Client (Node.js)”**. 
 
 ---
 
-# Implementation Plan: Aluvia Agent Connect Client (Node.js)
+# Implementation Plan: Aluvia Client (Node.js)
 
 ## Phase 0 – Repo + Project Scaffolding
 
 ### Task 0.1 – Initialize Node/TypeScript project
 
-**Goal**: Create the basic project scaffold for `@aluvia/agent-connect-node`.
+**Goal**: Create the basic project scaffold for `@aluvia/aluvia-node`.
 
 **Steps**:
 
@@ -49,7 +49,7 @@ All tasks are derived from the current spec in **“Aluvia Agent Connect Client 
 
 **Steps**:
 
-* Set `"name"` to something like `"@aluvia/agent-connect-node"`.
+* Set `"name"` to something like `"@aluvia/aluvia-node"`.
 * Set `"main"` to `"dist/index.js"` and `"types"` to `"dist/index.d.ts"`.
 * Add scripts:
 
@@ -68,7 +68,7 @@ All tasks are derived from the current spec in **“Aluvia Agent Connect Client 
 
 ### Task 1.1 – Define public types and options
 
-**Goal**: Implement the TypeScript public types in `src/types.ts` (or inline in `AgentConnectClient.ts`).
+**Goal**: Implement the TypeScript public types in `src/types.ts` (or inline in `AluviaClient.ts`).
 
 **Steps**:
 
@@ -77,7 +77,7 @@ All tasks are derived from the current spec in **“Aluvia Agent Connect Client 
   ```ts
   export type GatewayProtocol = 'http' | 'https';
 
-  export type AgentConnectClientOptions = {
+  export type AluviaClientOptions = {
     token: string;
     apiBaseUrl?: string;
     pollIntervalMs?: number;
@@ -87,7 +87,7 @@ All tasks are derived from the current spec in **“Aluvia Agent Connect Client 
     logLevel?: 'silent' | 'info' | 'debug';
   };
 
-  export type AgentConnectSession = {
+  export type AluviaClientSession = {
     host: string;
     port: number;
     url: string;
@@ -104,18 +104,18 @@ All tasks are derived from the current spec in **“Aluvia Agent Connect Client 
 
 ### Task 1.2 – Implement `index.ts` export surface
 
-**Goal**: Make `AgentConnectClient` the main export.
+**Goal**: Make `AluviaClient` the main export.
 
 **Steps**:
 
 * Create `src/index.ts`:
 
-  * Export `AgentConnectClient`.
-  * Export public types (`AgentConnectClientOptions`, `AgentConnectSession`, `GatewayProtocol`).
+  * Export `AluviaClient`.
+  * Export public types (`AluviaClientOptions`, `AluviaClientSession`, `GatewayProtocol`).
 
 **Acceptance criteria**:
 
-* `import { AgentConnectClient } from '@aluvia/agent-connect-node'` resolves when built.
+* `import { AluviaClient } from '@aluvia/aluvia-node'` resolves when built.
 * Types are visible when importing from the package entry.
 
 ---
@@ -276,7 +276,7 @@ All tasks are derived from the current spec in **“Aluvia Agent Connect Client 
 
 **Acceptance criteria**:
 
-* Types compile and can be imported by `ProxyServer` and `AgentConnectClient`.
+* Types compile and can be imported by `ProxyServer` and `AluviaClient`.
 
 ---
 
@@ -624,22 +624,22 @@ All tasks are derived from the current spec in **“Aluvia Agent Connect Client 
 
 ---
 
-## Phase 7 – AgentConnectClient Orchestration
+## Phase 7 – AluviaClient Orchestration
 
-### Task 7.1 – Implement `AgentConnectClient` constructor
+### Task 7.1 – Implement `AluviaClient` constructor
 
 **Goal**: Wire options, defaults, and instantiate `ConfigManager` and `ProxyServer`.
 
 **Steps**:
 
-* In `src/AgentConnectClient.ts`:
+* In `src/AluviaClient.ts`:
 
   * Validate `options.token`:
 
     * If missing, throw `MissingUserTokenError`.
   * Compute defaults:
 
-    * `apiBaseUrl` default: `'https://api.aluvia.io'`.
+    * `apiBaseUrl` default: `'https://api.aluvia.io/v1'`.
     * `pollIntervalMs` default: `5000`.
     * `gatewayProtocol` default: `'http'`.
     * `gatewayPort` default: `8080` if `'http'`, `8443` if `'https'`.
@@ -648,12 +648,12 @@ All tasks are derived from the current spec in **“Aluvia Agent Connect Client 
 
 **Acceptance criteria**:
 
-* Creating a new `AgentConnectClient({ token: '...' })` succeeds.
+* Creating a new `AluviaClient({ token: '...' })` succeeds.
 * Creating one without token throws `MissingUserTokenError`.
 
 ---
 
-### Task 7.2 – Implement `AgentConnectClient.start()`
+### Task 7.2 – Implement `AluviaClient.start()`
 
 **Goal**: Start config, proxy server, polling, and return a session.
 
@@ -667,10 +667,10 @@ All tasks are derived from the current spec in **“Aluvia Agent Connect Client 
 
 * Call `configManager.startPolling();`.
 
-* Build `AgentConnectSession`:
+* Build `AluviaClientSession`:
 
   ```ts
-  const session: AgentConnectSession = {
+  const session: AluviaClientSession = {
     host,
     port,
     url,
@@ -693,7 +693,7 @@ All tasks are derived from the current spec in **“Aluvia Agent Connect Client 
 
 ---
 
-### Task 7.3 – Implement `AgentConnectClient.stop()`
+### Task 7.3 – Implement `AluviaClient.stop()`
 
 **Goal**: Provide global cleanup.
 
@@ -722,7 +722,7 @@ All tasks are derived from the current spec in **“Aluvia Agent Connect Client 
 * Mock `getUser()` to return a fixed config:
 
   * `proxy_username`, `proxy_password`, `rules: ['*']`, etc.
-* Create `AgentConnectClient` with this mocked `ConfigManager`/`httpClient`.
+* Create `AluviaClient` with this mocked `ConfigManager`/`httpClient`.
 * Call `start()`.
 * Verify:
 
@@ -746,7 +746,7 @@ All tasks are derived from the current spec in **“Aluvia Agent Connect Client 
 * Add `README.md` snippet showing:
 
   * Installation.
-  * Simple usage with `AgentConnectClient`.
+  * Simple usage with `AluviaClient`.
   * Example with Playwright and Axios (using `session.url`).
 
 **Acceptance criteria**:

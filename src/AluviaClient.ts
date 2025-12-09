@@ -1,23 +1,23 @@
-// AgentConnectClient - Main public class for Aluvia Agent Connect
+// AluviaClient - Main public class for Aluvia Client
 
-import type { AgentConnectClientOptions, AgentConnectSession, GatewayProtocol, LogLevel } from './types';
+import type { AluviaClientOptions, AluviaClientSession, GatewayProtocol, LogLevel } from './types';
 import { ConfigManager } from './ConfigManager';
 import { ProxyServer } from './ProxyServer';
 import { MissingUserTokenError } from './errors';
 
 /**
- * AgentConnectClient is the main entry point for the Aluvia Agent Connect Node client.
+ * AluviaClient is the main entry point for the Aluvia Client.
  *
  * It manages the local proxy server and configuration polling.
  */
-export class AgentConnectClient {
-  private readonly options: AgentConnectClientOptions;
+export class AluviaClient {
+  private readonly options: AluviaClientOptions;
   private readonly configManager: ConfigManager;
   private readonly proxyServer: ProxyServer;
-  private session: AgentConnectSession | null = null;
+  private session: AluviaClientSession | null = null;
   private started = false;
 
-  constructor(options: AgentConnectClientOptions) {
+  constructor(options: AluviaClientOptions) {
     // Validate token
     if (!options.token) {
       throw new MissingUserTokenError('Aluvia user token is required');
@@ -26,7 +26,7 @@ export class AgentConnectClient {
     this.options = options;
 
     // Apply defaults
-    const apiBaseUrl = options.apiBaseUrl ?? 'https://api.aluvia.io';
+    const apiBaseUrl = options.apiBaseUrl ?? 'https://api.aluvia.io/v1';
     const pollIntervalMs = options.pollIntervalMs ?? 5000;
     const gatewayProtocol: GatewayProtocol = options.gatewayProtocol ?? 'http';
     const gatewayPort = options.gatewayPort ?? (gatewayProtocol === 'https' ? 8443 : 8080);
@@ -47,14 +47,14 @@ export class AgentConnectClient {
   }
 
   /**
-   * Start the Agent Connect session:
+   * Start the Aluvia Client session:
    * - Fetch initial /user config from Aluvia.
    * - Start polling for config updates.
    * - Start a local HTTP(S) proxy on 127.0.0.1:<localPort or free port>.
    *
    * Returns the active session with host/port/url and a stop() method.
    */
-  async start(): Promise<AgentConnectSession> {
+  async start(): Promise<AluviaClientSession> {
     // Return existing session if already started
     if (this.started && this.session) {
       return this.session;
@@ -70,7 +70,7 @@ export class AgentConnectClient {
     this.configManager.startPolling();
 
     // Build session object
-    const session: AgentConnectSession = {
+    const session: AluviaClientSession = {
       host,
       port,
       url,
