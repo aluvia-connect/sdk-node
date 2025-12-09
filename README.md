@@ -36,53 +36,13 @@ console.log(`Proxy listening on ${session.url}`);
 await session.stop();
 ```
 
-## Usage with Playwright
+## How It Works
 
-```typescript
-import { chromium } from 'playwright';
-import { AgentConnectClient } from '@aluvia/agent-connect-node';
-
-const client = new AgentConnectClient({
-  token: process.env.ALV_USER_TOKEN,
-});
-
-const session = await client.start();
-
-const browser = await chromium.launch({
-  proxy: { server: session.url },
-});
-
-const page = await browser.newPage();
-await page.goto('https://example.com');
-
-// ... do your automation
-
-await browser.close();
-await session.stop();
-```
-
-## Usage with Axios
-
-```typescript
-import axios from 'axios';
-import { HttpsProxyAgent } from 'https-proxy-agent';
-import { AgentConnectClient } from '@aluvia/agent-connect-node';
-
-const client = new AgentConnectClient({
-  token: process.env.ALV_USER_TOKEN,
-});
-
-const session = await client.start();
-
-const axiosClient = axios.create({
-  proxy: false, // Disable Axios' own proxy handling
-  httpsAgent: new HttpsProxyAgent(session.url),
-});
-
-const response = await axiosClient.get('https://api.example.com/data');
-
-await session.stop();
-```
+1. **Authentication**: The client authenticates with Aluvia using your user API token
+2. **Configuration**: Fetches proxy credentials, routing rules, and targeting settings from `/user`
+3. **Local Proxy**: Starts a local HTTP proxy on `127.0.0.1`
+4. **Smart Routing**: Routes requests through Aluvia or directly based on your rules
+5. **Live Updates**: Polls for configuration changes using ETag for efficiency
 
 ## Configuration Options
 
@@ -189,13 +149,53 @@ try {
 }
 ```
 
-## How It Works
+## Usage with Playwright
 
-1. **Authentication**: The client authenticates with Aluvia using your user API token
-2. **Configuration**: Fetches proxy credentials, routing rules, and targeting settings from `/user`
-3. **Local Proxy**: Starts a local HTTP proxy on `127.0.0.1`
-4. **Smart Routing**: Routes requests through Aluvia or directly based on your rules
-5. **Live Updates**: Polls for configuration changes using ETag for efficiency
+```typescript
+import { chromium } from 'playwright';
+import { AgentConnectClient } from '@aluvia/agent-connect-node';
+
+const client = new AgentConnectClient({
+  token: process.env.ALV_USER_TOKEN,
+});
+
+const session = await client.start();
+
+const browser = await chromium.launch({
+  proxy: { server: session.url },
+});
+
+const page = await browser.newPage();
+await page.goto('https://example.com');
+
+// ... do your automation
+
+await browser.close();
+await session.stop();
+```
+
+## Usage with Axios
+
+```typescript
+import axios from 'axios';
+import { HttpsProxyAgent } from 'https-proxy-agent';
+import { AgentConnectClient } from '@aluvia/agent-connect-node';
+
+const client = new AgentConnectClient({
+  token: process.env.ALV_USER_TOKEN,
+});
+
+const session = await client.start();
+
+const axiosClient = axios.create({
+  proxy: false, // Disable Axios' own proxy handling
+  httpsAgent: new HttpsProxyAgent(session.url),
+});
+
+const response = await axiosClient.get('https://api.example.com/data');
+
+await session.stop();
+```
 
 ## License
 
