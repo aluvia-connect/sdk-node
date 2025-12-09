@@ -1,0 +1,50 @@
+"use strict";
+// Error classes for Aluvia Agent Connect
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.ProxyStartError = exports.ApiError = exports.InvalidUserTokenError = exports.MissingUserTokenError = void 0;
+/**
+ * Thrown when the user token is not provided to AgentConnectClient.
+ */
+class MissingUserTokenError extends Error {
+    constructor(message = 'Aluvia user token is required') {
+        super(message);
+        this.name = 'MissingUserTokenError';
+        Object.setPrototypeOf(this, MissingUserTokenError.prototype);
+    }
+}
+exports.MissingUserTokenError = MissingUserTokenError;
+/**
+ * Thrown when the API returns 401 or 403, indicating the token is invalid.
+ */
+class InvalidUserTokenError extends Error {
+    constructor(message = 'Invalid or expired Aluvia user token') {
+        super(message);
+        this.name = 'InvalidUserTokenError';
+        Object.setPrototypeOf(this, InvalidUserTokenError.prototype);
+    }
+}
+exports.InvalidUserTokenError = InvalidUserTokenError;
+/**
+ * Thrown for general API errors (non-2xx responses other than auth errors).
+ */
+class ApiError extends Error {
+    constructor(message, statusCode) {
+        super(message);
+        this.name = 'ApiError';
+        this.statusCode = statusCode;
+        Object.setPrototypeOf(this, ApiError.prototype);
+    }
+}
+exports.ApiError = ApiError;
+/**
+ * Thrown when the local proxy server fails to start.
+ */
+class ProxyStartError extends Error {
+    constructor(message = 'Failed to start local proxy server') {
+        super(message);
+        this.name = 'ProxyStartError';
+        Object.setPrototypeOf(this, ProxyStartError.prototype);
+    }
+}
+exports.ProxyStartError = ProxyStartError;
+//# sourceMappingURL=data:application/json;base64,eyJ2ZXJzaW9uIjozLCJmaWxlIjoiZXJyb3JzLmpzIiwic291cmNlUm9vdCI6IiIsInNvdXJjZXMiOlsiLi4vc3JjL2Vycm9ycy50cyJdLCJuYW1lcyI6W10sIm1hcHBpbmdzIjoiO0FBQUEseUNBQXlDOzs7QUFFekM7O0dBRUc7QUFDSCxNQUFhLHFCQUFzQixTQUFRLEtBQUs7SUFDOUMsWUFBWSxPQUFPLEdBQUcsK0JBQStCO1FBQ25ELEtBQUssQ0FBQyxPQUFPLENBQUMsQ0FBQztRQUNmLElBQUksQ0FBQyxJQUFJLEdBQUcsdUJBQXVCLENBQUM7UUFDcEMsTUFBTSxDQUFDLGNBQWMsQ0FBQyxJQUFJLEVBQUUscUJBQXFCLENBQUMsU0FBUyxDQUFDLENBQUM7SUFDL0QsQ0FBQztDQUNGO0FBTkQsc0RBTUM7QUFFRDs7R0FFRztBQUNILE1BQWEscUJBQXNCLFNBQVEsS0FBSztJQUM5QyxZQUFZLE9BQU8sR0FBRyxzQ0FBc0M7UUFDMUQsS0FBSyxDQUFDLE9BQU8sQ0FBQyxDQUFDO1FBQ2YsSUFBSSxDQUFDLElBQUksR0FBRyx1QkFBdUIsQ0FBQztRQUNwQyxNQUFNLENBQUMsY0FBYyxDQUFDLElBQUksRUFBRSxxQkFBcUIsQ0FBQyxTQUFTLENBQUMsQ0FBQztJQUMvRCxDQUFDO0NBQ0Y7QUFORCxzREFNQztBQUVEOztHQUVHO0FBQ0gsTUFBYSxRQUFTLFNBQVEsS0FBSztJQUdqQyxZQUFZLE9BQWUsRUFBRSxVQUFtQjtRQUM5QyxLQUFLLENBQUMsT0FBTyxDQUFDLENBQUM7UUFDZixJQUFJLENBQUMsSUFBSSxHQUFHLFVBQVUsQ0FBQztRQUN2QixJQUFJLENBQUMsVUFBVSxHQUFHLFVBQVUsQ0FBQztRQUM3QixNQUFNLENBQUMsY0FBYyxDQUFDLElBQUksRUFBRSxRQUFRLENBQUMsU0FBUyxDQUFDLENBQUM7SUFDbEQsQ0FBQztDQUNGO0FBVEQsNEJBU0M7QUFFRDs7R0FFRztBQUNILE1BQWEsZUFBZ0IsU0FBUSxLQUFLO0lBQ3hDLFlBQVksT0FBTyxHQUFHLG9DQUFvQztRQUN4RCxLQUFLLENBQUMsT0FBTyxDQUFDLENBQUM7UUFDZixJQUFJLENBQUMsSUFBSSxHQUFHLGlCQUFpQixDQUFDO1FBQzlCLE1BQU0sQ0FBQyxjQUFjLENBQUMsSUFBSSxFQUFFLGVBQWUsQ0FBQyxTQUFTLENBQUMsQ0FBQztJQUN6RCxDQUFDO0NBQ0Y7QUFORCwwQ0FNQyIsInNvdXJjZXNDb250ZW50IjpbIi8vIEVycm9yIGNsYXNzZXMgZm9yIEFsdXZpYSBBZ2VudCBDb25uZWN0XG5cbi8qKlxuICogVGhyb3duIHdoZW4gdGhlIHVzZXIgdG9rZW4gaXMgbm90IHByb3ZpZGVkIHRvIEFnZW50Q29ubmVjdENsaWVudC5cbiAqL1xuZXhwb3J0IGNsYXNzIE1pc3NpbmdVc2VyVG9rZW5FcnJvciBleHRlbmRzIEVycm9yIHtcbiAgY29uc3RydWN0b3IobWVzc2FnZSA9ICdBbHV2aWEgdXNlciB0b2tlbiBpcyByZXF1aXJlZCcpIHtcbiAgICBzdXBlcihtZXNzYWdlKTtcbiAgICB0aGlzLm5hbWUgPSAnTWlzc2luZ1VzZXJUb2tlbkVycm9yJztcbiAgICBPYmplY3Quc2V0UHJvdG90eXBlT2YodGhpcywgTWlzc2luZ1VzZXJUb2tlbkVycm9yLnByb3RvdHlwZSk7XG4gIH1cbn1cblxuLyoqXG4gKiBUaHJvd24gd2hlbiB0aGUgQVBJIHJldHVybnMgNDAxIG9yIDQwMywgaW5kaWNhdGluZyB0aGUgdG9rZW4gaXMgaW52YWxpZC5cbiAqL1xuZXhwb3J0IGNsYXNzIEludmFsaWRVc2VyVG9rZW5FcnJvciBleHRlbmRzIEVycm9yIHtcbiAgY29uc3RydWN0b3IobWVzc2FnZSA9ICdJbnZhbGlkIG9yIGV4cGlyZWQgQWx1dmlhIHVzZXIgdG9rZW4nKSB7XG4gICAgc3VwZXIobWVzc2FnZSk7XG4gICAgdGhpcy5uYW1lID0gJ0ludmFsaWRVc2VyVG9rZW5FcnJvcic7XG4gICAgT2JqZWN0LnNldFByb3RvdHlwZU9mKHRoaXMsIEludmFsaWRVc2VyVG9rZW5FcnJvci5wcm90b3R5cGUpO1xuICB9XG59XG5cbi8qKlxuICogVGhyb3duIGZvciBnZW5lcmFsIEFQSSBlcnJvcnMgKG5vbi0yeHggcmVzcG9uc2VzIG90aGVyIHRoYW4gYXV0aCBlcnJvcnMpLlxuICovXG5leHBvcnQgY2xhc3MgQXBpRXJyb3IgZXh0ZW5kcyBFcnJvciB7XG4gIHB1YmxpYyByZWFkb25seSBzdGF0dXNDb2RlPzogbnVtYmVyO1xuXG4gIGNvbnN0cnVjdG9yKG1lc3NhZ2U6IHN0cmluZywgc3RhdHVzQ29kZT86IG51bWJlcikge1xuICAgIHN1cGVyKG1lc3NhZ2UpO1xuICAgIHRoaXMubmFtZSA9ICdBcGlFcnJvcic7XG4gICAgdGhpcy5zdGF0dXNDb2RlID0gc3RhdHVzQ29kZTtcbiAgICBPYmplY3Quc2V0UHJvdG90eXBlT2YodGhpcywgQXBpRXJyb3IucHJvdG90eXBlKTtcbiAgfVxufVxuXG4vKipcbiAqIFRocm93biB3aGVuIHRoZSBsb2NhbCBwcm94eSBzZXJ2ZXIgZmFpbHMgdG8gc3RhcnQuXG4gKi9cbmV4cG9ydCBjbGFzcyBQcm94eVN0YXJ0RXJyb3IgZXh0ZW5kcyBFcnJvciB7XG4gIGNvbnN0cnVjdG9yKG1lc3NhZ2UgPSAnRmFpbGVkIHRvIHN0YXJ0IGxvY2FsIHByb3h5IHNlcnZlcicpIHtcbiAgICBzdXBlcihtZXNzYWdlKTtcbiAgICB0aGlzLm5hbWUgPSAnUHJveHlTdGFydEVycm9yJztcbiAgICBPYmplY3Quc2V0UHJvdG90eXBlT2YodGhpcywgUHJveHlTdGFydEVycm9yLnByb3RvdHlwZSk7XG4gIH1cbn1cblxuIl19

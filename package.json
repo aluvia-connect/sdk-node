@@ -1,0 +1,35 @@
+{
+  "name": "@aluvia/agent-connect-node",
+  "version": "1.0.0",
+  "description": "Local smart proxy for AI agents - Node.js client for Aluvia",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "tsc",
+    "prepare": "npm run build",
+    "test": "node --import tsx --test test/integration.test.ts"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "keywords": [
+    "proxy",
+    "ai-agent",
+    "playwright",
+    "puppeteer",
+    "aluvia"
+  ],
+  "author": "",
+  "license": "ISC",
+  "devDependencies": {
+    "@types/node": "^24.10.2",
+    "tsx": "^4.21.0",
+    "typescript": "^5.9.3"
+  },
+  "dependencies": {
+    "proxy-chain": "^2.6.1"
+  }
+}
