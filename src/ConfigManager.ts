@@ -1,9 +1,9 @@
 // ConfigManager - Control plane for user configuration
 
-import type { GatewayProtocol, LogLevel } from './types';
-import { Logger } from './logger';
-import { getUser } from './httpClient';
-import { InvalidUserTokenError, ApiError } from './errors';
+import type { GatewayProtocol, LogLevel } from './types.js';
+import { Logger } from './logger.js';
+import { getUser } from './httpClient.js';
+import { InvalidUserTokenError, ApiError } from './errors.js';
 
 // Config types
 
@@ -160,7 +160,7 @@ export class ConfigManager {
       // 200 OK - config updated
       if (result.status === 200 && result.body) {
         this.config = this.buildConfig(result.body, result.etag);
-        this.logger.info('Configuration updated from API');
+        this.logger.debug('Configuration updated from API');
         this.logger.debug('New config:', this.config);
         return;
       }
@@ -178,12 +178,14 @@ export class ConfigManager {
    */
   private buildConfig(
     body: {
-      proxy_username: string;
-      proxy_password: string;
-      rules: string[];
-      session_id: string | null;
-      target_geo: string | null;
-    },
+      data: {
+        proxy_username: string;
+        proxy_password: string;
+        rules: string[];
+        session_id: string | null;
+        target_geo: string | null;
+      }
+  },
     etag: string | null
   ): UserNetworkConfig {
     return {
@@ -191,12 +193,12 @@ export class ConfigManager {
         protocol: this.options.gatewayProtocol,
         host: 'gateway.aluvia.io',
         port: this.options.gatewayPort,
-        username: body.proxy_username,
-        password: body.proxy_password,
+        username: body.data.proxy_username,
+        password: body.data.proxy_password,
       },
-      rules: body.rules,
-      sessionId: body.session_id,
-      targetGeo: body.target_geo,
+      rules: body.data.rules,
+      sessionId: body.data.session_id,
+      targetGeo: body.data.target_geo,
       etag,
     };
   }

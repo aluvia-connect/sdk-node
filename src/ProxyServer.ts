@@ -1,12 +1,13 @@
 // ProxyServer - Local HTTP proxy using proxy-chain
 
+// @ts-ignore
 import { Server as ProxyChainServer } from 'proxy-chain';
 import type { AddressInfo } from 'net';
-import type { ConfigManager } from './ConfigManager';
-import type { LogLevel } from './types';
-import { Logger } from './logger';
-import { ProxyStartError } from './errors';
-import { shouldProxy } from './rules';
+import type { ConfigManager } from './ConfigManager.js';
+import type { LogLevel } from './types.js';
+import { Logger } from './logger.js';
+import { ProxyStartError } from './errors.js';
+import { shouldProxy } from './rules.js';
 
 /**
  * Result of starting the proxy server.

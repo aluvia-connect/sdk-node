@@ -4,11 +4,13 @@
  * Response shape from GET /user endpoint.
  */
 export type UserApiResponse = {
-  proxy_username: string;
-  proxy_password: string;
-  rules: string[];
-  session_id: string | null;
-  target_geo: string | null;
+  data: {
+    proxy_username: string;
+    proxy_password: string;
+    rules: string[];
+    session_id: string | null;
+    target_geo: string | null;
+  }
 };
 
 /**

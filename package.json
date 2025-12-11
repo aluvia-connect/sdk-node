@@ -2,13 +2,27 @@
   "name": "@aluvia/aluvia-node",
   "version": "1.0.0",
   "description": "Local smart proxy for AI agents - Node.js client for Aluvia",
-  "main": "dist/index.js",
-  "types": "dist/index.d.ts",
+  "license": "MIT",
+  "author": "Aluvia",
+  "type": "module",
+  "main": "./dist/cjs/index.js",
+  "module": "./dist/esm/index.js",
+  "types": "./dist/types/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/types/index.d.ts",
+      "import": "./dist/esm/index.js",
+      "require": "./dist/cjs/index.js"
+    },
+    "./package.json": "./package.json"
+  },
   "files": [
-    "dist"
+    "dist/**/*",
+    "README.md",
+    "LICENSE"
   ],
   "scripts": {
-    "build": "tsc",
+    "build": "tsc -p tsconfig.esm.json && tsc -p tsconfig.cjs.json && node -e \"require('fs').mkdirSync('dist/cjs',{recursive:true});require('fs').writeFileSync('dist/cjs/package.json','{\\\"type\\\":\\\"commonjs\\\"}')\"",
     "prepare": "npm run build",
     "test": "node --import tsx --test test/integration.test.ts"
   },
@@ -22,8 +36,6 @@
     "puppeteer",
     "aluvia"
   ],
-  "author": "",
-  "license": "ISC",
   "devDependencies": {
     "@types/node": "^24.10.2",
     "tsx": "^4.21.0",

@@ -1,6 +1,6 @@
 // Logger utility for Aluvia Client
 
-import type { LogLevel } from './types';
+import type { LogLevel } from './types.js';
 
 /**
  * Simple logger that respects log levels.

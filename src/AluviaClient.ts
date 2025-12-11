@@ -1,9 +1,9 @@
 // AluviaClient - Main public class for Aluvia Client
 
-import type { AluviaClientOptions, AluviaClientSession, GatewayProtocol, LogLevel } from './types';
-import { ConfigManager } from './ConfigManager';
-import { ProxyServer } from './ProxyServer';
-import { MissingUserTokenError } from './errors';
+import type { AluviaClientOptions, AluviaClientSession, GatewayProtocol, LogLevel } from './types.js';
+import { ConfigManager } from './ConfigManager.js';
+import { ProxyServer } from './ProxyServer.js';
+import { MissingUserTokenError } from './errors.js';
 
 /**
  * AluviaClient is the main entry point for the Aluvia Client.

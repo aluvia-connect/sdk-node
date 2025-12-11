@@ -2,7 +2,7 @@
 // Main entry point
 
 // Public class
-export { AluviaClient } from './AluviaClient';
+export { AluviaClient } from './AluviaClient.js';
 
 // Public error classes
 export {
@@ -10,7 +10,7 @@ export {
   InvalidUserTokenError,
   ApiError,
   ProxyStartError,
-} from './errors';
+} from './errors.js';
 
 // Public types
 export type {
@@ -18,4 +18,4 @@ export type {
   LogLevel,
   AluviaClientOptions,
   AluviaClientSession,
-} from './types';
+} from './types.js';
