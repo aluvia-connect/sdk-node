@@ -103,4 +103,20 @@ export class AluviaClient {
     this.session = null;
     this.started = false;
   }
+
+  /**
+   * Update the filtering rules used by the proxy.
+   * @param rules
+   */
+  async updateRules(rules: Array<string>): Promise<void> {
+    await this.configManager.setConfig({rules: rules});
+  }
+
+  /**
+   * Update the session ID.
+   * @param sessionId
+   */
+  async updateSessionId(sessionId: string): Promise<void> {
+    await this.configManager.setConfig({session_id: sessionId});
+  }
 }

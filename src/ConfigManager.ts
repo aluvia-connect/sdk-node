@@ -2,7 +2,7 @@
 
 import type { GatewayProtocol, LogLevel } from './types.js';
 import { Logger } from './logger.js';
-import { getUser } from './httpClient.js';
+import { getUser, setUser } from './httpClient.js';
 import { InvalidUserTokenError, ApiError } from './errors.js';
 
 // Config types
@@ -26,7 +26,6 @@ export type UserNetworkConfig = {
   rules: string[];
   sessionId: string | null;
   targetGeo: string | null;
-  etag: string | null;
 };
 
 /**
@@ -81,7 +80,7 @@ export class ConfigManager {
 
     // Handle successful response
     if (result.status === 200 && result.body) {
-      this.config = this.buildConfig(result.body, result.etag);
+      this.config = this.buildConfig(result.body);
       this.logger.info('Configuration loaded successfully');
       this.logger.debug('Config:', this.config);
       return;
@@ -133,6 +132,32 @@ export class ConfigManager {
     return this.config;
   }
 
+  async setConfig(body: Object): Promise<UserNetworkConfig | null> {
+    this.logger.debug(`Setting config: ${JSON.stringify(body)}`);
+    try {
+      const result = await setUser(
+        this.options.apiBaseUrl,
+        this.options.token,
+        body,
+      );
+
+      // 200 OK - config updated
+      if (result.status === 200 && result.body) {
+        this.config = this.buildConfig(result.body);
+        this.logger.debug('Configuration updated from API');
+        this.logger.debug('New config:', this.config);
+        return this.config;
+      }
+
+      // Other status codes - log warning but keep old config
+      this.logger.warn(`Poll returned unexpected status ${result.status}`);
+    } catch (error) {
+      // Network or other errors - log warning but keep old config
+      this.logger.warn('Poll failed, keeping existing config:', error);
+    }
+    return this.config;
+  }
+
   /**
    * Perform a single poll iteration.
    * Called by the polling timer.
@@ -148,7 +173,6 @@ export class ConfigManager {
       const result = await getUser(
         this.options.apiBaseUrl,
         this.options.token,
-        this.config.etag ?? undefined
       );
 
       // 304 Not Modified - config unchanged
@@ -159,7 +183,7 @@ export class ConfigManager {
 
       // 200 OK - config updated
       if (result.status === 200 && result.body) {
-        this.config = this.buildConfig(result.body, result.etag);
+        this.config = this.buildConfig(result.body);
         this.logger.debug('Configuration updated from API');
         this.logger.debug('New config:', this.config);
         return;
@@ -185,8 +209,7 @@ export class ConfigManager {
         session_id: string | null;
         target_geo: string | null;
       }
-  },
-    etag: string | null
+  }
   ): UserNetworkConfig {
     return {
       rawProxy: {
@@ -199,7 +222,6 @@ export class ConfigManager {
       rules: body.data.rules,
       sessionId: body.data.session_id,
       targetGeo: body.data.target_geo,
-      etag,
     };
   }
 }
