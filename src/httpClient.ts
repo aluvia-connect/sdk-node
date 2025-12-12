@@ -18,6 +18,11 @@ export type UserApiResponse = {
  */
 export type GetUserResult = {
   status: number;
+  /**
+   * ETag returned by the API (if present).
+   * Used for conditional requests via If-None-Match.
+   */
+  etag: string | null;
   body: UserApiResponse | null;
 };
 
@@ -32,6 +37,7 @@ export type GetUserResult = {
 export async function getUser(
   apiBaseUrl: string,
   token: string,
+  etag?: string | null,
 ): Promise<GetUserResult> {
   // Build URL, ensuring no trailing slash duplication
   const url = `${apiBaseUrl.replace(/\/$/, '')}/user`;
@@ -42,16 +48,23 @@ export async function getUser(
     'Accept': 'application/json',
   };
 
+  if (etag) {
+    headers['If-None-Match'] = etag;
+  }
+
   // Make the request
   const response = await fetch(url, {
     method: 'GET',
     headers,
   });
 
+  const responseEtag = response.headers.get('etag');
+
   // Handle 304 Not Modified
   if (response.status === 304) {
     return {
       status: 304,
+      etag: responseEtag,
       body: null,
     };
   }
@@ -61,6 +74,7 @@ export async function getUser(
     const body = (await response.json()) as UserApiResponse;
     return {
       status: 200,
+      etag: responseEtag,
       body,
     };
   }
@@ -68,6 +82,7 @@ export async function getUser(
   // For other statuses (401, 403, 4xx, 5xx), return status without body
   return {
     status: response.status,
+    etag: responseEtag,
     body: null,
   };
 }
@@ -103,10 +118,13 @@ export async function setUser(
     body: JSON.stringify(body),
   });
 
+  const responseEtag = response.headers.get('etag');
+
   // Handle 304 Not Modified
   if (response.status === 304) {
     return {
       status: 304,
+      etag: responseEtag,
       body: null,
     };
   }
@@ -116,6 +134,7 @@ export async function setUser(
     const body = (await response.json()) as UserApiResponse;
     return {
       status: 200,
+      etag: responseEtag,
       body,
     };
   }
@@ -123,6 +142,7 @@ export async function setUser(
   // For other statuses (401, 403, 4xx, 5xx), return status without body
   return {
     status: response.status,
+    etag: responseEtag,
     body: null,
   };
 }

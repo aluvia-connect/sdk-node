@@ -4,6 +4,7 @@ import type { AluviaClientOptions, AluviaClientSession, GatewayProtocol, LogLeve
 import { ConfigManager } from './ConfigManager.js';
 import { ProxyServer } from './ProxyServer.js';
 import { MissingUserTokenError } from './errors.js';
+import { createNodeProxyAgent, toPlaywrightProxySettings, toPuppeteerArgs } from './adapters.js';
 
 /**
  * AluviaClient is the main entry point for the Aluvia Client.
@@ -69,17 +70,33 @@ export class AluviaClient {
     // Start polling for config updates
     this.configManager.startPolling();
 
+    let nodeAgent: ReturnType<typeof createNodeProxyAgent> | null = null;
+
+    const stop = async () => {
+      await this.proxyServer.stop();
+      this.configManager.stopPolling();
+      nodeAgent?.destroy?.();
+      nodeAgent = null;
+      this.session = null;
+      this.started = false;
+    };
+
     // Build session object
     const session: AluviaClientSession = {
       host,
       port,
       url,
-      stop: async () => {
-        await this.proxyServer.stop();
-        this.configManager.stopPolling();
-        this.session = null;
-        this.started = false;
+      getUrl: () => url,
+      asPlaywright: () => toPlaywrightProxySettings(url),
+      asPuppeteer: () => toPuppeteerArgs(url),
+      asNodeAgent: () => {
+        if (!nodeAgent) {
+          nodeAgent = createNodeProxyAgent(url);
+        }
+        return nodeAgent;
       },
+      stop,
+      close: stop,
     };
 
     this.session = session;

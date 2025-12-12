@@ -26,6 +26,11 @@ export type UserNetworkConfig = {
   rules: string[];
   sessionId: string | null;
   targetGeo: string | null;
+  /**
+   * ETag returned by the API for this config snapshot (if present).
+   * Used for efficient conditional GET /user polling via If-None-Match.
+   */
+  etag: string | null;
 };
 
 /**
@@ -80,7 +85,7 @@ export class ConfigManager {
 
     // Handle successful response
     if (result.status === 200 && result.body) {
-      this.config = this.buildConfig(result.body);
+      this.config = this.buildConfig(result.body, result.etag);
       this.logger.info('Configuration loaded successfully');
       this.logger.debug('Config:', this.config);
       return;
@@ -143,7 +148,7 @@ export class ConfigManager {
 
       // 200 OK - config updated
       if (result.status === 200 && result.body) {
-        this.config = this.buildConfig(result.body);
+        this.config = this.buildConfig(result.body, result.etag);
         this.logger.debug('Configuration updated from API');
         this.logger.debug('New config:', this.config);
         return this.config;
@@ -173,6 +178,7 @@ export class ConfigManager {
       const result = await getUser(
         this.options.apiBaseUrl,
         this.options.token,
+        this.config.etag,
       );
 
       // 304 Not Modified - config unchanged
@@ -183,7 +189,7 @@ export class ConfigManager {
 
       // 200 OK - config updated
       if (result.status === 200 && result.body) {
-        this.config = this.buildConfig(result.body);
+        this.config = this.buildConfig(result.body, result.etag);
         this.logger.debug('Configuration updated from API');
         this.logger.debug('New config:', this.config);
         return;
@@ -209,7 +215,8 @@ export class ConfigManager {
         session_id: string | null;
         target_geo: string | null;
       }
-  }
+    },
+    etag: string | null,
   ): UserNetworkConfig {
     return {
       rawProxy: {
@@ -222,6 +229,7 @@ export class ConfigManager {
       rules: body.data.rules,
       sessionId: body.data.session_id,
       targetGeo: body.data.target_geo,
+      etag,
     };
   }
 }

@@ -162,7 +162,7 @@ const client = new AluviaClient({
 const session = await client.start();
 
 const browser = await chromium.launch({
-  proxy: { server: session.url },
+  proxy: session.asPlaywright(),
 });
 
 const page = await browser.newPage();
@@ -171,14 +171,13 @@ await page.goto('https://example.com');
 // ... do your automation
 
 await browser.close();
-await session.stop();
+await session.close();
 ```
 
 ## Usage with Axios
 
 ```typescript
 import axios from 'axios';
-import { HttpsProxyAgent } from 'https-proxy-agent';
 import { AluviaClient } from '@aluvia/aluvia-node';
 
 const client = new AluviaClient({
@@ -187,14 +186,86 @@ const client = new AluviaClient({
 
 const session = await client.start();
 
-const axiosClient = axios.create({
+const agent = session.asNodeAgent();
+
+const response = await axios.get('https://api.example.com/data', {
   proxy: false, // Disable Axios' own proxy handling
-  httpsAgent: new HttpsProxyAgent(session.url),
+  httpAgent: agent,
+  httpsAgent: agent,
 });
 
-const response = await axiosClient.get('https://api.example.com/data');
+await session.close();
+```
 
-await session.stop();
+## Usage with got
+
+```typescript
+import got from 'got';
+import { AluviaClient } from '@aluvia/aluvia-node';
+
+const client = new AluviaClient({
+  token: process.env.ALV_USER_TOKEN,
+});
+
+const session = await client.start();
+
+const agent = session.asNodeAgent();
+
+const response = await got('https://api.example.com/data', {
+  agent: {
+    http: agent,
+    https: agent,
+  },
+});
+
+await session.close();
+```
+
+## Usage with node-fetch
+
+```typescript
+import fetch from 'node-fetch';
+import { AluviaClient } from '@aluvia/aluvia-node';
+
+const client = new AluviaClient({
+  token: process.env.ALV_USER_TOKEN,
+});
+
+const session = await client.start();
+
+const response = await fetch('https://api.example.com/data', {
+  agent: session.asNodeAgent(),
+});
+
+await session.close();
+```
+
+## Usage with Puppeteer
+
+```typescript
+import puppeteer from 'puppeteer';
+import { AluviaClient } from '@aluvia/aluvia-node';
+
+const client = new AluviaClient({
+  token: process.env.ALV_USER_TOKEN,
+});
+
+const session = await client.start();
+
+const browser = await puppeteer.launch({
+  args: session.asPuppeteer(),
+});
+
+// ... do your automation ...
+
+await browser.close();
+await session.close();
+```
+
+## Generic URL
+
+```typescript
+const url = session.getUrl(); // 'http://127.0.0.1:<port>'
 ```
 
 ## License

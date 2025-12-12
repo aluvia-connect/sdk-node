@@ -26,6 +26,7 @@ export class ProxyServer {
   private server: ProxyChainServer | null = null;
   private readonly configManager: ConfigManager;
   private readonly logger: Logger;
+  private readonly bindHost = '127.0.0.1';
 
   constructor(
     configManager: ConfigManager,
@@ -47,6 +48,8 @@ export class ProxyServer {
 
     try {
       this.server = new ProxyChainServer({
+        // Security: bind to loopback only (proxy-chain defaults to 0.0.0.0 if host is omitted)
+        host: this.bindHost,
         port: listenPort,
         prepareRequestFunction: this.handleRequest.bind(this),
       });
@@ -58,9 +61,9 @@ export class ProxyServer {
       const actualPort = address.port;
 
       const info: ProxyServerInfo = {
-        host: '127.0.0.1',
+        host: this.bindHost,
         port: actualPort,
-        url: `http://127.0.0.1:${actualPort}`,
+        url: `http://${this.bindHost}:${actualPort}`,
       };
 
       this.logger.info(`Proxy server listening on ${info.url}`);

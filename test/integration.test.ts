@@ -4,7 +4,14 @@ import { test, mock, describe, beforeEach, afterEach } from 'node:test';
 import assert from 'node:assert';
 import * as httpClient from '../src/httpClient';
 import { AluviaClient } from '../src/AluviaClient';
-import { MissingUserTokenError, InvalidUserTokenError } from '../src/errors';
+import {
+  MissingUserTokenError,
+  InvalidUserTokenError,
+  ApiError,
+  ProxyStartError,
+} from '../src/errors';
+import { matchPattern, shouldProxy } from '../src/rules';
+import { Logger } from '../src/logger';
 
 // Mock getUser function
 const mockGetUser = mock.fn<typeof httpClient.getUser>();
@@ -40,12 +47,99 @@ describe('AluviaClient', () => {
     });
     assert.ok(client);
   });
+
+  test('session includes proxy adapter helpers', async () => {
+    const client = new AluviaClient({
+      token: 'test-token',
+      logLevel: 'silent',
+    });
+
+    const url = 'http://127.0.0.1:54321';
+
+    (client as any).configManager.init = async () => {};
+    (client as any).configManager.startPolling = () => {};
+    (client as any).configManager.stopPolling = () => {};
+    (client as any).proxyServer.start = async () => ({
+      host: '127.0.0.1',
+      port: 54321,
+      url,
+    });
+    (client as any).proxyServer.stop = async () => {};
+
+    const session = await client.start();
+
+    assert.strictEqual(session.url, url);
+    assert.strictEqual(session.getUrl(), url);
+    assert.deepStrictEqual(session.asPlaywright(), { server: url });
+    assert.deepStrictEqual(session.asPuppeteer(), [`--proxy-server=${url}`]);
+
+    const agentA = session.asNodeAgent();
+    const agentB = session.asNodeAgent();
+    assert.ok(agentA);
+    assert.strictEqual(agentA, agentB);
+
+    await session.close();
+    assert.strictEqual((client as any).started, false);
+  });
+});
+
+describe('httpClient.getUser', () => {
+  const originalFetch = globalThis.fetch;
+
+  afterEach(() => {
+    globalThis.fetch = originalFetch;
+  });
+
+  test('sends If-None-Match when an ETag is provided', async () => {
+    let capturedInit: any = null;
+
+    globalThis.fetch = (async (_url: any, init: any) => {
+      capturedInit = init;
+      return new Response(
+        JSON.stringify({
+          data: {
+            proxy_username: 'u',
+            proxy_password: 'p',
+            rules: ['*'],
+            session_id: null,
+            target_geo: null,
+          },
+        }),
+        { status: 200, headers: { ETag: '"etag-1"' } }
+      );
+    }) as any;
+
+    const res = await httpClient.getUser(
+      'https://api.aluvia.io/v1/',
+      'test-token',
+      '"etag-0"'
+    );
+
+    assert.strictEqual(capturedInit.method, 'GET');
+    assert.strictEqual(capturedInit.headers['If-None-Match'], '"etag-0"');
+    assert.strictEqual(res.status, 200);
+    assert.strictEqual(res.etag, '"etag-1"');
+    assert.ok(res.body);
+  });
+
+  test('returns null body on 304 Not Modified', async () => {
+    globalThis.fetch = (async () => {
+      return new Response(null, { status: 304, headers: { ETag: '"etag-2"' } });
+    }) as any;
+
+    const res = await httpClient.getUser(
+      'https://api.aluvia.io/v1',
+      'test-token',
+      '"etag-1"'
+    );
+
+    assert.strictEqual(res.status, 304);
+    assert.strictEqual(res.body, null);
+    assert.strictEqual(res.etag, '"etag-2"');
+  });
 });
 
 describe('matchPattern', () => {
-  // Import the rules module
-  const { matchPattern } = require('../src/rules');
-
   test('* matches any hostname', () => {
     assert.strictEqual(matchPattern('example.com', '*'), true);
     assert.strictEqual(matchPattern('foo.bar.com', '*'), true);
@@ -70,8 +164,6 @@ describe('matchPattern', () => {
 });
 
 describe('shouldProxy', () => {
-  const { shouldProxy } = require('../src/rules');
-
   test('empty rules returns false', () => {
     assert.strictEqual(shouldProxy('example.com', []), false);
   });
@@ -98,8 +190,6 @@ describe('shouldProxy', () => {
 });
 
 describe('Logger', () => {
-  const { Logger } = require('../src/logger');
-
   test('can be instantiated with different log levels', () => {
     const silentLogger = new Logger('silent');
     const infoLogger = new Logger('info');
@@ -112,8 +202,6 @@ describe('Logger', () => {
 });
 
 describe('Error classes', () => {
-  const { MissingUserTokenError, InvalidUserTokenError, ApiError, ProxyStartError } = require('../src/errors');
-
   test('MissingUserTokenError has correct name', () => {
     const error = new MissingUserTokenError();
     assert.strictEqual(error.name, 'MissingUserTokenError');
