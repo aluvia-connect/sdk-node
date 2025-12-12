@@ -1,15 +1,15 @@
 ## Aluvia Client (Node.js)
 
-Aluvia Client is a **local smart proxy** for AI agents and automation workloads. You run it on your machine, point your tool (Playwright, Puppeteer, Axios, fetch, curl, an agent runtime, etc.) at a **single local proxy address** (`127.0.0.1`), and the client decides **per request** whether the traffic should go:
+Aluvia Client is a **local smart proxy** for AI agents and automation workloads. You run it on your machine, point your tool (Playwright, Puppeteer, Axios, fetch, curl, an agent runtime, etc.) at a **single local proxy address** (`127.0.0.1`), and the client routes **per request** traffic:
 
 - **Direct to the destination**, or
 - **Through Aluvia’s gateway**
 
-That decision is based on **hostname routing rules** you manage in Aluvia, and those rules are **refreshed live** while the proxy keeps running.
+That decision is based on **hostname routing rules** you generate and update, and those rules are **refreshed live** while the proxy runs, allowing for on the fly updates.
 
 The Node.js package name is `@aluvia/aluvia-node`.
 
-### Why developers use it
+### Why developers love it
 
 If you’ve ever had to thread proxy settings through multiple libraries, environments, and runtimes, Aluvia Client makes that problem go away. You configure your app/tool once (use the local proxy), then control routing centrally via Aluvia.
 
