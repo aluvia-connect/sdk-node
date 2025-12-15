@@ -1,9 +1,9 @@
 // HTTP client wrapper for Aluvia API
 
 /**
- * Response shape from GET /user endpoint.
+ * Response shape from GET /connection endpoint.
  */
-export type UserApiResponse = {
+export type ConnectionApiResponse = {
   data: {
     proxy_username: string;
     proxy_password: string;
@@ -14,33 +14,33 @@ export type UserApiResponse = {
 };
 
 /**
- * Result from getUser() call.
+ * Result from getConnection() call.
  */
-export type GetUserResult = {
+export type GetConnectionResult = {
   status: number;
+  body: ConnectionApiResponse | null;
   /**
    * ETag returned by the API (if present).
    * Used for conditional requests via If-None-Match.
    */
   etag: string | null;
-  body: UserApiResponse | null;
 };
 
 /**
- * Fetch user configuration from the Aluvia API.
+ * Fetch connection configuration from the Aluvia API.
  *
  * @param apiBaseUrl - Base URL for the Aluvia API (e.g., 'https://api.aluvia.io/v1')
- * @param token - User API token (Bearer token)
+ * @param token - Connection API token (Bearer token)
  * @param etag - Optional ETag for conditional request (If-None-Match)
- * @returns GetUserResult with status, etag, and body (null on 304)
+ * @returns GetConnectionResult with status, etag, and body (null on 304)
  */
-export async function getUser(
+export async function getConnection(
   apiBaseUrl: string,
   token: string,
   etag?: string | null,
-): Promise<GetUserResult> {
+): Promise<GetConnectionResult> {
   // Build URL, ensuring no trailing slash duplication
-  const url = `${apiBaseUrl.replace(/\/$/, '')}/user`;
+  const url = `${apiBaseUrl.replace(/\/$/, '')}/connection`;
 
   // Build headers
   const headers: Record<string, string> = {
@@ -71,7 +71,7 @@ export async function getUser(
 
   // For 200 OK, parse the JSON body
   if (response.status === 200) {
-    const body = (await response.json()) as UserApiResponse;
+    const body = (await response.json()) as ConnectionApiResponse;
     return {
       status: 200,
       etag: responseEtag,
@@ -88,21 +88,21 @@ export async function getUser(
 }
 
 /**
- * Fetch user configuration from the Aluvia API.
+ * Fetch connection configuration from the Aluvia API.
  *
  * @param apiBaseUrl - Base URL for the Aluvia API (e.g., 'https://api.aluvia.io/v1')
- * @param token - User API token (Bearer token)
+ * @param token - Connection API token (Bearer token)
  * @param body - Parameters to update
  * @param etag - Optional ETag for conditional request (If-None-Match)
- * @returns GetUserResult with status, etag, and body (null on 304)
+ * @returns GetConnectionResult with status, etag, and body (null on 304)
  */
-export async function setUser(
+export async function setConnection(
   apiBaseUrl: string,
   token: string,
   body: Object,
-): Promise<GetUserResult> {
+): Promise<GetConnectionResult> {
   // Build URL, ensuring no trailing slash duplication
-  const url = `${apiBaseUrl.replace(/\/$/, '')}/user`;
+  const url = `${apiBaseUrl.replace(/\/$/, '')}/connection`;
 
   // Build headers
   const headers: Record<string, string> = {
@@ -131,7 +131,7 @@ export async function setUser(
 
   // For 200 OK, parse the JSON body
   if (response.status === 200) {
-    const body = (await response.json()) as UserApiResponse;
+    const body = (await response.json()) as ConnectionApiResponse;
     return {
       status: 200,
       etag: responseEtag,

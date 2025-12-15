@@ -1,14 +1,14 @@
-// ConfigManager - Control plane for user configuration
+// ConfigManager - Control plane for connection configuration
 
 import type { GatewayProtocol, LogLevel } from './types.js';
 import { Logger } from './logger.js';
-import { getUser, setUser } from './httpClient.js';
-import { InvalidUserTokenError, ApiError } from './errors.js';
+import { getConnection, setConnection } from './httpClient.js';
+import { InvalidConnectionTokenError, ApiError } from './errors.js';
 
 // Config types
 
 /**
- * Raw proxy configuration derived from /user response and client options.
+ * Raw proxy configuration derived from /connection response and client options.
  */
 export type RawProxyConfig = {
   protocol: GatewayProtocol;
@@ -19,9 +19,9 @@ export type RawProxyConfig = {
 };
 
 /**
- * Complete user network configuration including proxy, rules, and metadata.
+ * Complete connection network configuration including proxy, rules, and metadata.
  */
-export type UserNetworkConfig = {
+export type ConnectionNetworkConfig = {
   rawProxy: RawProxyConfig;
   rules: string[];
   sessionId: string | null;
@@ -46,15 +46,15 @@ export type ConfigManagerOptions = {
 };
 
 /**
- * ConfigManager handles fetching and maintaining user configuration from the Aluvia API.
+ * ConfigManager handles fetching and maintaining connection configuration from the Aluvia API.
  *
  * Responsibilities:
- * - Initial fetch of /user config
+ * - Initial fetch of /connection config
  * - Polling for updates using ETag
  * - Providing current config to ProxyServer
  */
 export class ConfigManager {
-  private config: UserNetworkConfig | null = null;
+  private config: ConnectionNetworkConfig | null = null;
   private timer: NodeJS.Timeout | null = null;
   private readonly logger: Logger;
   private readonly options: ConfigManagerOptions;
@@ -65,20 +65,20 @@ export class ConfigManager {
   }
 
   /**
-   * Fetch initial configuration from /user endpoint.
+   * Fetch initial configuration from /connection endpoint.
    * Must be called before starting the proxy.
    *
-   * @throws InvalidUserTokenError if token is invalid (401/403)
+   * @throws InvalidConnectionTokenError if token is invalid (401/403)
    * @throws ApiError for other API errors
    */
   async init(): Promise<void> {
     this.logger.info('Fetching initial configuration from Aluvia API...');
 
-    const result = await getUser(this.options.apiBaseUrl, this.options.token);
+    const result = await getConnection(this.options.apiBaseUrl, this.options.token);
 
     // Handle authentication errors
     if (result.status === 401 || result.status === 403) {
-      throw new InvalidUserTokenError(
+      throw new InvalidConnectionTokenError(
         `Authentication failed with status ${result.status}`
       );
     }
@@ -93,7 +93,7 @@ export class ConfigManager {
 
     // Handle other errors
     throw new ApiError(
-      `Failed to fetch user config: HTTP ${result.status}`,
+      `Failed to fetch connection config: HTTP ${result.status}`,
       result.status
     );
   }
@@ -133,14 +133,14 @@ export class ConfigManager {
    * Get the current configuration.
    * Returns null if init() hasn't been called or failed.
    */
-  getConfig(): UserNetworkConfig | null {
+  getConfig(): ConnectionNetworkConfig | null {
     return this.config;
   }
 
-  async setConfig(body: Object): Promise<UserNetworkConfig | null> {
+  async setConfig(body: Object): Promise<ConnectionNetworkConfig | null> {
     this.logger.debug(`Setting config: ${JSON.stringify(body)}`);
     try {
-      const result = await setUser(
+      const result = await setConnection(
         this.options.apiBaseUrl,
         this.options.token,
         body,
@@ -175,7 +175,7 @@ export class ConfigManager {
     }
 
     try {
-      const result = await getUser(
+      const result = await getConnection(
         this.options.apiBaseUrl,
         this.options.token,
         this.config.etag,
@@ -204,7 +204,7 @@ export class ConfigManager {
   }
 
   /**
-   * Build UserNetworkConfig from API response.
+   * Build ConnectionNetworkConfig from API response.
    */
   private buildConfig(
     body: {
@@ -217,7 +217,7 @@ export class ConfigManager {
       }
     },
     etag: string | null,
-  ): UserNetworkConfig {
+  ): ConnectionNetworkConfig {
     return {
       rawProxy: {
         protocol: this.options.gatewayProtocol,
