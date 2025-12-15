@@ -1,4 +1,4 @@
-import { ProxyAgent } from 'proxy-agent';
+import { HttpsProxyAgent } from 'https-proxy-agent';
 
 export type PlaywrightProxySettings = {
   server: string;
@@ -12,10 +12,8 @@ export function toPuppeteerArgs(url: string): Array<string> {
   return [`--proxy-server=${url}`];
 }
 
-export function createNodeProxyAgent(url: string): ProxyAgent {
-  return new ProxyAgent({
-    getProxyForUrl: () => url,
-  });
+export function createNodeProxyAgent(url: string): HttpsProxyAgent<any> {
+  return new HttpsProxyAgent(url);
 }
 
 

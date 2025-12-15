@@ -38,11 +38,12 @@
   ],
   "devDependencies": {
     "@types/node": "^24.10.2",
+    "axios": "^1.13.2",
     "tsx": "^4.21.0",
     "typescript": "^5.9.3"
   },
   "dependencies": {
-    "proxy-agent": "^6.5.0",
+    "https-proxy-agent": "^7.0.6",
     "proxy-chain": "^2.6.1"
   }
 }
