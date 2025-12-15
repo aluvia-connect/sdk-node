@@ -3,7 +3,7 @@
 import type { AluviaClientOptions, AluviaClientSession, GatewayProtocol, LogLevel } from './types.js';
 import { ConfigManager } from './ConfigManager.js';
 import { ProxyServer } from './ProxyServer.js';
-import { MissingUserTokenError } from './errors.js';
+import { MissingConnectionTokenError } from './errors.js';
 
 /**
  * AluviaClient is the main entry point for the Aluvia Client.
@@ -20,7 +20,7 @@ export class AluviaClient {
   constructor(options: AluviaClientOptions) {
     // Validate token
     if (!options.token) {
-      throw new MissingUserTokenError('Aluvia user token is required');
+      throw new MissingConnectionTokenError('Aluvia connection token is required');
     }
 
     this.options = options;
@@ -48,7 +48,7 @@ export class AluviaClient {
 
   /**
    * Start the Aluvia Client session:
-   * - Fetch initial /user config from Aluvia.
+   * - Fetch initial /connection config from Aluvia.
    * - Start polling for config updates.
    * - Start a local HTTP(S) proxy on 127.0.0.1:<localPort or free port>.
    *
@@ -60,7 +60,7 @@ export class AluviaClient {
       return this.session;
     }
 
-    // Fetch initial configuration (may throw InvalidUserTokenError or ApiError)
+    // Fetch initial configuration (may throw InvalidConnectionTokenError or ApiError)
     await this.configManager.init();
 
     // Start the proxy server

@@ -1,24 +1,24 @@
 // Error classes for Aluvia Client
 
 /**
- * Thrown when the user token is not provided to AluviaClient.
+ * Thrown when the connection token is not provided to AluviaClient.
  */
-export class MissingUserTokenError extends Error {
-  constructor(message = 'Aluvia user token is required') {
+export class MissingConnectionTokenError extends Error {
+  constructor(message = 'Aluvia connection token is required') {
     super(message);
-    this.name = 'MissingUserTokenError';
-    Object.setPrototypeOf(this, MissingUserTokenError.prototype);
+    this.name = 'MissingConnectionTokenError';
+    Object.setPrototypeOf(this, MissingConnectionTokenError.prototype);
   }
 }
 
 /**
  * Thrown when the API returns 401 or 403, indicating the token is invalid.
  */
-export class InvalidUserTokenError extends Error {
-  constructor(message = 'Invalid or expired Aluvia user token') {
+export class InvalidConnectionTokenError extends Error {
+  constructor(message = 'Invalid or expired Aluvia connection token') {
     super(message);
-    this.name = 'InvalidUserTokenError';
-    Object.setPrototypeOf(this, InvalidUserTokenError.prototype);
+    this.name = 'InvalidConnectionTokenError';
+    Object.setPrototypeOf(this, InvalidConnectionTokenError.prototype);
   }
 }
 
