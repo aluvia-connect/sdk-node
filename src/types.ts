@@ -10,6 +10,10 @@ export type GatewayProtocol = 'http' | 'https';
  */
 export type LogLevel = 'silent' | 'info' | 'debug';
 
+export type PlaywrightProxySettings = {
+  server: string;
+};
+
 /**
  * Options for creating an AluviaClient instance.
  */
@@ -90,10 +94,36 @@ export type AluviaClientSession = {
   url: string;
 
   /**
+   * Convenience accessor for the local proxy URL.
+   * This is always the same value as session.url.
+   */
+  getUrl(): string;
+
+  /**
+   * Playwright adapter for chromium/firefox/webkit launch options.
+   */
+  asPlaywright(): PlaywrightProxySettings;
+
+  /**
+   * Puppeteer adapter for launch args.
+   */
+  asPuppeteer(): Array<string>;
+
+  /**
+   * Node HTTP(S) proxy agent adapter for Axios, got, and node-fetch.
+   */
+  asNodeAgent(): import('node:http').Agent;
+
+  /**
    * Stop this proxy instance:
    * - Close the local proxy server.
    * - Stop using it for new connections.
    */
   stop(): Promise<void>;
+
+  /**
+   * Alias for stop().
+   */
+  close(): Promise<void>;
 };
 

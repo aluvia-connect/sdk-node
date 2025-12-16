@@ -22,7 +22,7 @@ pnpm add @aluvia/aluvia-node
 import { AluviaClient } from '@aluvia/aluvia-node';
 
 const client = new AluviaClient({
-  token: process.env.ALV_USER_TOKEN, // Required: your Aluvia user API token
+  token: process.env.ALV_CONNECTION_TOKEN, // Required: your Aluvia connection API token
 });
 
 const session = await client.start();
@@ -38,8 +38,8 @@ await session.stop();
 
 ## How It Works
 
-1. **Authentication**: The client authenticates with Aluvia using your user API token
-2. **Configuration**: Fetches proxy credentials, routing rules, and targeting settings from `/user`
+1. **Authentication**: The client authenticates with Aluvia using your connection API token
+2. **Configuration**: Fetches proxy credentials, routing rules, and targeting settings from `/connection`
 3. **Local Proxy**: Starts a local HTTP proxy on `127.0.0.1`
 4. **Smart Routing**: Routes requests through Aluvia or directly based on your rules
 5. **Live Updates**: Polls for configuration changes using ETag for efficiency
@@ -48,8 +48,8 @@ await session.stop();
 
 ```typescript
 const client = new AluviaClient({
-  // Required: your Aluvia user API token
-  token: process.env.ALV_USER_TOKEN,
+  // Required: your Aluvia connection API token
+  token: process.env.ALV_CONNECTION_TOKEN,
 
   // Optional: base URL for the Aluvia API
   // Default: 'https://api.aluvia.io/v1'
@@ -86,7 +86,7 @@ const client = new AluviaClient({
 Creates a new client instance.
 
 **Options:**
-- `token` (required): Your Aluvia user API token
+- `token` (required): Your Aluvia connection API token
 - `apiBaseUrl` (optional): Aluvia API base URL
 - `pollIntervalMs` (optional): Config polling interval in milliseconds
 - `gatewayProtocol` (optional): `'http'` or `'https'`
@@ -156,13 +156,13 @@ import { chromium } from 'playwright';
 import { AluviaClient } from '@aluvia/aluvia-node';
 
 const client = new AluviaClient({
-  token: process.env.ALV_USER_TOKEN,
+  token: process.env.ALV_CONNECTION_TOKEN,
 });
 
 const session = await client.start();
 
 const browser = await chromium.launch({
-  proxy: { server: session.url },
+  proxy: session.asPlaywright(),
 });
 
 const page = await browser.newPage();
@@ -178,23 +178,94 @@ await session.stop();
 
 ```typescript
 import axios from 'axios';
-import { HttpsProxyAgent } from 'https-proxy-agent';
 import { AluviaClient } from '@aluvia/aluvia-node';
 
 const client = new AluviaClient({
-  token: process.env.ALV_USER_TOKEN,
+  token: process.env.ALV_CONNECTION_TOKEN,
 });
 
 const session = await client.start();
 
-const axiosClient = axios.create({
+const agent = session.asNodeAgent();
+
+const response = await axios.get('https://api.example.com/data', {
   proxy: false, // Disable Axios' own proxy handling
-  httpsAgent: new HttpsProxyAgent(session.url),
+  httpAgent: agent,
+  httpsAgent: agent,
 });
 
-const response = await axiosClient.get('https://api.example.com/data');
+await session.stop();
+```
+
+## Usage with got
+
+```typescript
+import got from 'got';
+import { AluviaClient } from '@aluvia/aluvia-node';
+
+const client = new AluviaClient({
+  token: process.env.ALV_CONNECTION_TOKEN,
+});
+
+const session = await client.start();
+
+const agent = session.asNodeAgent();
+
+const response = await got('https://api.example.com/data', {
+  agent: {
+    http: agent,
+    https: agent,
+  },
+});
 
 await session.stop();
+```
+
+## Usage with node-fetch
+
+```typescript
+import fetch from 'node-fetch';
+import { AluviaClient } from '@aluvia/aluvia-node';
+
+const client = new AluviaClient({
+  token: process.env.ALV_CONNECTION_TOKEN,
+});
+
+const session = await client.start();
+
+const response = await fetch('https://api.example.com/data', {
+  agent: session.asNodeAgent(),
+});
+
+await session.stop();
+```
+
+## Usage with Puppeteer
+
+```typescript
+import puppeteer from 'puppeteer';
+import { AluviaClient } from '@aluvia/aluvia-node';
+
+const client = new AluviaClient({
+  token: process.env.ALV_CONNECTION_TOKEN,
+});
+
+const session = await client.start();
+
+const browser = await puppeteer.launch({
+  args: session.asPuppeteer(),
+});
+
+// ... do your automation ...
+
+await browser.close();
+await session.stop();
+```
+
+## Generic URL
+
+```typescript
+const url = session.getUrl(); // 'http://127.0.0.1:<port>'
 ```
 
 ## License

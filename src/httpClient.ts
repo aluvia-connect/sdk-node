@@ -19,6 +19,11 @@ export type ConnectionApiResponse = {
 export type GetConnectionResult = {
   status: number;
   body: ConnectionApiResponse | null;
+  /**
+   * ETag returned by the API (if present).
+   * Used for conditional requests via If-None-Match.
+   */
+  etag: string | null;
 };
 
 /**
@@ -32,6 +37,7 @@ export type GetConnectionResult = {
 export async function getConnection(
   apiBaseUrl: string,
   token: string,
+  etag?: string | null,
 ): Promise<GetConnectionResult> {
   // Build URL, ensuring no trailing slash duplication
   const url = `${apiBaseUrl.replace(/\/$/, '')}/connection`;
@@ -42,16 +48,23 @@ export async function getConnection(
     'Accept': 'application/json',
   };
 
+  if (etag) {
+    headers['If-None-Match'] = etag;
+  }
+
   // Make the request
   const response = await fetch(url, {
     method: 'GET',
     headers,
   });
 
+  const responseEtag = response.headers.get('etag');
+
   // Handle 304 Not Modified
   if (response.status === 304) {
     return {
       status: 304,
+      etag: responseEtag,
       body: null,
     };
   }
@@ -61,6 +74,7 @@ export async function getConnection(
     const body = (await response.json()) as ConnectionApiResponse;
     return {
       status: 200,
+      etag: responseEtag,
       body,
     };
   }
@@ -68,6 +82,7 @@ export async function getConnection(
   // For other statuses (401, 403, 4xx, 5xx), return status without body
   return {
     status: response.status,
+    etag: responseEtag,
     body: null,
   };
 }
@@ -103,10 +118,13 @@ export async function setConnection(
     body: JSON.stringify(body),
   });
 
+  const responseEtag = response.headers.get('etag');
+
   // Handle 304 Not Modified
   if (response.status === 304) {
     return {
       status: 304,
+      etag: responseEtag,
       body: null,
     };
   }
@@ -116,6 +134,7 @@ export async function setConnection(
     const body = (await response.json()) as ConnectionApiResponse;
     return {
       status: 200,
+      etag: responseEtag,
       body,
     };
   }
@@ -123,6 +142,7 @@ export async function setConnection(
   // For other statuses (401, 403, 4xx, 5xx), return status without body
   return {
     status: response.status,
+    etag: responseEtag,
     body: null,
   };
 }

@@ -18,4 +18,5 @@ export type {
   LogLevel,
   AluviaClientOptions,
   AluviaClientSession,
+  PlaywrightProxySettings,
 } from './types.js';
