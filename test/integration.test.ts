@@ -2,33 +2,33 @@
 
 import { test, mock, describe, beforeEach, afterEach } from 'node:test';
 import assert from 'node:assert';
-import * as httpClient from '../src/httpClient';
-import { AluviaClient } from '../src/AluviaClient';
+import * as httpClient from '../src/httpClient.js';
+import { AluviaClient } from '../src/AluviaClient.js';
 import {
-  MissingUserTokenError,
-  InvalidUserTokenError,
+  MissingConnectionTokenError,
+  InvalidConnectionTokenError,
   ApiError,
   ProxyStartError,
-} from '../src/errors';
-import { matchPattern, shouldProxy } from '../src/rules';
-import { Logger } from '../src/logger';
+} from '../src/errors.js';
+import { matchPattern, shouldProxy } from '../src/rules.js';
+import { Logger } from '../src/logger.js';
 
-// Mock getUser function
-const mockGetUser = mock.fn<typeof httpClient.getUser>();
+// Mock getConnection function
+const mockGetConnection = mock.fn<typeof httpClient.getConnection>();
 
 describe('AluviaClient', () => {
   beforeEach(() => {
-    mockGetUser.mock.resetCalls();
+    mockGetConnection.mock.resetCalls();
   });
 
   afterEach(() => {
     mock.reset();
   });
 
-  test('throws MissingUserTokenError when token is not provided', () => {
+  test('throws MissingConnectionTokenError when token is not provided', () => {
     assert.throws(
       () => new AluviaClient({ token: '' }),
-      MissingUserTokenError
+      MissingConnectionTokenError
     );
   });
 
@@ -83,7 +83,7 @@ describe('AluviaClient', () => {
   });
 });
 
-describe('httpClient.getUser', () => {
+describe('httpClient.getConnection', () => {
   const originalFetch = globalThis.fetch;
 
   afterEach(() => {
@@ -109,7 +109,7 @@ describe('httpClient.getUser', () => {
       );
     }) as any;
 
-    const res = await httpClient.getUser(
+    const res = await httpClient.getConnection(
       'https://api.aluvia.io/v1/',
       'test-token',
       '"etag-0"'
@@ -127,7 +127,7 @@ describe('httpClient.getUser', () => {
       return new Response(null, { status: 304, headers: { ETag: '"etag-2"' } });
     }) as any;
 
-    const res = await httpClient.getUser(
+    const res = await httpClient.getConnection(
       'https://api.aluvia.io/v1',
       'test-token',
       '"etag-1"'
@@ -202,14 +202,14 @@ describe('Logger', () => {
 });
 
 describe('Error classes', () => {
-  test('MissingUserTokenError has correct name', () => {
-    const error = new MissingUserTokenError();
-    assert.strictEqual(error.name, 'MissingUserTokenError');
+  test('MissingConnectionTokenError has correct name', () => {
+    const error = new MissingConnectionTokenError();
+    assert.strictEqual(error.name, 'MissingConnectionTokenError');
   });
 
-  test('InvalidUserTokenError has correct name', () => {
-    const error = new InvalidUserTokenError();
-    assert.strictEqual(error.name, 'InvalidUserTokenError');
+  test('InvalidConnectionTokenError has correct name', () => {
+    const error = new InvalidConnectionTokenError();
+    assert.strictEqual(error.name, 'InvalidConnectionTokenError');
   });
 
   test('ApiError has correct name and statusCode', () => {
