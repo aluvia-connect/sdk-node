@@ -4,7 +4,7 @@ import type { AluviaClientOptions, AluviaClientSession, GatewayProtocol, LogLeve
 import { ConfigManager } from './ConfigManager.js';
 import { ProxyServer } from './ProxyServer.js';
 import { MissingConnectionTokenError } from './errors.js';
-import { createNodeProxyAgent, toPlaywrightProxySettings, toPuppeteerArgs } from './adapters.js';
+import { createNodeProxyAgent, toPlaywrightProxySettings, toPuppeteerArgs, toSeleniumArgs } from './adapters.js';
 
 /**
  * AluviaClient is the main entry point for the Aluvia Client.
@@ -89,6 +89,7 @@ export class AluviaClient {
       getUrl: () => url,
       asPlaywright: () => toPlaywrightProxySettings(url),
       asPuppeteer: () => toPuppeteerArgs(url),
+      asSelenium: () => toSeleniumArgs(url),
       asNodeAgent: () => {
         if (!nodeAgent) {
           nodeAgent = createNodeProxyAgent(url);

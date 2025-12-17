@@ -110,6 +110,11 @@ export type AluviaClientSession = {
   asPuppeteer(): Array<string>;
 
   /**
+   * Selenium adapter for launch args.
+   */
+  asSelenium(): string;
+
+  /**
    * Node HTTP(S) proxy agent adapter for Axios, got, and node-fetch.
    */
   asNodeAgent(): import('node:http').Agent;
