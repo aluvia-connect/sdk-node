@@ -5,8 +5,8 @@ import assert from 'node:assert';
 import * as httpClient from '../src/httpClient.js';
 import { AluviaClient } from '../src/AluviaClient.js';
 import {
-  MissingTokenError,
-  InvalidTokenError,
+  MissingApiKeyError,
+  InvalidApiKeyError,
   ApiError,
   ProxyStartError,
 } from '../src/errors.js';
@@ -28,7 +28,7 @@ describe('AluviaClient', () => {
   test('throws MissingConnectionTokenError when token is not provided', () => {
     assert.throws(
       () => new AluviaClient({ token: '' }),
-      MissingTokenError
+      MissingApiKeyError
     );
   });
 
@@ -277,12 +277,12 @@ describe('Logger', () => {
 
 describe('Error classes', () => {
   test('MissingConnectionTokenError has correct name', () => {
-    const error = new MissingTokenError();
+    const error = new MissingApiKeyError();
     assert.strictEqual(error.name, 'MissingConnectionTokenError');
   });
 
   test('InvalidConnectionTokenError has correct name', () => {
-    const error = new InvalidTokenError();
+    const error = new InvalidApiKeyError();
     assert.strictEqual(error.name, 'InvalidConnectionTokenError');
   });
 

@@ -21,10 +21,10 @@ export type PlaywrightProxySettings = {
  */
 export type AluviaClientOptions = {
   /**
-   * Required: user API token (Bearer).
-   * This is the token for a single Aluvia user/agent.
+   * Required: user API apiKey (Bearer).
+   * This is the apiKey for a single Aluvia user/agent.
    */
-  token: string;
+  apiKey: string;
 
   /**
    * Optional: base URL for the Aluvia API.

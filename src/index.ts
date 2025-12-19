@@ -6,8 +6,8 @@ export { AluviaClient } from './AluviaClient.js';
 
 // Public error classes
 export {
-  MissingTokenError,
-  InvalidTokenError,
+  MissingApiKeyError,
+  InvalidApiKeyError,
   ApiError,
   ProxyStartError,
 } from './errors.js';

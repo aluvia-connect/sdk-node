@@ -28,14 +28,14 @@ export type GetConnectionResult = {
 
 export async function getAccountConnection(
   apiBaseUrl: string,
-  token: string,
+  apiKey: string,
   connectionId: number,
   etag?: string | null,
 ): Promise<GetConnectionResult> {
   const url = `${apiBaseUrl.replace(/\/$/, '')}/account/connections/${connectionId}`;
 
   const headers: Record<string, string> = {
-    'Authorization': `Bearer ${token}`,
+    'Authorization': `Bearer ${apiKey}`,
     'Accept': 'application/json',
   };
 
@@ -58,13 +58,13 @@ export async function getAccountConnection(
 
 export async function createAccountConnection(
   apiBaseUrl: string,
-  token: string,
+  apiKey: string,
   body: Object,
 ): Promise<GetConnectionResult> {
   const url = `${apiBaseUrl.replace(/\/$/, '')}/account/connections`;
 
   const headers: Record<string, string> = {
-    'Authorization': `Bearer ${token}`,
+    'Authorization': `Bearer ${apiKey}`,
     'Accept': 'application/json',
     'Content-Type': 'application/json',
   };
@@ -91,14 +91,14 @@ export async function createAccountConnection(
 
 export async function patchAccountConnection(
   apiBaseUrl: string,
-  token: string,
+  apiKey: string,
   connectionId: number,
   body: Object,
 ): Promise<GetConnectionResult> {
   const url = `${apiBaseUrl.replace(/\/$/, '')}/account/connections/${connectionId}`;
 
   const headers: Record<string, string> = {
-    'Authorization': `Bearer ${token}`,
+    'Authorization': `Bearer ${apiKey}`,
     'Accept': 'application/json',
     'Content-Type': 'application/json',
   };

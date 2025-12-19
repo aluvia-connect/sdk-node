@@ -7,7 +7,7 @@ import {
   createAccountConnection,
   patchAccountConnection,
 } from './httpClient.js';
-import { InvalidTokenError, ApiError } from './errors.js';
+import { InvalidApiKeyError, ApiError } from './errors.js';
 
 // Config types
 
@@ -41,7 +41,7 @@ export type ConnectionNetworkConfig = {
  * Options for ConfigManager constructor.
  */
 export type ConfigManagerOptions = {
-  token: string;
+  apiKey: string;
   apiBaseUrl: string;
   pollIntervalMs: number;
   gatewayProtocol: GatewayProtocol;
@@ -80,7 +80,7 @@ export class ConfigManager {
    * Fetch initial configuration from /connection endpoint.
    * Must be called before starting the proxy.
    *
-   * @throws InvalidTokenError if token is invalid (401/403)
+   * @throws InvalidApiKeyError if apiKey is invalid (401/403)
    * @throws ApiError for other API errors
    */
   async init(): Promise<void> {
@@ -92,12 +92,12 @@ export class ConfigManager {
       this.logger.info(`Using account connection API (connection id: ${this.accountConnectionId})`);
       const result = await getAccountConnection(
         this.options.apiBaseUrl,
-        this.options.token,
+        this.options.apiKey,
         this.accountConnectionId as number,
       );
 
       if (result.status === 401 || result.status === 403) {
-        throw new InvalidTokenError(`Authentication failed with status ${result.status}`);
+        throw new InvalidApiKeyError(`Authentication failed with status ${result.status}`);
       }
 
       if (result.status === 200 && result.body) {
@@ -115,12 +115,12 @@ export class ConfigManager {
     try {
       const created = await createAccountConnection(
         this.options.apiBaseUrl,
-        this.options.token,
+        this.options.apiKey,
         {},
       );
 
       if (created.status === 401 || created.status === 403) {
-        throw new InvalidTokenError(`Authentication failed with status ${created.status}`);
+        throw new InvalidApiKeyError(`Authentication failed with status ${created.status}`);
       }
 
       if ((created.status === 200 || created.status === 201) && created.body) {
@@ -200,7 +200,7 @@ export class ConfigManager {
     try {
       const result = await patchAccountConnection(
           this.options.apiBaseUrl,
-          this.options.token,
+          this.options.apiKey,
           this.accountConnectionId,
           body,
         );
@@ -236,7 +236,7 @@ export class ConfigManager {
     try {
       const result = await getAccountConnection(
         this.options.apiBaseUrl,
-        this.options.token,
+        this.options.apiKey,
         this.accountConnectionId,
         this.config.etag,
       );

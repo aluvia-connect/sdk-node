@@ -3,7 +3,7 @@
 import type { AluviaClientOptions, AluviaClientSession, GatewayProtocol, LogLevel } from './types.js';
 import { ConfigManager } from './ConfigManager.js';
 import { ProxyServer } from './ProxyServer.js';
-import { MissingTokenError } from './errors.js';
+import { MissingApiKeyError } from './errors.js';
 import { createNodeProxyAgent, toPlaywrightProxySettings, toPuppeteerArgs, toSeleniumArgs } from './adapters.js';
 import { Logger } from './logger.js';
 
@@ -21,9 +21,9 @@ export class AluviaClient {
   private readonly logger: Logger;
 
   constructor(options: AluviaClientOptions) {
-    // Validate token
-    if (!options.token) {
-      throw new MissingTokenError('Aluvia token is required');
+    // Validate apiKey
+    if (!options.apiKey) {
+      throw new MissingApiKeyError('Aluvia apiKey is required');
     }
 
     const smart_routing = options.smart_routing ?? false;
@@ -39,7 +39,7 @@ export class AluviaClient {
 
     // Create ConfigManager
     this.configManager = new ConfigManager({
-      token: options.token,
+      apiKey: options.apiKey,
       apiBaseUrl,
       pollIntervalMs,
       gatewayProtocol,
