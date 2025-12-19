@@ -12,6 +12,8 @@ export type LogLevel = 'silent' | 'info' | 'debug';
 
 export type PlaywrightProxySettings = {
   server: string;
+  username?: string;
+  password?: string;
 };
 
 /**
@@ -66,6 +68,27 @@ export type AluviaClientOptions = {
    * Optional: logging verbosity for the client.
    */
   logLevel?: LogLevel;
+
+  /**
+   * Optional: use an existing account connection by ID.
+   *
+   * If provided, the client retrieves config via:
+   *   GET /account/connections/:connection_id
+   *
+   * If omitted, the client will attempt to create a new account connection via:
+   *   POST /account/connections
+   * and will fall back to legacy GET /connection if creation is not available.
+   */
+  connection_id?: number;
+
+  /**
+   * Optional: enable smart routing.
+   *
+   * If true: start the local proxy (127.0.0.1:<port>) and route traffic dynamically.
+   * If false (default): do NOT start a local proxy; adapters return remote proxy settings
+   * from the connection API response for direct use by Playwright/Axios/etc.
+   */
+  smart_routing?: boolean;
 };
 
 /**
@@ -131,4 +154,3 @@ export type AluviaClientSession = {
    */
   close(): Promise<void>;
 };
-

@@ -3,8 +3,9 @@
 import type { AluviaClientOptions, AluviaClientSession, GatewayProtocol, LogLevel } from './types.js';
 import { ConfigManager } from './ConfigManager.js';
 import { ProxyServer } from './ProxyServer.js';
-import { MissingConnectionTokenError } from './errors.js';
+import { MissingTokenError } from './errors.js';
 import { createNodeProxyAgent, toPlaywrightProxySettings, toPuppeteerArgs, toSeleniumArgs } from './adapters.js';
+import { Logger } from './logger.js';
 
 /**
  * AluviaClient is the main entry point for the Aluvia Client.
@@ -17,21 +18,24 @@ export class AluviaClient {
   private readonly proxyServer: ProxyServer;
   private session: AluviaClientSession | null = null;
   private started = false;
+  private readonly logger: Logger;
 
   constructor(options: AluviaClientOptions) {
     // Validate token
     if (!options.token) {
-      throw new MissingConnectionTokenError('Aluvia connection token is required');
+      throw new MissingTokenError('Aluvia token is required');
     }
 
-    this.options = options;
+    const smart_routing = options.smart_routing ?? false;
+    this.options = { ...options, smart_routing };
 
-    // Apply defaults
     const apiBaseUrl = options.apiBaseUrl ?? 'https://api.aluvia.io/v1';
     const pollIntervalMs = options.pollIntervalMs ?? 5000;
     const gatewayProtocol: GatewayProtocol = options.gatewayProtocol ?? 'http';
     const gatewayPort = options.gatewayPort ?? (gatewayProtocol === 'https' ? 8443 : 8080);
     const logLevel: LogLevel = options.logLevel ?? 'info';
+
+    this.logger = new Logger(logLevel);
 
     // Create ConfigManager
     this.configManager = new ConfigManager({
@@ -41,6 +45,7 @@ export class AluviaClient {
       gatewayProtocol,
       gatewayPort,
       logLevel,
+      connectionId: options.connection_id,
     });
 
     // Create ProxyServer
@@ -63,12 +68,83 @@ export class AluviaClient {
 
     // Fetch initial configuration (may throw InvalidConnectionTokenError or ApiError)
     await this.configManager.init();
-
-    // Start the proxy server
-    const { host, port, url } = await this.proxyServer.start(this.options.localPort);
-
-    // Start polling for config updates
     this.configManager.startPolling();
+
+    const smartRoutingEnabled = this.options.smart_routing === true;
+
+    if (!smartRoutingEnabled) {
+      this.logger.debug('smart_routing disabled — local proxy will not start');
+
+      let nodeAgent: ReturnType<typeof createNodeProxyAgent> | null = null;
+
+      const stop = async () => {
+        this.configManager.stopPolling();
+        nodeAgent?.destroy?.();
+        nodeAgent = null;
+        this.session = null;
+        this.started = false;
+      };
+
+      // Build session object
+      const session: AluviaClientSession = {
+        host: '127.0.0.1',
+        port: 0,
+        url: '',
+        getUrl: () => {
+          const cfg = this.configManager.getConfig();
+          if (!cfg) return '';
+          const { protocol, host, port, username, password } = cfg.rawProxy;
+          return `${protocol}://${encodeURIComponent(username)}:${encodeURIComponent(password)}@${host}:${port}`;
+        },
+        asPlaywright: () => {
+          const cfg = this.configManager.getConfig();
+          if (!cfg) return { server: '' };
+          const { protocol, host, port, username, password } = cfg.rawProxy;
+          return toPlaywrightProxySettings({
+            server: `${protocol}://${host}:${port}`,
+            username,
+            password,
+          });
+        },
+        asPuppeteer: () => {
+          const cfg = this.configManager.getConfig();
+          if (!cfg) return [];
+          const { protocol, host, port } = cfg.rawProxy;
+          return toPuppeteerArgs(`${protocol}://${host}:${port}`);
+        },
+        asSelenium: () => {
+          const cfg = this.configManager.getConfig();
+          if (!cfg) return '';
+          const { protocol, host, port } = cfg.rawProxy;
+          return toSeleniumArgs(`${protocol}://${host}:${port}`);
+        },
+        asNodeAgent: () => {
+          if (!nodeAgent) {
+            const cfg = this.configManager.getConfig();
+            if (!cfg) {
+              nodeAgent = createNodeProxyAgent('http://127.0.0.1'); // unreachable fallback
+            } else {
+              const { protocol, host, port, username, password } = cfg.rawProxy;
+              nodeAgent = createNodeProxyAgent({
+                server: `${protocol}://${host}:${port}`,
+                username,
+                password,
+              });
+            }
+          }
+          return nodeAgent;
+        },
+        stop,
+        close: stop,
+      };
+
+      this.session = session;
+      this.started = true;
+      return session;
+    }
+
+    // smart_routing === true
+    const { host, port, url } = await this.proxyServer.start(this.options.localPort);
 
     let nodeAgent: ReturnType<typeof createNodeProxyAgent> | null = null;
 
@@ -116,7 +192,10 @@ export class AluviaClient {
       return;
     }
 
-    await this.proxyServer.stop();
+    // Only stop proxy if it was potentially started.
+    if (this.options.smart_routing) {
+      await this.proxyServer.stop();
+    }
     this.configManager.stopPolling();
     this.session = null;
     this.started = false;

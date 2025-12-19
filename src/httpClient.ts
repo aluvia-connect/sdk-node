@@ -1,9 +1,9 @@
 // HTTP client wrapper for Aluvia API
 
 /**
- * Response shape from GET /connection endpoint.
+ * Response shape from /account/connections endpoints.
  */
-export type ConnectionApiResponse = {
+export type AccountConnectionApiResponse = {
   data: {
     proxy_username: string;
     proxy_password: string;
@@ -18,7 +18,7 @@ export type ConnectionApiResponse = {
  */
 export type GetConnectionResult = {
   status: number;
-  body: ConnectionApiResponse | null;
+  body: AccountConnectionApiResponse | null;
   /**
    * ETag returned by the API (if present).
    * Used for conditional requests via If-None-Match.
@@ -26,123 +26,99 @@ export type GetConnectionResult = {
   etag: string | null;
 };
 
-/**
- * Fetch connection configuration from the Aluvia API.
- *
- * @param apiBaseUrl - Base URL for the Aluvia API (e.g., 'https://api.aluvia.io/v1')
- * @param token - Connection API token (Bearer token)
- * @param etag - Optional ETag for conditional request (If-None-Match)
- * @returns GetConnectionResult with status, etag, and body (null on 304)
- */
-export async function getConnection(
+export async function getAccountConnection(
   apiBaseUrl: string,
   token: string,
+  connectionId: number,
   etag?: string | null,
 ): Promise<GetConnectionResult> {
-  // Build URL, ensuring no trailing slash duplication
-  const url = `${apiBaseUrl.replace(/\/$/, '')}/connection`;
+  const url = `${apiBaseUrl.replace(/\/$/, '')}/account/connections/${connectionId}`;
 
-  // Build headers
   const headers: Record<string, string> = {
     'Authorization': `Bearer ${token}`,
     'Accept': 'application/json',
   };
 
-  if (etag) {
-    headers['If-None-Match'] = etag;
-  }
+  if (etag) headers['If-None-Match'] = etag;
 
-  // Make the request
-  const response = await fetch(url, {
-    method: 'GET',
-    headers,
-  });
-
+  const response = await fetch(url, { method: 'GET', headers });
   const responseEtag = response.headers.get('etag');
 
-  // Handle 304 Not Modified
   if (response.status === 304) {
-    return {
-      status: 304,
-      etag: responseEtag,
-      body: null,
-    };
+    return { status: 304, etag: responseEtag, body: null };
   }
 
-  // For 200 OK, parse the JSON body
   if (response.status === 200) {
-    const body = (await response.json()) as ConnectionApiResponse;
-    return {
-      status: 200,
-      etag: responseEtag,
-      body,
-    };
+    const body = (await response.json()) as AccountConnectionApiResponse;
+    return { status: 200, etag: responseEtag, body };
   }
 
-  // For other statuses (401, 403, 4xx, 5xx), return status without body
-  return {
-    status: response.status,
-    etag: responseEtag,
-    body: null,
-  };
+  return { status: response.status, etag: responseEtag, body: null };
 }
 
-/**
- * Fetch connection configuration from the Aluvia API.
- *
- * @param apiBaseUrl - Base URL for the Aluvia API (e.g., 'https://api.aluvia.io/v1')
- * @param token - Connection API token (Bearer token)
- * @param body - Parameters to update
- * @param etag - Optional ETag for conditional request (If-None-Match)
- * @returns GetConnectionResult with status, etag, and body (null on 304)
- */
-export async function setConnection(
+export async function createAccountConnection(
   apiBaseUrl: string,
   token: string,
   body: Object,
 ): Promise<GetConnectionResult> {
-  // Build URL, ensuring no trailing slash duplication
-  const url = `${apiBaseUrl.replace(/\/$/, '')}/connection`;
+  const url = `${apiBaseUrl.replace(/\/$/, '')}/account/connections`;
 
-  // Build headers
   const headers: Record<string, string> = {
     'Authorization': `Bearer ${token}`,
     'Accept': 'application/json',
     'Content-Type': 'application/json',
   };
 
-  // Make the request
   const response = await fetch(url, {
-    method: 'PATCH',
+    method: 'POST',
     headers,
-    body: JSON.stringify(body),
+    body: JSON.stringify(body ?? {}),
   });
 
   const responseEtag = response.headers.get('etag');
 
-  // Handle 304 Not Modified
   if (response.status === 304) {
-    return {
-      status: 304,
-      etag: responseEtag,
-      body: null,
-    };
+    return { status: 304, etag: responseEtag, body: null };
   }
 
-  // For 200 OK, parse the JSON body
-  if (response.status === 200) {
-    const body = (await response.json()) as ConnectionApiResponse;
-    return {
-      status: 200,
-      etag: responseEtag,
-      body,
-    };
+  if (response.status === 200 || response.status === 201) {
+    const resBody = (await response.json()) as AccountConnectionApiResponse;
+    return { status: response.status, etag: responseEtag, body: resBody };
   }
 
-  // For other statuses (401, 403, 4xx, 5xx), return status without body
-  return {
-    status: response.status,
-    etag: responseEtag,
-    body: null,
+  return { status: response.status, etag: responseEtag, body: null };
+}
+
+export async function patchAccountConnection(
+  apiBaseUrl: string,
+  token: string,
+  connectionId: number,
+  body: Object,
+): Promise<GetConnectionResult> {
+  const url = `${apiBaseUrl.replace(/\/$/, '')}/account/connections/${connectionId}`;
+
+  const headers: Record<string, string> = {
+    'Authorization': `Bearer ${token}`,
+    'Accept': 'application/json',
+    'Content-Type': 'application/json',
   };
+
+  const response = await fetch(url, {
+    method: 'PATCH',
+    headers,
+    body: JSON.stringify(body ?? {}),
+  });
+
+  const responseEtag = response.headers.get('etag');
+
+  if (response.status === 304) {
+    return { status: 304, etag: responseEtag, body: null };
+  }
+
+  if (response.status === 200) {
+    const resBody = (await response.json()) as AccountConnectionApiResponse;
+    return { status: 200, etag: responseEtag, body: resBody };
+  }
+
+  return { status: response.status, etag: responseEtag, body: null };
 }

@@ -1,24 +1,24 @@
 // Error classes for Aluvia Client
 
 /**
- * Thrown when the connection token is not provided to AluviaClient.
+ * Thrown when the token is not provided to AluviaClient.
  */
-export class MissingConnectionTokenError extends Error {
+export class MissingTokenError extends Error {
   constructor(message = 'Aluvia connection token is required') {
     super(message);
-    this.name = 'MissingConnectionTokenError';
-    Object.setPrototypeOf(this, MissingConnectionTokenError.prototype);
+    this.name = 'MissingTokenError';
+    Object.setPrototypeOf(this, MissingTokenError.prototype);
   }
 }
 
 /**
  * Thrown when the API returns 401 or 403, indicating the token is invalid.
  */
-export class InvalidConnectionTokenError extends Error {
+export class InvalidTokenError extends Error {
   constructor(message = 'Invalid or expired Aluvia connection token') {
     super(message);
-    this.name = 'InvalidConnectionTokenError';
-    Object.setPrototypeOf(this, InvalidConnectionTokenError.prototype);
+    this.name = 'InvalidTokenError';
+    Object.setPrototypeOf(this, InvalidTokenError.prototype);
   }
 }
 
