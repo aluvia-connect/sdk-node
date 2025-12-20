@@ -33,10 +33,16 @@ export type AluviaClientOptions = {
   apiBaseUrl?: string;
 
   /**
-   * Optional: polling interval for refreshing /user config.
+   * Optional: polling interval for refreshing account connection config.
    * Default: 5000 ms.
    */
   pollIntervalMs?: number;
+
+  /**
+   * Optional: request timeout for API calls made via `client.api`.
+   * Default: 30000 ms.
+   */
+  timeoutMs?: number;
 
   /**
    * Optional: how the client talks to the Aluvia gateway.
@@ -77,39 +83,44 @@ export type AluviaClientOptions = {
    *
    * If omitted, the client will attempt to create a new account connection via:
    *   POST /account/connections
-   * and will fall back to legacy GET /connection if creation is not available.
    */
-  connection_id?: number;
+  connection_id?: string;
 
   /**
-   * Optional: enable smart routing.
+   * Optional: enable client proxy mode.
    *
    * If true: start the local proxy (127.0.0.1:<port>) and route traffic dynamically.
-   * If false (default): do NOT start a local proxy; adapters return remote proxy settings
-   * from the connection API response for direct use by Playwright/Axios/etc.
+   * If false (default): do NOT start a local proxy; adapters return gateway proxy settings
+   * from the account connection API response for direct use by Playwright/Axios/etc.
    */
   smart_routing?: boolean;
 };
 
 /**
- * Represents an active Aluvia Client session.
+ * Represents an active Aluvia Client connection.
  */
-export type AluviaClientSession = {
+export type AluviaClientConnection = {
   /**
-   * Local host where the proxy listens.
-   * Always '127.0.0.1' for MVP.
+   * Proxy host to configure in your client.
+   *
+   * - In client proxy mode (smart_routing: true): this is the local proxy host ('127.0.0.1').
+   * - In gateway mode: this is the Aluvia gateway host (typically 'gateway.aluvia.io').
    */
   host: string;
 
   /**
-   * Local port where the proxy listens.
-   * Either the user-provided localPort, or the OS-assigned free port.
+   * Proxy port to configure in your client.
+   *
+   * - In client proxy mode (smart_routing: true): this is the local proxy port.
+   * - In gateway mode: this is the Aluvia gateway port (typically 8080 or 8443).
    */
   port: number;
 
   /**
-   * Convenience URL for the local proxy.
-   * Example: 'http://127.0.0.1:54321'
+   * Convenience URL for the proxy server endpoint (without embedding credentials).
+   *
+   * - In client proxy mode (smart_routing: true): 'http://127.0.0.1:<port>'
+   * - In gateway mode: '<protocol>://gateway.aluvia.io:<port>'
    *
    * (The local proxy itself is always HTTP; it may tunnel to an HTTP or HTTPS
    * gateway upstream based on gatewayProtocol/gatewayPort.)
@@ -117,8 +128,10 @@ export type AluviaClientSession = {
   url: string;
 
   /**
-   * Convenience accessor for the local proxy URL.
-   * This is always the same value as session.url.
+   * Returns a credential-embedded proxy URL intended for clients that require auth in the URL.
+   *
+   * Note: This value contains secrets (proxy username/password). Avoid logging it or putting it
+   * in places that may be exposed (e.g., process args).
    */
   getUrl(): string;
 

@@ -2,17 +2,13 @@
 
 import type { GatewayProtocol, LogLevel } from './types.js';
 import { Logger } from './logger.js';
-import {
-  getAccountConnection,
-  createAccountConnection,
-  patchAccountConnection,
-} from './httpClient.js';
 import { InvalidApiKeyError, ApiError } from './errors.js';
+import { requestCore } from './api/request.js';
 
 // Config types
 
 /**
- * Raw proxy configuration derived from /connection response and client options.
+ * Raw proxy configuration derived from the account-connection response and client options.
  */
 export type RawProxyConfig = {
   protocol: GatewayProtocol;
@@ -32,10 +28,35 @@ export type ConnectionNetworkConfig = {
   targetGeo: string | null;
   /**
    * ETag returned by the API for this config snapshot (if present).
-   * Used for efficient conditional GET /user polling via If-None-Match.
+   * Used for efficient conditional polling via If-None-Match.
    */
   etag: string | null;
 };
+
+type AccountConnectionData = {
+  id?: string | number;
+  connection_id?: string | number;
+  proxy_username?: string;
+  proxy_password?: string;
+  rules?: string[];
+  session_id?: string | null;
+  target_geo?: string | null;
+};
+
+type AccountConnectionApiResponse = {
+  data?: AccountConnectionData;
+};
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null;
+}
+
+function toAccountConnectionApiResponse(value: unknown): AccountConnectionApiResponse {
+  if (!isRecord(value)) return {};
+  const data = value['data'];
+  if (!isRecord(data)) return {};
+  return { data: data as AccountConnectionData };
+}
 
 /**
  * Options for ConfigManager constructor.
@@ -50,16 +71,27 @@ export type ConfigManagerOptions = {
 
   /**
    * Optional: if provided, use /account/connections/:id.
-   * If omitted, init() will attempt POST /account/connections (then may fall back to legacy /connection).
+   * If omitted, init() will attempt POST /account/connections.
    */
-  connectionId?: number;
+  connectionId?: string;
 };
+
+function normalizeConnectionId(value: unknown): string | null {
+  if (typeof value === 'string') {
+    const trimmed = value.trim();
+    return trimmed.length > 0 ? trimmed : null;
+  }
+  if (typeof value === 'number' && Number.isFinite(value)) {
+    return String(value);
+  }
+  return null;
+}
 
 /**
  * ConfigManager handles fetching and maintaining connection configuration from the Aluvia API.
  *
  * Responsibilities:
- * - Initial fetch of /connection config
+ * - Initial fetch of account connection config
  * - Polling for updates using ETag
  * - Providing current config to ProxyServer
  */
@@ -69,7 +101,8 @@ export class ConfigManager {
   private readonly logger: Logger;
   private readonly options: ConfigManagerOptions;
 
-  private accountConnectionId: number | null = null;
+  private accountConnectionId: string | null = null;
+  private pollInFlight = false;
 
   constructor(options: ConfigManagerOptions) {
     this.options = options;
@@ -77,24 +110,25 @@ export class ConfigManager {
   }
 
   /**
-   * Fetch initial configuration from /connection endpoint.
+   * Fetch initial configuration from the account connections API.
    * Must be called before starting the proxy.
    *
    * @throws InvalidApiKeyError if apiKey is invalid (401/403)
    * @throws ApiError for other API errors
    */
   async init(): Promise<void> {
-    // Prefer account-connections behavior (new SDK semantics), with legacy fallback for compatibility.
-    const hasExplicitId = typeof this.options.connectionId === 'number';
+    // Prefer account-connections behavior (current SDK semantics).
+    const hasExplicitId = typeof this.options.connectionId === 'string' && this.options.connectionId.length > 0;
 
     if (hasExplicitId) {
       this.accountConnectionId = this.options.connectionId ?? null;
       this.logger.info(`Using account connection API (connection id: ${this.accountConnectionId})`);
-      const result = await getAccountConnection(
-        this.options.apiBaseUrl,
-        this.options.apiKey,
-        this.accountConnectionId as number,
-      );
+      const result = await requestCore({
+        apiBaseUrl: this.options.apiBaseUrl,
+        apiKey: this.options.apiKey,
+        method: 'GET',
+        path: `/account/connections/${this.accountConnectionId as string}`,
+      });
 
       if (result.status === 401 || result.status === 403) {
         throw new InvalidApiKeyError(`Authentication failed with status ${result.status}`);
@@ -113,24 +147,27 @@ export class ConfigManager {
     // No connection_id: create an account connection (preferred)
     this.logger.info('No connection_id provided; creating account connection...');
     try {
-      const created = await createAccountConnection(
-        this.options.apiBaseUrl,
-        this.options.apiKey,
-        {},
-      );
+      const created = await requestCore({
+        apiBaseUrl: this.options.apiBaseUrl,
+        apiKey: this.options.apiKey,
+        method: 'POST',
+        path: '/account/connections',
+        body: {},
+      });
 
       if (created.status === 401 || created.status === 403) {
         throw new InvalidApiKeyError(`Authentication failed with status ${created.status}`);
       }
 
       if ((created.status === 200 || created.status === 201) && created.body) {
+        const createdResponse = toAccountConnectionApiResponse(created.body);
         // best-effort extract id for polling/patching
         const maybeId =
-          (created.body as any)?.data?.id ??
-          (created.body as any)?.data?.connection_id ??
+          createdResponse.data?.id ??
+          createdResponse.data?.connection_id ??
           null;
 
-        this.accountConnectionId = typeof maybeId === 'number' ? maybeId : null;
+        this.accountConnectionId = normalizeConnectionId(maybeId);
 
         if (this.accountConnectionId != null) {
           this.logger.info(`Account connection created (connection id: ${this.accountConnectionId})`);
@@ -144,11 +181,11 @@ export class ConfigManager {
         return;
       }
 
-      // If POST not supported, fall back below.
-      this.logger.warn(`Create account connection returned HTTP ${created.status}`);
+      this.logger.warn(
+        `Create account connection returned HTTP ${created.status}; config not loaded`,
+      );
     } catch (e) {
-      // If create failed due to network/5xx/etc, fall back to legacy for compatibility.
-      this.logger.warn('Create account connection failed');
+      this.logger.warn('Create account connection failed; config not loaded', e);
     }
   }
 
@@ -168,7 +205,17 @@ export class ConfigManager {
     );
 
     this.timer = setInterval(async () => {
-      await this.pollOnce();
+      if (this.pollInFlight) {
+        this.logger.debug('Previous poll still running, skipping this poll tick');
+        return;
+      }
+
+      this.pollInFlight = true;
+      try {
+        await this.pollOnce();
+      } finally {
+        this.pollInFlight = false;
+      }
     }, this.options.pollIntervalMs);
   }
 
@@ -193,17 +240,18 @@ export class ConfigManager {
 
   async setConfig(body: Object): Promise<ConnectionNetworkConfig | null> {
     this.logger.debug(`Setting config: ${JSON.stringify(body)}`);
-    if (typeof this.accountConnectionId !== 'number') {
+    if (typeof this.accountConnectionId !== 'string') {
       throw new ApiError('No account connection ID available');
     }
 
     try {
-      const result = await patchAccountConnection(
-          this.options.apiBaseUrl,
-          this.options.apiKey,
-          this.accountConnectionId,
-          body,
-        );
+      const result = await requestCore({
+        apiBaseUrl: this.options.apiBaseUrl,
+        apiKey: this.options.apiKey,
+        method: 'PATCH',
+        path: `/account/connections/${this.accountConnectionId}`,
+        body,
+      });
 
       if (result.status === 200 && result.body) {
         this.config = this.buildConfigFromAny(result.body, result.etag);
@@ -228,18 +276,19 @@ export class ConfigManager {
       this.logger.warn('No config available, skipping poll');
       return;
     }
-    if (typeof this.accountConnectionId !== 'number') {
+    if (typeof this.accountConnectionId !== 'string') {
       this.logger.warn('No account connection ID available, skipping poll');
       return;
     }
 
     try {
-      const result = await getAccountConnection(
-        this.options.apiBaseUrl,
-        this.options.apiKey,
-        this.accountConnectionId,
-        this.config.etag,
-      );
+      const result = await requestCore({
+        apiBaseUrl: this.options.apiBaseUrl,
+        apiKey: this.options.apiKey,
+        method: 'GET',
+        path: `/account/connections/${this.accountConnectionId}`,
+        ifNoneMatch: this.config.etag,
+      });
 
       if (result.status === 304) {
         this.logger.debug('Config unchanged (304 Not Modified)');
@@ -262,73 +311,31 @@ export class ConfigManager {
   /**
    * Build ConnectionNetworkConfig from API response.
    */
-  private buildConfigFromAny(body: any, etag: string | null): ConnectionNetworkConfig {
-    // Legacy shape: { data: { proxy_username, proxy_password, rules, session_id, target_geo } }
-    const legacy = body?.data?.proxy_username && body?.data?.proxy_password;
+  private buildConfigFromAny(body: unknown, etag: string | null): ConnectionNetworkConfig {
+    const response = toAccountConnectionApiResponse(body);
+    const data = response.data;
 
-    if (legacy) {
-      return {
-        rawProxy: {
-          protocol: this.options.gatewayProtocol,
-          host: 'gateway.aluvia.io',
-          port: this.options.gatewayPort,
-          username: body.data.proxy_username,
-          password: body.data.proxy_password,
-        },
-        rules: body.data.rules ?? [],
-        sessionId: body.data.session_id ?? null,
-        targetGeo: body.data.target_geo ?? null,
-        etag,
-      };
-    }
+    const rules: string[] = Array.isArray(data?.rules) ? data.rules : [];
+    const sessionId: string | null = data?.session_id ?? null;
+    const targetGeo: string | null = data?.target_geo ?? null;
 
-    // Account-connections: accept either explicit proxy creds OR a "playwright" object.
-    const data = body?.data ?? {};
+    const username: string | null = data?.proxy_username ?? null;
+    const password: string | null = data?.proxy_password ?? null;
 
-    const rules: string[] = data.rules ?? [];
-    const sessionId: string | null = data.session_id ?? data.sessionId ?? null;
-    const targetGeo: string | null = data.target_geo ?? data.targetGeo ?? null;
-
-    // Prefer explicit proxy creds if present
-    const username: string | null = data.proxy_username ?? data.proxyUsername ?? data.username ?? null;
-    const password: string | null = data.proxy_password ?? data.proxyPassword ?? data.password ?? null;
-
-    // Or accept playwright: { server, username, password }
-    const playwright = data.playwright ?? null;
-
-    const resolvedProtocol: GatewayProtocol = this.options.gatewayProtocol;
-    let resolvedHost: 'gateway.aluvia.io' = 'gateway.aluvia.io';
-    let resolvedPort: number = this.options.gatewayPort;
-    let resolvedUser: string | null = username;
-    let resolvedPass: string | null = password;
-
-    if ((!resolvedUser || !resolvedPass) && playwright?.server) {
-      try {
-        const u = new URL(playwright.server);
-        // host/port from server (credentials never logged)
-        resolvedHost = 'gateway.aluvia.io'; // keep internal invariant for ProxyServer; URL host used only by adapters
-        resolvedPort = u.port ? Number(u.port) : resolvedPort;
-        resolvedUser = playwright.username ?? null;
-        resolvedPass = playwright.password ?? null;
-      } catch {
-        // ignore; will fail below if creds missing
-      }
-    }
-
-    if (!resolvedUser || !resolvedPass) {
+    if (!username || !password) {
       throw new ApiError(
-        'Account connection response missing proxy credentials (proxy_username/proxy_password or playwright.username/password)',
+        'Account connection response missing proxy credentials (data.proxy_username and data.proxy_password are required)',
         500,
       );
     }
 
     return {
       rawProxy: {
-        protocol: resolvedProtocol,
-        host: resolvedHost,
-        port: resolvedPort,
-        username: resolvedUser,
-        password: resolvedPass,
+        protocol: this.options.gatewayProtocol,
+        host: 'gateway.aluvia.io',
+        port: this.options.gatewayPort,
+        username,
+        password,
       },
       rules,
       sessionId,

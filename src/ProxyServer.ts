@@ -1,6 +1,5 @@
 // ProxyServer - Local HTTP proxy using proxy-chain
 
-// @ts-ignore
 import { Server as ProxyChainServer } from 'proxy-chain';
 import type { AddressInfo } from 'net';
 import type { ConfigManager } from './ConfigManager.js';

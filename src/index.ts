@@ -3,6 +3,7 @@
 
 // Public class
 export { AluviaClient } from './AluviaClient.js';
+export { AluviaApi } from './api/AluviaApi.js';
 
 // Public error classes
 export {
@@ -17,6 +18,18 @@ export type {
   GatewayProtocol,
   LogLevel,
   AluviaClientOptions,
-  AluviaClientSession,
+  AluviaClientConnection,
   PlaywrightProxySettings,
 } from './types.js';
+
+export type {
+  Account,
+  AccountUsage,
+  AccountPayment,
+  AccountConnection,
+  AccountConnectionDeleteResult,
+  Geo,
+  SuccessEnvelope,
+  ErrorEnvelope,
+  Envelope,
+} from './api/types.js';

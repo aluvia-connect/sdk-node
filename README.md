@@ -1,15 +1,15 @@
-# @aluvia/aluvia-node
+# @aluvia/aluvia-sdk-node
 
 Local smart proxy for AI agents - Node.js client for Aluvia.
 
 ## Installation
 
 ```bash
-npm install @aluvia/aluvia-node
+npm install @aluvia/aluvia-sdk-node
 # or
-yarn add @aluvia/aluvia-node
+yarn add @aluvia/aluvia-sdk-node
 # or
-pnpm add @aluvia/aluvia-node
+pnpm add @aluvia/aluvia-sdk-node
 ```
 
 ## Requirements
@@ -20,7 +20,7 @@ pnpm add @aluvia/aluvia-node
 
 ```typescript
 import { chromium } from 'playwright';
-import { AluviaClient } from '@aluvia/aluvia-node';
+import { AluviaClient } from '@aluvia/aluvia-sdk-node';
 
 const client = new AluviaClient({
   apiKey: process.env.ALUVIA_API_KEY, // Required: your Aluvia API key
@@ -40,17 +40,36 @@ await page.goto('https://example.com');
 await browser.close();
 ```
 
+## API wrapper
+
+You can call the Aluvia HTTP API directly through the SDK without starting the proxy.
+
+```ts
+import { AluviaClient } from '@aluvia/aluvia-sdk-node';
+
+const client = new AluviaClient({
+  apiKey: process.env.ALUVIA_API_KEY!,
+});
+
+const account = await client.api.account.get();
+const geos = await client.api.geos.list();
+const connections = await client.api.account.connections.list();
+
+// Low-level escape hatch (returns status + etag + body)
+const raw = await client.api.request({ method: 'GET', path: '/account' });
+```
+
 ## Configuration Options
 
 ```typescript
 const client = new AluviaClient({
   // Required: your Aluvia API key
-  apiKey: process.env.ALV_CONNECTION_TOKEN,
+  apiKey: process.env.ALUVIA_API_KEY,
 
   // Optional: specific connection ID to use
-  connection_id: 123, 
+  connection_id: '123',
 
-  // Optional: enable smart routing (default: false)
+  // Optional: enable client proxy mode (default: false)
   smart_routing: true, 
 
   // Optional: base URL for the Aluvia API

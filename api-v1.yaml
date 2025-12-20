@@ -1,0 +1,1040 @@
+openapi: 3.0.3
+info:
+  title: Introduction
+  version: "1.0.0"
+  description: |
+    Aluvia Agent Connect v1 API for managing accounts, proxy connections, and geos.
+
+    All endpoints require a Bearer token:
+      - Account API token (tokenable_type = App\Models\User) for account-level endpoints
+      - Connection API token (tokenable_type = App\Models\SuperProxyAuth) for connection-level endpoints
+
+servers:
+  - url: https://api.aluvia.io/v1
+    description: Production (v1)
+
+tags:
+  - name: Account
+    description: Account-level endpoints (require account token)
+  - name: Connection
+    description: Connection-level endpoints (require connection token)
+  - name: Geos
+    description: Geos (shared endpoint)
+
+security:
+  - bearerAuth: []
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      description: Bearer token authentication (plain token, not JWT)
+
+  responses:
+    Unauthorized:
+      description: Unauthorized - missing or invalid token
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorEnvelope"
+          example:
+            success: false
+            error:
+              code: unauthorized
+              message: Unauthorized
+
+    Forbidden:
+      description: Forbidden - wrong token type for this endpoint
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorEnvelope"
+          example:
+            success: false
+            error:
+              code: forbidden
+              message: Account-level endpoint requires an account API token.
+
+    NotFound:
+      description: Resource not found
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorEnvelope"
+          example:
+            success: false
+            error:
+              code: connection_not_found
+              message: Connection 123 not found.
+
+    ValidationError:
+      description: Validation failed
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorEnvelope"
+          example:
+            success: false
+            error:
+              code: validation_error
+              message: Validation failed.
+              details:
+                start:
+                  - The start field must be an integer.
+
+  schemas:
+    SuccessEnvelope:
+      type: object
+      required: [success, data]
+      properties:
+        success:
+          type: boolean
+          enum: [true]
+        data:
+          type: object
+
+    ErrorObject:
+      type: object
+      properties:
+        code:
+          type: string
+          example: connection_not_found
+        message:
+          type: string
+          example: "Connection 123 not found."
+        details:
+          type: object
+          nullable: true
+
+    ErrorEnvelope:
+      type: object
+      required: [success, error]
+      properties:
+        success:
+          type: boolean
+          enum: [false]
+        error:
+          $ref: "#/components/schemas/ErrorObject"
+
+    AccountData:
+      type: object
+      properties:
+        account_id:
+          type: string
+          description: Numeric account ID as string
+          example: "1"
+        created_at:
+          type: integer
+          description: Unix timestamp
+          example: 1705478400
+        aluvia_username:
+          type: string
+          format: email
+          example: founder@company.com
+        aluvia_password:
+          nullable: true
+          type: string
+          example: null
+        balance_gb:
+          type: number
+          format: float
+          example: 84.25
+        service:
+          type: string
+          example: agent_connect
+        connection_count:
+          type: integer
+          example: 5
+
+    UsageData:
+      type: object
+      properties:
+        account_id:
+          type: string
+          description: Numeric account ID as string
+          example: "1"
+        start:
+          type: integer
+          nullable: true
+          description: Unix timestamp for period start
+          example: 1705478400
+        end:
+          type: integer
+          nullable: true
+          description: Unix timestamp for period end
+          example: 1706083200
+        data_used_gb:
+          type: number
+          format: float
+          example: 15.75
+
+    PaymentItem:
+      type: object
+      properties:
+        id:
+          type: string
+          description: Numeric payment ID as string
+          example: "1"
+        created_at:
+          type: integer
+          example: 1705600000
+        amount_usdc:
+          type: number
+          format: float
+          example: 99.0
+        service:
+          type: string
+          example: agent_connect
+        status:
+          type: string
+          example: paid
+
+    PaymentsData:
+      type: object
+      properties:
+        account_id:
+          type: string
+          description: Numeric account ID as string
+          example: "1"
+        start:
+          type: integer
+          nullable: true
+          example: 1705478400
+        end:
+          type: integer
+          nullable: true
+          example: 1708737600
+        payments:
+          type: array
+          items:
+            $ref: "#/components/schemas/PaymentItem"
+
+    ConnectionListItem:
+      type: object
+      properties:
+        connection_id:
+          type: string
+          description: Numeric connection ID as string
+          example: "1"
+        created_at:
+          type: integer
+          example: 1705478400
+        description:
+          type: string
+          nullable: true
+          example: pricing-scraper-1
+
+    ProxyUrlsRaw:
+      type: object
+      properties:
+        protocol:
+          type: string
+          example: http
+        host:
+          type: string
+          example: gateway.aluvia.io
+        port:
+          type: integer
+          example: 8080
+        username:
+          type: string
+          example: Nkjh78Gh
+        password:
+          type: string
+          example: zxy987abc
+
+    ProxyUrlsPlaywright:
+      type: object
+      properties:
+        server:
+          type: string
+          example: "http://Nkjh78Gh:zxy987abc@gateway.aluvia.io:8080"
+
+    ProxyUrlsPuppeteerAuth:
+      type: object
+      properties:
+        username:
+          type: string
+          example: Nkjh78Gh
+        password:
+          type: string
+          example: zxy987abc
+
+    ProxyUrlsPuppeteer:
+      type: object
+      properties:
+        args:
+          type: array
+          items:
+            type: string
+          example: ["--proxy-server=http://gateway.aluvia.io:8080"]
+        auth:
+          $ref: "#/components/schemas/ProxyUrlsPuppeteerAuth"
+
+    ProxyUrlsPythonRequests:
+      type: object
+      properties:
+        http:
+          type: string
+          example: "http://Nkjh78Gh:zxy987abc@gateway.aluvia.io:8080"
+        https:
+          type: string
+          example: "http://Nkjh78Gh:zxy987abc@gateway.aluvia.io:8080"
+
+    ProxyUrls:
+      type: object
+      properties:
+        raw:
+          $ref: "#/components/schemas/ProxyUrlsRaw"
+        url:
+          type: string
+          example: "http://Nkjh78Gh:zxy987abc@gateway.aluvia.io:8080"
+        playwright:
+          $ref: "#/components/schemas/ProxyUrlsPlaywright"
+        puppeteer:
+          $ref: "#/components/schemas/ProxyUrlsPuppeteer"
+        python_requests:
+          $ref: "#/components/schemas/ProxyUrlsPythonRequests"
+
+    ConnectionFull:
+      type: object
+      description: Full connection representation (account view, includes api_token)
+      properties:
+        connection_id:
+          type: string
+          description: Numeric connection ID as string
+          example: "3"
+        created_at:
+          type: integer
+          example: 1709000000
+        description:
+          type: string
+          nullable: true
+          example: new-pricing-bot-east
+        proxy_username:
+          type: string
+          example: Nkjh78Gh
+        proxy_password:
+          type: string
+          example: zxy987abc
+        api_token:
+          type: string
+          nullable: true
+          example: alv_connection_token_abc123def456
+        rules:
+          type: array
+          items:
+            type: string
+          example: ["*", "-example.com"]
+        session_id:
+          nullable: true
+          type: string
+          example: null
+        target_geo:
+          nullable: true
+          type: string
+          example: us-ny
+        proxy_urls:
+          $ref: "#/components/schemas/ProxyUrls"
+
+    ConnectionSelf:
+      type: object
+      description: Self connection representation (connection view, no api_token)
+      properties:
+        connection_id:
+          type: string
+          description: Numeric connection ID as string
+          example: "1"
+        created_at:
+          type: integer
+          example: 1705478400
+        description:
+          type: string
+          nullable: true
+          example: pricing-scraper-1
+        proxy_username:
+          type: string
+          example: UjvvcnGg
+        proxy_password:
+          type: string
+          example: abc123xyz
+        rules:
+          type: array
+          items:
+            type: string
+          example: ["AUTO", "example.com"]
+        session_id:
+          type: string
+          nullable: true
+          example: session-1234
+        target_geo:
+          type: string
+          nullable: true
+          example: us-ny
+        proxy_urls:
+          $ref: "#/components/schemas/ProxyUrls"
+
+    ConnectionCreateRequest:
+      type: object
+      description: Request body for creating a new connection
+      properties:
+        description:
+          type: string
+          nullable: true
+          maxLength: 255
+        rules:
+          type: array
+          nullable: true
+          items:
+            type: string
+        target_geo:
+          type: string
+          nullable: true
+          maxLength: 50
+        session_id:
+          type: string
+          nullable: true
+          maxLength: 255
+
+    ConnectionUpdateRequest:
+      type: object
+      description: Request body for updating a connection (account view)
+      properties:
+        description:
+          type: string
+          nullable: true
+          maxLength: 255
+        rules:
+          type: array
+          nullable: true
+          items:
+            type: string
+        target_geo:
+          type: string
+          nullable: true
+          maxLength: 50
+        session_id:
+          type: string
+          nullable: true
+          maxLength: 255
+
+    ConnectionSelfUpdateRequest:
+      type: object
+      description: Request body for self-update (connection view, no description allowed)
+      properties:
+        rules:
+          type: array
+          nullable: true
+          items:
+            type: string
+        target_geo:
+          type: string
+          nullable: true
+          maxLength: 50
+        session_id:
+          type: string
+          nullable: true
+          maxLength: 255
+
+    DeletedConnection:
+      type: object
+      properties:
+        connection_id:
+          type: string
+          example: "3"
+        deleted:
+          type: boolean
+          example: true
+
+    GeoItem:
+      type: object
+      properties:
+        code:
+          type: string
+          example: us
+        label:
+          type: string
+          example: United States (any)
+
+  parameters:
+    startParam:
+      name: start
+      in: query
+      description: Unix timestamp for start of range
+      required: false
+      schema:
+        type: integer
+        format: int64
+    endParam:
+      name: end
+      in: query
+      description: Unix timestamp for end of range
+      required: false
+      schema:
+        type: integer
+        format: int64
+    connectionIdParam:
+      name: connection_id
+      in: path
+      required: true
+      description: Numeric connection ID
+      schema:
+        type: string
+        example: "1"
+
+paths:
+  /account:
+    get:
+      tags:
+        - Account
+      summary: Get account metadata and aggregate stats
+      description: Returns account information including balance, service type, and connection count.
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Account metadata
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/SuccessEnvelope"
+                  - type: object
+                    properties:
+                      data:
+                        $ref: "#/components/schemas/AccountData"
+              examples:
+                default:
+                  value:
+                    success: true
+                    data:
+                      account_id: "1"
+                      created_at: 1705478400
+                      aluvia_username: founder@company.com
+                      aluvia_password: null
+                      balance_gb: 84.25
+                      service: agent_connect
+                      connection_count: 5
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+
+  /account/usage:
+    get:
+      tags:
+        - Account
+      summary: Get account usage over time range
+      description: |
+        Returns usage summary (data used in GB) for the account.
+        If start/end are not provided, returns usage for the full available range.
+      parameters:
+        - $ref: "#/components/parameters/startParam"
+        - $ref: "#/components/parameters/endParam"
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Usage summary
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/SuccessEnvelope"
+                  - type: object
+                    properties:
+                      data:
+                        $ref: "#/components/schemas/UsageData"
+              examples:
+                with_data:
+                  summary: Usage with data
+                  value:
+                    success: true
+                    data:
+                      account_id: "1"
+                      start: 1705478400
+                      end: 1706083200
+                      data_used_gb: 15.75
+                no_data:
+                  summary: No usage data
+                  value:
+                    success: true
+                    data:
+                      account_id: "1"
+                      start: null
+                      end: null
+                      data_used_gb: 0.0
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "422":
+          $ref: "#/components/responses/ValidationError"
+
+  /account/payments:
+    get:
+      tags:
+        - Account
+      summary: List payments / top-ups for this account
+      description: Returns a list of payment transactions for the account, optionally filtered by date range.
+      parameters:
+        - $ref: "#/components/parameters/startParam"
+        - $ref: "#/components/parameters/endParam"
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Payments list
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/SuccessEnvelope"
+                  - type: object
+                    properties:
+                      data:
+                        $ref: "#/components/schemas/PaymentsData"
+              examples:
+                default:
+                  value:
+                    success: true
+                    data:
+                      account_id: "1"
+                      start: 1705478400
+                      end: 1708737600
+                      payments:
+                        - id: "1"
+                          created_at: 1705600000
+                          amount_usdc: 99.0
+                          service: agent_connect
+                          status: paid
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "422":
+          $ref: "#/components/responses/ValidationError"
+
+  /account/connections:
+    get:
+      tags:
+        - Account
+      summary: List all connections under this account
+      description: Returns a list of all proxy connections (SuperProxyAuth) belonging to this account.
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Connections list
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/SuccessEnvelope"
+                  - type: object
+                    properties:
+                      data:
+                        type: array
+                        items:
+                          $ref: "#/components/schemas/ConnectionListItem"
+              examples:
+                default:
+                  value:
+                    success: true
+                    data:
+                      - connection_id: "1"
+                        created_at: 1705478400
+                        description: pricing-scraper-1
+                      - connection_id: "2"
+                        created_at: 1705564800
+                        description: inventory-monitor-eu
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+
+    post:
+      tags:
+        - Account
+      summary: Create a new connection under the account
+      description: |
+        Provisions a new proxy connection with generated credentials and API token.
+        Returns the full connection representation including the plaintext api_token (only returned on creation).
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ConnectionCreateRequest"
+            example:
+              description: new-pricing-bot-east
+              rules: ["*", "-example.com"]
+              target_geo: us-ny
+              session_id: null
+      responses:
+        "201":
+          description: Created connection representation
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/SuccessEnvelope"
+                  - type: object
+                    properties:
+                      data:
+                        $ref: "#/components/schemas/ConnectionFull"
+              examples:
+                default:
+                  value:
+                    success: true
+                    data:
+                      connection_id: "3"
+                      created_at: 1709000000
+                      description: new-pricing-bot-east
+                      proxy_username: Nkjh78Gh
+                      proxy_password: zxy987abc
+                      api_token: alv_connection_token_abc123def456
+                      rules: ["*", "-example.com"]
+                      session_id: null
+                      target_geo: us-ny
+                      proxy_urls:
+                        raw:
+                          protocol: http
+                          host: gateway.aluvia.io
+                          port: 8080
+                          username: Nkjh78Gh
+                          password: zxy987abc
+                        url: "http://Nkjh78Gh:zxy987abc@gateway.aluvia.io:8080"
+                        playwright:
+                          server: "http://Nkjh78Gh:zxy987abc@gateway.aluvia.io:8080"
+                        puppeteer:
+                          args: ["--proxy-server=http://gateway.aluvia.io:8080"]
+                          auth:
+                            username: Nkjh78Gh
+                            password: zxy987abc
+                        python_requests:
+                          http: "http://Nkjh78Gh:zxy987abc@gateway.aluvia.io:8080"
+                          https: "http://Nkjh78Gh:zxy987abc@gateway.aluvia.io:8080"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "422":
+          $ref: "#/components/responses/ValidationError"
+
+  /account/connections/{connection_id}:
+    parameters:
+      - $ref: "#/components/parameters/connectionIdParam"
+
+    get:
+      tags:
+        - Account
+      summary: Get a single connection (account view)
+      description: Returns the full representation of a connection including api_token.
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Full connection representation
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/SuccessEnvelope"
+                  - type: object
+                    properties:
+                      data:
+                        $ref: "#/components/schemas/ConnectionFull"
+              examples:
+                default:
+                  value:
+                    success: true
+                    data:
+                      connection_id: "1"
+                      created_at: 1705478400
+                      description: pricing-scraper-1
+                      proxy_username: UjvvcnGg
+                      proxy_password: abc123xyz
+                      api_token: alv_connection_token_abc123
+                      rules: ["AUTO", "example.com"]
+                      session_id: session-1234
+                      target_geo: us-ny
+                      proxy_urls:
+                        raw:
+                          protocol: http
+                          host: gateway.aluvia.io
+                          port: 8080
+                          username: UjvvcnGg
+                          password: abc123xyz
+                        url: "http://UjvvcnGg:abc123xyz@gateway.aluvia.io:8080"
+                        playwright:
+                          server: "http://UjvvcnGg:abc123xyz@gateway.aluvia.io:8080"
+                        puppeteer:
+                          args: ["--proxy-server=http://gateway.aluvia.io:8080"]
+                          auth:
+                            username: UjvvcnGg
+                            password: abc123xyz
+                        python_requests:
+                          http: "http://UjvvcnGg:abc123xyz@gateway.aluvia.io:8080"
+                          https: "http://UjvvcnGg:abc123xyz@gateway.aluvia.io:8080"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+    patch:
+      tags:
+        - Account
+      summary: Update a connection (account view)
+      description: Updates connection properties. Only provided fields are updated.
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ConnectionUpdateRequest"
+            example:
+              description: new-pricing-bot-east-v2
+              rules: ["AUTO", "example.com"]
+              target_geo: us-ny
+              session_id: session-5678
+      responses:
+        "200":
+          description: Updated connection representation
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/SuccessEnvelope"
+                  - type: object
+                    properties:
+                      data:
+                        $ref: "#/components/schemas/ConnectionFull"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "422":
+          $ref: "#/components/responses/ValidationError"
+
+    delete:
+      tags:
+        - Account
+      summary: Delete a connection (account view)
+      description: Permanently deletes a connection and all associated API tokens.
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Deletion result
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/SuccessEnvelope"
+                  - type: object
+                    properties:
+                      data:
+                        $ref: "#/components/schemas/DeletedConnection"
+              examples:
+                default:
+                  value:
+                    success: true
+                    data:
+                      connection_id: "3"
+                      deleted: true
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /connection:
+    get:
+      tags:
+        - Connection
+      summary: Get current authenticated connection (self)
+      description: |
+        Returns the authenticated connection's own configuration.
+        Note: api_token is not included in self view.
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Self representation
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/SuccessEnvelope"
+                  - type: object
+                    properties:
+                      data:
+                        $ref: "#/components/schemas/ConnectionSelf"
+              examples:
+                default:
+                  value:
+                    success: true
+                    data:
+                      connection_id: "1"
+                      created_at: 1705478400
+                      description: pricing-scraper-1
+                      proxy_username: UjvvcnGg
+                      proxy_password: abc123xyz
+                      rules: ["AUTO", "example.com"]
+                      session_id: session-1234
+                      target_geo: us-ny
+                      proxy_urls:
+                        raw:
+                          protocol: http
+                          host: gateway.aluvia.io
+                          port: 8080
+                          username: UjvvcnGg
+                          password: abc123xyz
+                        url: "http://UjvvcnGg:abc123xyz@gateway.aluvia.io:8080"
+                        playwright:
+                          server: "http://UjvvcnGg:abc123xyz@gateway.aluvia.io:8080"
+                        puppeteer:
+                          args: ["--proxy-server=http://gateway.aluvia.io:8080"]
+                          auth:
+                            username: UjvvcnGg
+                            password: abc123xyz
+                        python_requests:
+                          http: "http://UjvvcnGg:abc123xyz@gateway.aluvia.io:8080"
+                          https: "http://UjvvcnGg:abc123xyz@gateway.aluvia.io:8080"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+
+    patch:
+      tags:
+        - Connection
+      summary: Update current authenticated connection (self)
+      description: |
+        Allows a connection to update their own runtime configuration.
+        Note: description cannot be updated via self-update (use account endpoint).
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ConnectionSelfUpdateRequest"
+            example:
+              rules: ["*", "-example.com"]
+              target_geo: us-ca
+              session_id: fresh-session-9999
+      responses:
+        "200":
+          description: Updated self representation
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/SuccessEnvelope"
+                  - type: object
+                    properties:
+                      data:
+                        $ref: "#/components/schemas/ConnectionSelf"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "422":
+          $ref: "#/components/responses/ValidationError"
+
+  /geos:
+    get:
+      tags:
+        - Geos
+      summary: List available geos (shared endpoint)
+      description: |
+        Returns the list of available geographic targeting options.
+        This endpoint is accessible by both account and connection tokens.
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Geos list
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/SuccessEnvelope"
+                  - type: object
+                    properties:
+                      data:
+                        type: array
+                        items:
+                          $ref: "#/components/schemas/GeoItem"
+              examples:
+                default:
+                  value:
+                    success: true
+                    data:
+                      - code: us
+                        label: United States (any)
+                      - code: us-ny
+                        label: United States - New York
+                      - code: us-ca
+                        label: United States - California
+                      - code: us-tx
+                        label: United States - Texas
+                      - code: us-fl
+                        label: United States - Florida
+                      - code: us-il
+                        label: United States - Illinois
+                      - code: us-wa
+                        label: United States - Washington
+                      - code: us-va
+                        label: United States - Virginia
+                      - code: us-ga
+                        label: United States - Georgia
+                      - code: us-ma
+                        label: United States - Massachusetts
+                      - code: us-pa
+                        label: United States - Pennsylvania
+                      - code: us-oh
+                        label: United States - Ohio
+                      - code: us-nc
+                        label: United States - North Carolina
+                      - code: us-nj
+                        label: United States - New Jersey
+                      - code: us-az
+                        label: United States - Arizona
+                      - code: us-co
+                        label: United States - Colorado
+                      - code: gb
+                        label: United Kingdom
+                      - code: de
+                        label: Germany
+                      - code: fr
+                        label: France
+                      - code: nl
+                        label: Netherlands
+                      - code: jp
+                        label: Japan
+                      - code: au
+                        label: Australia
+                      - code: ca
+                        label: Canada
+                      - code: sg
+                        label: Singapore
+                      - code: in
+                        label: India
+                      - code: br
+                        label: Brazil
+        "401":
+          $ref: "#/components/responses/Unauthorized"
