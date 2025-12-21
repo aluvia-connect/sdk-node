@@ -69,8 +69,9 @@ const client = new AluviaClient({
   // Optional: specific connection ID to use
   connection_id: '123',
 
-  // Optional: enable client proxy mode (default: false)
-  smart_routing: true, 
+  // Optional: enable local proxy mode (default: true)
+  // Set to false to run in gateway mode (no local proxy).
+  local_proxy: true,
 
   // Optional: base URL for the Aluvia API
   // Default: 'https://api.aluvia.io/v1'

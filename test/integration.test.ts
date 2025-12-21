@@ -47,7 +47,7 @@ describe('AluviaClient', () => {
     const client = new AluviaClient({
       apiKey: 'test-api-key',
       logLevel: 'silent',
-      smart_routing: true,
+      local_proxy: true,
     });
 
     const url = 'http://127.0.0.1:54321';
@@ -78,11 +78,11 @@ describe('AluviaClient', () => {
     assert.strictEqual((client as any).started, false);
   });
 
-  test('connection adapters use REMOTE proxy when smart_routing is false (default)', async () => {
+  test('connection adapters use REMOTE proxy when local_proxy is false', async () => {
     const client = new AluviaClient({
       apiKey: 'test-api-key',
       logLevel: 'silent',
-      // smart_routing omitted => false
+      local_proxy: false,
     });
 
     (client as any).configManager.init = async () => {};
@@ -128,6 +128,7 @@ describe('AluviaClient', () => {
     const client = new AluviaClient({
       apiKey: 'test-api-key',
       logLevel: 'silent',
+      local_proxy: false,
     });
 
     (client as any).configManager.init = async () => {};
@@ -141,11 +142,10 @@ describe('AluviaClient', () => {
     await assert.rejects(() => client.start(), ApiError);
   });
 
-  test('connection adapters use LOCAL proxy when smart_routing is true', async () => {
+  test('connection adapters use LOCAL proxy by default (local_proxy default true)', async () => {
     const client = new AluviaClient({
       apiKey: 'test-api-key',
       logLevel: 'silent',
-      smart_routing: true,
     });
 
     const url = 'http://127.0.0.1:54321';

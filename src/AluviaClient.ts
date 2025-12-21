@@ -28,8 +28,8 @@ export class AluviaClient {
       throw new MissingApiKeyError('Aluvia apiKey is required');
     }
 
-    const smart_routing = options.smart_routing ?? false;
-    this.options = { ...options, smart_routing };
+    const local_proxy = options.local_proxy ?? true;
+    this.options = { ...options, local_proxy };
 
     const connectionId = (() => {
       if (options.connection_id == null) return undefined;
@@ -71,7 +71,8 @@ export class AluviaClient {
    * Start the Aluvia Client connection:
    * - Fetch initial account connection config from Aluvia.
    * - Start polling for config updates.
-   * - Start a local HTTP(S) proxy on 127.0.0.1:<localPort or free port>.
+   * - If local_proxy is enabled (default): start a local HTTP proxy on 127.0.0.1:<localPort or free port>.
+   * - If local_proxy is disabled: do NOT start a local proxy; adapters use gateway proxy settings.
    *
    * Returns the active connection with host/port/url and a stop() method.
    */
@@ -81,13 +82,13 @@ export class AluviaClient {
       return this.connection;
     }
 
-    const smartRoutingEnabled = this.options.smart_routing === true;
+    const localProxyEnabled = this.options.local_proxy === true;
 
     // Fetch initial configuration (may throw InvalidApiKeyError or ApiError)
     await this.configManager.init();
 
     // Gateway mode cannot function without proxy credentials/config, so fail fast.
-    if (!smartRoutingEnabled && !this.configManager.getConfig()) {
+    if (!localProxyEnabled && !this.configManager.getConfig()) {
       throw new ApiError(
         'Failed to load account connection config; cannot start in gateway mode without proxy credentials',
         500,
@@ -96,8 +97,8 @@ export class AluviaClient {
 
     this.configManager.startPolling();
 
-    if (!smartRoutingEnabled) {
-      this.logger.debug('client proxy mode disabled — local proxy will not start');
+    if (!localProxyEnabled) {
+      this.logger.debug('local_proxy disabled — local proxy will not start');
 
       let nodeAgent: ReturnType<typeof createNodeProxyAgent> | null = null;
 
@@ -172,7 +173,7 @@ export class AluviaClient {
       return connection;
     }
 
-    // smart_routing === true
+    // local_proxy === true
     const { host, port, url } = await this.proxyServer.start(this.options.localPort);
 
     let nodeAgent: ReturnType<typeof createNodeProxyAgent> | null = null;
@@ -222,7 +223,7 @@ export class AluviaClient {
     }
 
     // Only stop proxy if it was potentially started.
-    if (this.options.smart_routing) {
+    if (this.options.local_proxy) {
       await this.proxyServer.stop();
     }
     this.configManager.stopPolling();

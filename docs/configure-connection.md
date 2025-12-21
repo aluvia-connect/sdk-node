@@ -1,5 +1,8 @@
 
-# Configure a connection session ID
+# Configure a connection 
+
+
+## Update session ID
 
 
 ```ts
@@ -7,7 +10,7 @@ import { chromium } from 'playwright-core';
 import { AluviaClient } from '@aluvia/aluvia-sdk-node';
 
 //New connection, gateway mode
-const client = new AluviaClient({ apiKey: process.env.ALUVIA_API_KEY! });
+const client = new AluviaClient({ apiKey: process.env.ALUVIA_API_KEY!, local_proxy: false });
 const connection = await client.start();
 
 //Update connection's session ID
@@ -34,3 +37,6 @@ await browser.close();
 //Stop client
 await client.stop();
 ```
+
+
+## Update routing rules
