@@ -27,27 +27,21 @@ const client = new AluviaClient({
 });
 const connection = await client.start();
 
+//Update connection's session ID
+await client.updateSessionId('id1');
+
 // Launch Playwright
 const browser = await chromium.launch({
   proxy: connection.asPlaywright(),
 });
 
-//Automation sequence
-async function runOnce() {
-  // Use a new browser context so updated session settings take effect cleanly.
-  const context = await browser.newContext();
-  const page = await context.newPage();
-  await page.goto('https://ipconfig.io/json');
-  await context.close();
-}
-
-//Update connection's session ID
-await client.updateSessionId('my-session-id1');
-await runOnce();
+const context = await browser.newContext();
+const page = await context.newPage();
+await page.goto('https://ipconfig.io/json');
 
 //Change session ID 
-await client.updateSessionId('my-session-id2');
-await runOnce();
+await client.updateSessionId('id2');
+await page.goto('https://ipconfig.io/json');
 
 await browser.close();
 
@@ -61,7 +55,9 @@ await connection.close();
 ```ts
 import { AluviaClient } from '@aluvia/sdk';
 
-const client = new AluviaClient({ apiKey: process.env.ALUVIA_API_KEY! });
+const client = new AluviaClient({ 
+  apiKey: process.env.ALUVIA_API_KEY! 
+});
 const connection = await client.start();
 
 // Proxy everything except example.com

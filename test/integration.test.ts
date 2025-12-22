@@ -249,6 +249,7 @@ describe('AluviaClient', () => {
     const p2 = client.start();
 
     // Unblock init so startup can proceed.
+    // @ts-ignore
     resolveInit?.();
 
     const [c1, c2] = await Promise.all([p1, p2]);

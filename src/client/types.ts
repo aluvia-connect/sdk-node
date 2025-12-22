@@ -196,9 +196,11 @@ export type AluviaClientConnection = {
     };
   };
 
+
   /**
    * undici proxy dispatcher (for undici fetch / undici clients).
    */
+  // @ts-ignore
   asUndiciDispatcher(): import('undici').Dispatcher;
 
   /**
