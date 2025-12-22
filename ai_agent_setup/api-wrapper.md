@@ -86,7 +86,7 @@ Error behavior:
 ### API-only usage (no proxy)
 
 ```ts
-import { AluviaApi } from '@aluvia/aluvia-sdk-node';
+import { AluviaApi } from '@aluvia/sdk';
 
 const api = new AluviaApi({
   apiKey: process.env.ALUVIA_API_KEY!,
@@ -105,7 +105,7 @@ const fresh = await api.account.connections.get(connection.id ?? '', { etag: '"p
 ### Using the API wrapper from `AluviaClient` (still no proxy required)
 
 ```ts
-import { AluviaClient } from '@aluvia/aluvia-sdk-node';
+import { AluviaClient } from '@aluvia/sdk';
 
 const client = new AluviaClient({
   apiKey: process.env.ALUVIA_API_KEY!,
@@ -119,7 +119,7 @@ const connections = await client.api.account.connections.list();
 
 ```ts
 import { chromium } from 'playwright';
-import { AluviaClient } from '@aluvia/aluvia-sdk-node';
+import { AluviaClient } from '@aluvia/sdk';
 
 const client = new AluviaClient({
   apiKey: process.env.ALUVIA_API_KEY!,

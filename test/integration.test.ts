@@ -2,9 +2,9 @@
 
 import { test, mock, describe, beforeEach, afterEach } from 'node:test';
 import assert from 'node:assert';
-import { AluviaClient } from '../src/AluviaClient.js';
+import { AluviaClient } from '../src/client/AluviaClient.js';
 import { requestCore } from '../src/api/request.js';
-import { ConfigManager } from '../src/ConfigManager.js';
+import { ConfigManager } from '../src/client/ConfigManager.js';
 import { AluviaApi } from '../src/api/AluviaApi.js';
 import {
   MissingApiKeyError,
@@ -12,8 +12,8 @@ import {
   ApiError,
   ProxyStartError,
 } from '../src/errors.js';
-import { matchPattern, shouldProxy } from '../src/rules.js';
-import { Logger } from '../src/logger.js';
+import { matchPattern, shouldProxy } from '../src/client/rules.js';
+import { Logger } from '../src/client/logger.js';
 
 describe('AluviaClient', () => {
   afterEach(() => {
@@ -51,9 +51,12 @@ describe('AluviaClient', () => {
     });
 
     const url = 'http://127.0.0.1:54321';
+    let pollingStarted = false;
 
     (client as any).configManager.init = async () => {};
-    (client as any).configManager.startPolling = () => {};
+    (client as any).configManager.startPolling = () => {
+      pollingStarted = true;
+    };
     (client as any).configManager.stopPolling = () => {};
     (client as any).proxyServer.start = async () => ({
       host: '127.0.0.1',
@@ -63,16 +66,37 @@ describe('AluviaClient', () => {
     (client as any).proxyServer.stop = async () => {};
 
     const connection = await client.start();
+    assert.strictEqual(pollingStarted, true);
 
     assert.strictEqual(connection.url, url);
     assert.strictEqual(connection.getUrl(), url);
     assert.deepStrictEqual(connection.asPlaywright(), { server: url });
     assert.deepStrictEqual(connection.asPuppeteer(), [`--proxy-server=${url}`]);
 
-    const agentA = connection.asNodeAgent();
-    const agentB = connection.asNodeAgent();
-    assert.ok(agentA);
-    assert.strictEqual(agentA, agentB);
+    const agentsA = connection.asNodeAgents();
+    const agentsB = connection.asNodeAgents();
+    assert.ok(agentsA.http);
+    assert.ok(agentsA.https);
+    assert.strictEqual(agentsA, agentsB);
+
+    const axiosCfg = connection.asAxiosConfig();
+    assert.strictEqual(axiosCfg.proxy, false);
+    assert.strictEqual(axiosCfg.httpAgent, agentsA.http);
+    assert.strictEqual(axiosCfg.httpsAgent, agentsA.https);
+
+    const gotOpts = connection.asGotOptions();
+    assert.strictEqual(gotOpts.agent.http, agentsA.http);
+    assert.strictEqual(gotOpts.agent.https, agentsA.https);
+
+    const dispatcherA = connection.asUndiciDispatcher();
+    const dispatcherB = connection.asUndiciDispatcher();
+    assert.ok(dispatcherA);
+    assert.strictEqual(dispatcherA, dispatcherB);
+
+    const fetchA = connection.asUndiciFetch();
+    const fetchB = connection.asUndiciFetch();
+    assert.strictEqual(typeof fetchA, 'function');
+    assert.strictEqual(fetchA, fetchB);
 
     await connection.close();
     assert.strictEqual((client as any).started, false);
@@ -86,7 +110,9 @@ describe('AluviaClient', () => {
     });
 
     (client as any).configManager.init = async () => {};
-    (client as any).configManager.startPolling = () => {};
+    (client as any).configManager.startPolling = () => {
+      throw new Error('configManager.startPolling should not be called in gateway mode');
+    };
     (client as any).configManager.stopPolling = () => {};
     // Ensure local proxy never starts
     (client as any).proxyServer.start = async () => {
@@ -119,6 +145,25 @@ describe('AluviaClient', () => {
     assert.deepStrictEqual(connection.asPuppeteer(), ['--proxy-server=http://gateway.aluvia.io:8080']);
     assert.strictEqual(typeof connection.getUrl(), 'string');
     assert.ok(connection.getUrl().includes('gateway.aluvia.io:8080'));
+
+    const agents = connection.asNodeAgents();
+    assert.ok(agents.http);
+    assert.ok(agents.https);
+
+    const axiosCfg = connection.asAxiosConfig();
+    assert.strictEqual(axiosCfg.proxy, false);
+    assert.strictEqual(axiosCfg.httpAgent, agents.http);
+    assert.strictEqual(axiosCfg.httpsAgent, agents.https);
+
+    const gotOpts = connection.asGotOptions();
+    assert.strictEqual(gotOpts.agent.http, agents.http);
+    assert.strictEqual(gotOpts.agent.https, agents.https);
+
+    const dispatcher = connection.asUndiciDispatcher();
+    assert.ok(dispatcher);
+
+    const fetchFn = connection.asUndiciFetch();
+    assert.strictEqual(typeof fetchFn, 'function');
 
     await connection.close();
     assert.strictEqual((client as any).started, false);
@@ -166,6 +211,54 @@ describe('AluviaClient', () => {
     assert.deepStrictEqual(connection.asPlaywright(), { server: url });
 
     await connection.close();
+  });
+
+  test('start() is concurrency-safe: concurrent calls share one in-flight startup', async () => {
+    const client = new AluviaClient({
+      apiKey: 'test-api-key',
+      logLevel: 'silent',
+      local_proxy: true,
+    });
+
+    const url = 'http://127.0.0.1:54321';
+
+    let initCalls = 0;
+    let pollingStarts = 0;
+    let proxyStarts = 0;
+
+    let resolveInit: (() => void) | null = null;
+    const initGate = new Promise<void>((res) => {
+      resolveInit = res;
+    });
+
+    (client as any).configManager.init = async () => {
+      initCalls += 1;
+      await initGate;
+    };
+    (client as any).configManager.startPolling = () => {
+      pollingStarts += 1;
+    };
+    (client as any).configManager.stopPolling = () => {};
+    (client as any).proxyServer.start = async () => {
+      proxyStarts += 1;
+      return { host: '127.0.0.1', port: 54321, url };
+    };
+    (client as any).proxyServer.stop = async () => {};
+
+    const p1 = client.start();
+    const p2 = client.start();
+
+    // Unblock init so startup can proceed.
+    resolveInit?.();
+
+    const [c1, c2] = await Promise.all([p1, p2]);
+
+    assert.strictEqual(initCalls, 1);
+    assert.strictEqual(pollingStarts, 1);
+    assert.strictEqual(proxyStarts, 1);
+    assert.strictEqual(c1, c2);
+
+    await c1.close();
   });
 });
 
@@ -258,6 +351,81 @@ describe('ConfigManager polling', () => {
 
   afterEach(() => {
     globalThis.fetch = originalFetch;
+  });
+
+  test('init() throws in strict mode when create connection fails (prevents silent direct routing)', async () => {
+    globalThis.fetch = (async () => {
+      return new Response(
+        JSON.stringify({ success: false, error: { code: 'server_error', message: 'boom' } }),
+        { status: 500, headers: { 'Content-Type': 'application/json' } },
+      );
+    }) as any;
+
+    const mgr = new ConfigManager({
+      apiKey: 'test-api-key',
+      apiBaseUrl: 'https://api.aluvia.io/v1',
+      pollIntervalMs: 5000,
+      gatewayProtocol: 'http',
+      gatewayPort: 8080,
+      logLevel: 'silent',
+      strict: true,
+    });
+
+    await assert.rejects(
+      () => mgr.init(),
+      (err: any) => err instanceof ApiError && err.statusCode === 500,
+    );
+  });
+
+  test('setConfig() throws on non-2xx (no silent failure)', async () => {
+    globalThis.fetch = (async () => {
+      return new Response(
+        JSON.stringify({ success: false, error: { code: 'server_error', message: 'nope' } }),
+        { status: 500, headers: { 'Content-Type': 'application/json' } },
+      );
+    }) as any;
+
+    const mgr = new ConfigManager({
+      apiKey: 'test-api-key',
+      apiBaseUrl: 'https://api.aluvia.io/v1',
+      pollIntervalMs: 5000,
+      gatewayProtocol: 'http',
+      gatewayPort: 8080,
+      logLevel: 'silent',
+      connectionId: '123',
+      strict: true,
+    });
+
+    (mgr as any).accountConnectionId = '123';
+
+    await assert.rejects(
+      () => mgr.setConfig({ rules: ['*'] }),
+      (err: any) => err instanceof ApiError && err.statusCode === 500,
+    );
+  });
+
+  test('setConfig() throws InvalidApiKeyError on 403', async () => {
+    globalThis.fetch = (async () => {
+      return new Response(
+        JSON.stringify({ success: false, error: { code: 'forbidden', message: 'Forbidden' } }),
+        { status: 403, headers: { 'Content-Type': 'application/json' } },
+      );
+    }) as any;
+
+    const mgr = new ConfigManager({
+      apiKey: 'test-api-key',
+      apiBaseUrl: 'https://api.aluvia.io/v1',
+      pollIntervalMs: 5000,
+      gatewayProtocol: 'http',
+      gatewayPort: 8080,
+      logLevel: 'silent',
+      connectionId: '123',
+      strict: true,
+    });
+
+    (mgr as any).accountConnectionId = '123';
+
+    await assert.rejects(() => mgr.setConfig({ rules: ['*'] }), InvalidApiKeyError);
   });
 
   test('pollOnce sends If-None-Match and treats 304 as no update', async () => {

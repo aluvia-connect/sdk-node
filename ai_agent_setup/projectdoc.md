@@ -1,6 +1,6 @@
-# Aluvia SDK (`@aluvia/aluvia-sdk-node`) — Technical Project Doc (refactored)
+# Aluvia SDK (`@aluvia/sdk`) — Technical Project Doc (refactored)
 
-This repository implements **`@aluvia/aluvia-sdk-node`**, a small Node.js SDK for automation workloads (“agents”) that need outbound HTTP(S) traffic to go either:
+This repository implements **`@aluvia/sdk`**, a small Node.js SDK for automation workloads (“agents”) that need outbound HTTP(S) traffic to go either:
 
 - **Direct to the destination**, or
 - **Via the Aluvia gateway proxy** (host is currently **hardcoded** to `gateway.aluvia.io`)
@@ -22,8 +22,8 @@ This doc focuses on **what the code actually does today**. If you change public 
 - Modes: client proxy vs gateway
 - Control plane: config management (`ConfigManager`)
 - Data plane: local proxy (`ProxyServer`)
-- Rules engine (`rules.ts`)
-- Adapter layer (`adapters.ts`)
+- Rules engine (`src/client/rules.ts`)
+- Adapter layer (`src/client/adapters.ts`)
 - API wrapper (`AluviaApi`)
 - Error model (`errors.ts`)
 - Security and operational notes
@@ -62,13 +62,14 @@ Public exports live in `src/index.ts`:
 
 ### `new AluviaClient(options)`
 
-Key options (`src/types.ts`):
+Key options (`src/client/types.ts`):
 
 - **`apiKey`** (required): used as `Authorization: Bearer <apiKey>`.
   - Important: this SDK uses **account endpoints** (`/account/...`), so the token must be an **account API token** (see `api-v1.yaml` for token types).
 - **`connection_id`** (optional): if provided, config is fetched via `GET /account/connections/:id`.
   - If omitted, the SDK attempts `POST /account/connections` to create one.
 - **`local_proxy`** (optional, default `true`): mode toggle.
+- **`strict`** (optional, default `true`): fail fast if the SDK cannot load/create an initial config (prevents “silent direct routing”).
 - **`apiBaseUrl`** (optional, default `https://api.aluvia.io/v1`)
 - **`pollIntervalMs`** (optional, default `5000`)
 - **`timeoutMs`** (optional, default `30000`) — **applies to `client.api` only** (see gotchas).
@@ -84,10 +85,9 @@ Key options (`src/types.ts`):
 Startup does:
 
 - `ConfigManager.init()` (loads initial config)
-- starts polling (`ConfigManager.startPolling()`)
 - then:
-  - **client proxy mode**: starts local proxy and returns connection pointing at it
-  - **gateway mode**: returns connection pointing at gateway settings (no local proxy)
+  - **client proxy mode**: starts polling (`ConfigManager.startPolling()`), starts local proxy, and returns connection pointing at it
+  - **gateway mode**: returns connection pointing at gateway settings (**no local proxy, no continuous polling**)
 
 ### `await connection.close()` / `await connection.stop()`
 
@@ -95,13 +95,13 @@ Both are aliases and:
 
 - stop polling
 - stop the local proxy (client proxy mode only)
-- destroy the SDK’s cached Node proxy agent (if created via `asNodeAgent()`)
+- destroy the SDK’s cached Node proxy agents / undici dispatcher (if created via `asNodeAgents()` / `asUndiciDispatcher()`)
 
 ### `await client.stop()`
 
 Stops polling and stops the local proxy if it may have been started.
 
-Note: `client.stop()` does **not** have access to the connection’s cached Node proxy agent (that cache lives inside the connection object), so `connection.close()` is the best “full cleanup” API.
+Note: `client.stop()` does **not** have access to the connection’s cached proxy adapters (agents/dispatchers) because those caches live inside the connection object, so `connection.close()` is the best “full cleanup” API.
 
 ### `await client.updateRules(rules: string[])`
 
@@ -184,7 +184,9 @@ If `connection_id` is omitted:
 - POSTs to create a connection
 - on 401/403: throws `InvalidApiKeyError`
 - on 200/201: stores config and best-effort extracts `id` / `connection_id` for future polling/PATCH
-- on any other status/error: **logs a warning and returns without throwing**
+- on any other status/error:
+  - **strict (default)**: throws `ApiError` (fail fast)
+  - **strict=false**: logs a warning and returns without config
 
 ### Polling behavior (ETag)
 
@@ -196,8 +198,8 @@ If `connection_id` is omitted:
 Important behavior:
 
 - Polling requires **both** `this.config` and `this.accountConnectionId`.
-- If create failed during `init()` (no config snapshot), polling will log “No config available, skipping poll” and will not self-heal.
-  - In client proxy mode, you will still get a local proxy, but it will route **direct** forever until you restart with a valid config.
+- If `init()` returned without config (only possible when `strict=false`), polling will log “No config available, skipping poll” and will not self-heal.
+  - In client proxy mode with `strict=false`, you can still get a local proxy, but it will route **direct** forever until you restart with a valid config.
 
 ### Config parsing requirements
 
@@ -246,7 +248,7 @@ Because config is read per request, routing updates apply without restarting the
 
 ---
 
-## Rules engine (`rules.ts`)
+## Rules engine (`src/client/rules.ts`)
 
 Routing is hostname-only. Supported patterns:
 
@@ -265,19 +267,23 @@ Decision semantics (`shouldProxy(hostname, rules)`):
 
 ---
 
-## Adapter layer (`adapters.ts`)
+## Adapter layer (`src/client/adapters.ts`)
 
 The SDK provides formatters for common tooling shapes:
 
 - `asPlaywright()` → `{ server, username?, password? }`
 - `asPuppeteer()` → `['--proxy-server=<server>']` (no embedded creds)
 - `asSelenium()` → `'--proxy-server=<server>'` (no embedded creds)
-- `asNodeAgent()` → `HttpsProxyAgent` (credentialed in gateway mode)
+- `asNodeAgents()` → `{ http, https }` proxy agents (credentialed in gateway mode)
+- `asAxiosConfig()` → `{ proxy: false, httpAgent, httpsAgent }`
+- `asGotOptions()` → `{ agent: { http, https } }`
+- `asUndiciDispatcher()` → `undici.Dispatcher` (proxy-aware dispatcher)
+- `asUndiciFetch()` → `fetch` function powered by `undici` with per-request `dispatcher`
 
 Important caveats:
 
 - Chromium (Puppeteer/Selenium) often needs separate “proxy auth” handling when creds are required; this SDK only provides the server arg and does not implement browser-level auth flows.
-- Node’s built-in `fetch()` (undici) does not directly accept a Node `Agent` in the same way as Axios/got; `asNodeAgent()` is for libraries that accept Node agents.
+- Node’s built-in `fetch()` does not accept Node `Agent` proxy configuration; use `asUndiciFetch()` / `asUndiciDispatcher()` for proxying fetch via `undici`.
 
 ---
 
@@ -370,7 +376,7 @@ High-level helpers live in `src/api/account.ts` and `src/api/geos.ts`. They call
   - `timeoutMs` currently affects **`client.api` only**; config/control-plane calls use `requestCore()` defaults.
 - **Reliability**:
   - Polling failures keep last-known config.
-  - If `init()` cannot create a connection (when `connection_id` is omitted), polling will not recover because there is no initial snapshot and no id.
+  - With `strict=false`, if `init()` cannot create a connection (when `connection_id` is omitted), polling will not recover because there is no initial snapshot and no id.
 
 ---
 

@@ -2,7 +2,7 @@
 // Main entry point
 
 // Public class
-export { AluviaClient } from './AluviaClient.js';
+export { AluviaClient } from './client/AluviaClient.js';
 export { AluviaApi } from './api/AluviaApi.js';
 
 // Public error classes
@@ -20,7 +20,7 @@ export type {
   AluviaClientOptions,
   AluviaClientConnection,
   PlaywrightProxySettings,
-} from './types.js';
+} from './client/types.js';
 
 export type {
   Account,

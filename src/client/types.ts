@@ -94,6 +94,18 @@ export type AluviaClientOptions = {
    * from the account connection API response for direct use by Playwright/Axios/etc.
    */
   local_proxy?: boolean;
+
+  /**
+   * Optional: strict startup behavior.
+   *
+   * If true (default): `client.start()` throws if the SDK cannot load/create
+   * an account connection config (proxy credentials + rules). This prevents
+   * "silent direct routing" where the local proxy starts but bypasses Aluvia.
+   *
+   * If false: in client proxy mode, the SDK may still start a local proxy and
+   * route traffic directly when config is unavailable.
+   */
+  strict?: boolean;
 };
 
 /**
@@ -151,9 +163,51 @@ export type AluviaClientConnection = {
   asSelenium(): string;
 
   /**
-   * Node HTTP(S) proxy agent adapter for Axios, got, and node-fetch.
+   * Node HTTP(S) proxy agents for libraries that accept per-protocol agents.
+   *
+   * Useful for: Axios, got, node-fetch (legacy).
    */
-  asNodeAgent(): import('node:http').Agent;
+  asNodeAgents(): {
+    http: import('node:http').Agent;
+    https: import('node:http').Agent;
+  };
+
+  /**
+   * Axios adapter config.
+   *
+   * Returns `{ proxy: false, httpAgent, httpsAgent }` so Axios uses the provided agents
+   * instead of its built-in proxy option handling.
+   */
+  asAxiosConfig(): {
+    proxy: false;
+    httpAgent: import('node:http').Agent;
+    httpsAgent: import('node:http').Agent;
+  };
+
+  /**
+   * got adapter options.
+   *
+   * Returns `{ agent: { http, https } }`.
+   */
+  asGotOptions(): {
+    agent: {
+      http: import('node:http').Agent;
+      https: import('node:http').Agent;
+    };
+  };
+
+  /**
+   * undici proxy dispatcher (for undici fetch / undici clients).
+   */
+  asUndiciDispatcher(): import('undici').Dispatcher;
+
+  /**
+   * Returns a `fetch` function powered by undici that uses the proxy dispatcher per request.
+   *
+   * Note: Node's built-in `fetch()` does not accept a Node `Agent`. Use this for proxying
+   * fetch calls through Aluvia.
+   */
+  asUndiciFetch(): typeof fetch;
 
   /**
    * Stop this proxy instance:
@@ -167,3 +221,5 @@ export type AluviaClientConnection = {
    */
   close(): Promise<void>;
 };
+
+

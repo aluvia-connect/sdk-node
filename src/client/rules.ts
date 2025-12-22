@@ -126,3 +126,4 @@ export function shouldProxy(hostname: string, rules: string[]): boolean {
   return false;
 }
 
+

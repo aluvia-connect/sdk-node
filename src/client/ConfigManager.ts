@@ -2,8 +2,8 @@
 
 import type { GatewayProtocol, LogLevel } from './types.js';
 import { Logger } from './logger.js';
-import { InvalidApiKeyError, ApiError } from './errors.js';
-import { requestCore } from './api/request.js';
+import { InvalidApiKeyError, ApiError } from '../errors.js';
+import { requestCore } from '../api/request.js';
 
 // Config types
 
@@ -74,6 +74,15 @@ export type ConfigManagerOptions = {
    * If omitted, init() will attempt POST /account/connections.
    */
   connectionId?: string;
+
+  /**
+   * Optional: strict behavior (default true).
+   *
+   * If true, init() throws when it cannot load/create a usable config.
+   * If false, init() may return without config (client proxy mode can still start
+   * and will route direct until config becomes available).
+   */
+  strict?: boolean;
 };
 
 function normalizeConnectionId(value: unknown): string | null {
@@ -100,6 +109,7 @@ export class ConfigManager {
   private timer: NodeJS.Timeout | null = null;
   private readonly logger: Logger;
   private readonly options: ConfigManagerOptions;
+  private readonly strict: boolean;
 
   private accountConnectionId: string | null = null;
   private pollInFlight = false;
@@ -107,6 +117,7 @@ export class ConfigManager {
   constructor(options: ConfigManagerOptions) {
     this.options = options;
     this.logger = new Logger(options.logLevel);
+    this.strict = options.strict ?? true;
   }
 
   /**
@@ -123,12 +134,19 @@ export class ConfigManager {
     if (hasExplicitId) {
       this.accountConnectionId = this.options.connectionId ?? null;
       this.logger.info(`Using account connection API (connection id: ${this.accountConnectionId})`);
-      const result = await requestCore({
-        apiBaseUrl: this.options.apiBaseUrl,
-        apiKey: this.options.apiKey,
-        method: 'GET',
-        path: `/account/connections/${this.accountConnectionId as string}`,
-      });
+      let result: Awaited<ReturnType<typeof requestCore>>;
+      try {
+        result = await requestCore({
+          apiBaseUrl: this.options.apiBaseUrl,
+          apiKey: this.options.apiKey,
+          method: 'GET',
+          path: `/account/connections/${this.accountConnectionId as string}`,
+        });
+      } catch (err) {
+        if (err instanceof ApiError) throw err;
+        const msg = err instanceof Error ? err.message : String(err);
+        throw new ApiError(`Failed to fetch account connection config: ${msg}`);
+      }
 
       if (result.status === 401 || result.status === 403) {
         throw new InvalidApiKeyError(`Authentication failed with status ${result.status}`);
@@ -162,10 +180,7 @@ export class ConfigManager {
       if ((created.status === 200 || created.status === 201) && created.body) {
         const createdResponse = toAccountConnectionApiResponse(created.body);
         // best-effort extract id for polling/patching
-        const maybeId =
-          createdResponse.data?.id ??
-          createdResponse.data?.connection_id ??
-          null;
+        const maybeId = createdResponse.data?.id ?? createdResponse.data?.connection_id ?? null;
 
         this.accountConnectionId = normalizeConnectionId(maybeId);
 
@@ -181,11 +196,26 @@ export class ConfigManager {
         return;
       }
 
-      this.logger.warn(
-        `Create account connection returned HTTP ${created.status}; config not loaded`,
-      );
-    } catch (e) {
-      this.logger.warn('Create account connection failed; config not loaded', e);
+      const msg = `Failed to create account connection config: HTTP ${created.status}`;
+      if (this.strict) {
+        throw new ApiError(msg, created.status);
+      }
+      this.logger.warn(`${msg}; continuing without config (strict=false)`);
+      return;
+    } catch (err) {
+      if (err instanceof InvalidApiKeyError) throw err;
+      if (err instanceof ApiError) {
+        if (this.strict) throw err;
+        this.logger.warn('Create account connection failed; continuing without config (strict=false)', err);
+        return;
+      }
+
+      const msg = err instanceof Error ? err.message : String(err);
+      if (this.strict) {
+        throw new ApiError(`Failed to create account connection config: ${msg}`);
+      }
+      this.logger.warn('Create account connection failed; continuing without config (strict=false)', err);
+      return;
     }
   }
 
@@ -201,7 +231,7 @@ export class ConfigManager {
     }
 
     this.logger.info(
-      `Starting config polling every ${this.options.pollIntervalMs}ms`
+      `Starting config polling every ${this.options.pollIntervalMs}ms`,
     );
 
     this.timer = setInterval(async () => {
@@ -244,27 +274,33 @@ export class ConfigManager {
       throw new ApiError('No account connection ID available');
     }
 
+    let result: Awaited<ReturnType<typeof requestCore>>;
     try {
-      const result = await requestCore({
+      result = await requestCore({
         apiBaseUrl: this.options.apiBaseUrl,
         apiKey: this.options.apiKey,
         method: 'PATCH',
         path: `/account/connections/${this.accountConnectionId}`,
         body,
       });
-
-      if (result.status === 200 && result.body) {
-        this.config = this.buildConfigFromAny(result.body, result.etag);
-        this.logger.debug('Configuration updated from API');
-        this.logger.debug('New config summary:', this.redactConfig(this.config));
-        return this.config;
-      }
-
-      this.logger.warn(`Poll returned unexpected status ${result.status}`);
-    } catch (error) {
-      this.logger.warn('Poll failed, keeping existing config:', error);
+    } catch (err) {
+      if (err instanceof ApiError) throw err;
+      const msg = err instanceof Error ? err.message : String(err);
+      throw new ApiError(`Failed to update account connection config: ${msg}`);
     }
-    return this.config;
+
+    if (result.status === 401 || result.status === 403) {
+      throw new InvalidApiKeyError(`Authentication failed with status ${result.status}`);
+    }
+
+    if (result.status === 200 && result.body) {
+      this.config = this.buildConfigFromAny(result.body, result.etag);
+      this.logger.debug('Configuration updated from API');
+      this.logger.debug('New config summary:', this.redactConfig(this.config));
+      return this.config;
+    }
+
+    throw new ApiError(`Failed to update account connection config: HTTP ${result.status}`, result.status);
   }
 
   /**
@@ -361,3 +397,5 @@ export class ConfigManager {
     };
   }
 }
+
+

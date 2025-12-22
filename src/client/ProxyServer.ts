@@ -5,7 +5,7 @@ import type { AddressInfo } from 'net';
 import type { ConfigManager } from './ConfigManager.js';
 import type { LogLevel } from './types.js';
 import { Logger } from './logger.js';
-import { ProxyStartError } from './errors.js';
+import { ProxyStartError } from '../errors.js';
 import { shouldProxy } from './rules.js';
 
 /**
@@ -26,6 +26,9 @@ export class ProxyServer {
   private readonly configManager: ConfigManager;
   private readonly logger: Logger;
   private readonly bindHost = '127.0.0.1';
+  private static readonly NO_CONFIG_WARN_INTERVAL_MS = 30_000;
+  private lastNoConfigWarnAt = 0;
+  private suppressedNoConfigWarnCount = 0;
 
   constructor(
     configManager: ConfigManager,
@@ -68,8 +71,7 @@ export class ProxyServer {
       this.logger.info(`Proxy server listening on ${info.url}`);
       return info;
     } catch (error) {
-      const message =
-        error instanceof Error ? error.message : 'Unknown error';
+      const message = error instanceof Error ? error.message : 'Unknown error';
       throw new ProxyStartError(`Failed to start proxy server: ${message}`);
     }
   }
@@ -104,7 +106,22 @@ export class ProxyServer {
     const config = this.configManager.getConfig();
 
     if (!config) {
-      this.logger.warn('No config available, bypassing proxy (direct)');
+      const now = Date.now();
+      const shouldWarn =
+        this.lastNoConfigWarnAt === 0 ||
+        now - this.lastNoConfigWarnAt >= ProxyServer.NO_CONFIG_WARN_INTERVAL_MS;
+
+      if (shouldWarn) {
+        const suppressed = this.suppressedNoConfigWarnCount;
+        this.suppressedNoConfigWarnCount = 0;
+        this.lastNoConfigWarnAt = now;
+
+        const suffix = suppressed > 0 ? ` (suppressed ${suppressed} similar warnings)` : '';
+        this.logger.warn(`No config available, bypassing proxy (direct)${suffix}`);
+      } else {
+        this.suppressedNoConfigWarnCount += 1;
+        this.logger.debug('No config available, bypassing proxy (direct)');
+      }
       return undefined;
     }
 
@@ -160,4 +177,5 @@ export class ProxyServer {
     return null;
   }
 }
+
 

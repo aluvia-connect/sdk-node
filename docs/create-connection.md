@@ -1,23 +1,23 @@
-# How to create a new connection 
+---
+title: Create Connection
+description: Create a new connection using Aluiva client
+sidebar_position: 0
+
+---
 
 
+# How to create a new connection
+
+You can create new connections at any time. There are two ways to create a connection. 
 
 
-You can create and configure a connection before starting the Aluvia Client. 
-If you don't create a connection, the Aluiva client will automatically create on for you. 
+## Using Aluvia API
 
-
-There are two ways to create a connection. 
-
-## Using API
-
-
-The Aluiva SDK provides convient Node and Python wrappers for the Aluvia API. Alternatively you can use the API directly. 
-
+The Aluvia SDK provides a convenient Node wrapper for the Aluvia API. 
 
 ```ts
 import { chromium } from 'playwright-core';
-import { AluviaApi } from '@aluvia/aluvia-sdk-node';
+import { AluviaApi } from '@aluvia/sdk';
 
 //Create new connection via API
 const api = new AluviaApi({ apiKey: process.env.ALUVIA_API_KEY! });
@@ -25,9 +25,11 @@ const connection = await api.account.connections.create({});
 
 ```
 
+Alternatively you can use the API directly. See the API reference docs.
 
-## Using Alluvia dashbaord
 
-1. Sign into dashbaord
+## Using Aluvia dashboard
+
+1. Sign into the dashboard
 2. Go to "Connections" page
 3. Click "create new"

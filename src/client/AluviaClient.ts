@@ -3,10 +3,19 @@
 import type { AluviaClientConnection, AluviaClientOptions, GatewayProtocol, LogLevel } from './types.js';
 import { ConfigManager } from './ConfigManager.js';
 import { ProxyServer } from './ProxyServer.js';
-import { ApiError, MissingApiKeyError } from './errors.js';
-import { createNodeProxyAgent, toPlaywrightProxySettings, toPuppeteerArgs, toSeleniumArgs } from './adapters.js';
+import { ApiError, MissingApiKeyError } from '../errors.js';
+import {
+  createNodeProxyAgents,
+  createUndiciDispatcher,
+  createUndiciFetch,
+  toAxiosConfig,
+  toGotOptions,
+  toPlaywrightProxySettings,
+  toPuppeteerArgs,
+  toSeleniumArgs,
+} from './adapters.js';
 import { Logger } from './logger.js';
-import { AluviaApi } from './api/AluviaApi.js';
+import { AluviaApi } from '../api/AluviaApi.js';
 
 /**
  * AluviaClient is the main entry point for the Aluvia Client.
@@ -19,6 +28,7 @@ export class AluviaClient {
   private readonly proxyServer: ProxyServer;
   private connection: AluviaClientConnection | null = null;
   private started = false;
+  private startPromise: Promise<AluviaClientConnection> | null = null;
   private readonly logger: Logger;
   public readonly api: AluviaApi;
 
@@ -29,7 +39,8 @@ export class AluviaClient {
     }
 
     const local_proxy = options.local_proxy ?? true;
-    this.options = { ...options, local_proxy };
+    const strict = options.strict ?? true;
+    this.options = { ...options, local_proxy, strict };
 
     const connectionId = (() => {
       if (options.connection_id == null) return undefined;
@@ -55,6 +66,7 @@ export class AluviaClient {
       gatewayPort,
       logLevel,
       connectionId,
+      strict,
     });
 
     // Create ProxyServer
@@ -82,6 +94,12 @@ export class AluviaClient {
       return this.connection;
     }
 
+    // If a start is already in-flight, await it.
+    if (this.startPromise) {
+      return this.startPromise;
+    }
+
+    this.startPromise = (async () => {
     const localProxyEnabled = this.options.local_proxy === true;
 
     // Fetch initial configuration (may throw InvalidApiKeyError or ApiError)
@@ -95,12 +113,12 @@ export class AluviaClient {
       );
     }
 
-    this.configManager.startPolling();
-
     if (!localProxyEnabled) {
       this.logger.debug('local_proxy disabled — local proxy will not start');
 
-      let nodeAgent: ReturnType<typeof createNodeProxyAgent> | null = null;
+      let nodeAgents: ReturnType<typeof createNodeProxyAgents> | null = null;
+      let undiciDispatcher: ReturnType<typeof createUndiciDispatcher> | null = null;
+      let undiciFetchFn: ReturnType<typeof createUndiciFetch> | null = null;
 
       const cfgAtStart = this.configManager.getConfig();
       const serverUrlAtStart = (() => {
@@ -109,10 +127,48 @@ export class AluviaClient {
         return `${protocol}://${host}:${port}`;
       })();
 
+      const getProxyUrlForHttpClients = () => {
+        const cfg = this.configManager.getConfig();
+        if (!cfg) return 'http://127.0.0.1';
+        const { protocol, host, port, username, password } = cfg.rawProxy;
+        return `${protocol}://${encodeURIComponent(username)}:${encodeURIComponent(password)}@${host}:${port}`;
+      };
+
+      const getNodeAgents = () => {
+        if (!nodeAgents) {
+          nodeAgents = createNodeProxyAgents(getProxyUrlForHttpClients());
+        }
+        return nodeAgents;
+      };
+
+      const getUndiciDispatcher = () => {
+        if (!undiciDispatcher) {
+          undiciDispatcher = createUndiciDispatcher(getProxyUrlForHttpClients());
+        }
+        return undiciDispatcher;
+      };
+
+      const closeUndiciDispatcher = async () => {
+        const d: any = undiciDispatcher as any;
+        if (!d) return;
+        try {
+          if (typeof d.close === 'function') {
+            await d.close();
+          } else if (typeof d.destroy === 'function') {
+            d.destroy();
+          }
+        } finally {
+          undiciDispatcher = null;
+        }
+      };
+
       const stop = async () => {
         this.configManager.stopPolling();
-        nodeAgent?.destroy?.();
-        nodeAgent = null;
+        nodeAgents?.http?.destroy?.();
+        nodeAgents?.https?.destroy?.();
+        nodeAgents = null;
+        await closeUndiciDispatcher();
+        undiciFetchFn = null;
         this.connection = null;
         this.started = false;
       };
@@ -150,19 +206,15 @@ export class AluviaClient {
           const { protocol, host, port } = cfg.rawProxy;
           return toSeleniumArgs(`${protocol}://${host}:${port}`);
         },
-        asNodeAgent: () => {
-          if (!nodeAgent) {
-            const cfg = this.configManager.getConfig();
-            if (!cfg) {
-              nodeAgent = createNodeProxyAgent('http://127.0.0.1');
-            } else {
-              const { protocol, host, port, username, password } = cfg.rawProxy;
-              nodeAgent = createNodeProxyAgent(
-                `${protocol}://${encodeURIComponent(username)}:${encodeURIComponent(password)}@${host}:${port}`,
-              );
-            }
+        asNodeAgents: () => getNodeAgents(),
+        asAxiosConfig: () => toAxiosConfig(getNodeAgents()),
+        asGotOptions: () => toGotOptions(getNodeAgents()),
+        asUndiciDispatcher: () => getUndiciDispatcher(),
+        asUndiciFetch: () => {
+          if (!undiciFetchFn) {
+            undiciFetchFn = createUndiciFetch(getUndiciDispatcher());
           }
-          return nodeAgent;
+          return undiciFetchFn;
         },
         stop,
         close: stop,
@@ -173,16 +225,52 @@ export class AluviaClient {
       return connection;
     }
 
+    // In client proxy mode, keep config fresh so routing decisions update without restarting.
+    this.configManager.startPolling();
+
     // local_proxy === true
     const { host, port, url } = await this.proxyServer.start(this.options.localPort);
 
-    let nodeAgent: ReturnType<typeof createNodeProxyAgent> | null = null;
+    let nodeAgents: ReturnType<typeof createNodeProxyAgents> | null = null;
+    let undiciDispatcher: ReturnType<typeof createUndiciDispatcher> | null = null;
+    let undiciFetchFn: ReturnType<typeof createUndiciFetch> | null = null;
+
+    const getNodeAgents = () => {
+      if (!nodeAgents) {
+        nodeAgents = createNodeProxyAgents(url);
+      }
+      return nodeAgents;
+    };
+
+    const getUndiciDispatcher = () => {
+      if (!undiciDispatcher) {
+        undiciDispatcher = createUndiciDispatcher(url);
+      }
+      return undiciDispatcher;
+    };
+
+    const closeUndiciDispatcher = async () => {
+      const d: any = undiciDispatcher as any;
+      if (!d) return;
+      try {
+        if (typeof d.close === 'function') {
+          await d.close();
+        } else if (typeof d.destroy === 'function') {
+          d.destroy();
+        }
+      } finally {
+        undiciDispatcher = null;
+      }
+    };
 
     const stop = async () => {
       await this.proxyServer.stop();
       this.configManager.stopPolling();
-      nodeAgent?.destroy?.();
-      nodeAgent = null;
+      nodeAgents?.http?.destroy?.();
+      nodeAgents?.https?.destroy?.();
+      nodeAgents = null;
+      await closeUndiciDispatcher();
+      undiciFetchFn = null;
       this.connection = null;
       this.started = false;
     };
@@ -196,11 +284,15 @@ export class AluviaClient {
       asPlaywright: () => toPlaywrightProxySettings(url),
       asPuppeteer: () => toPuppeteerArgs(url),
       asSelenium: () => toSeleniumArgs(url),
-      asNodeAgent: () => {
-        if (!nodeAgent) {
-          nodeAgent = createNodeProxyAgent(url);
+      asNodeAgents: () => getNodeAgents(),
+      asAxiosConfig: () => toAxiosConfig(getNodeAgents()),
+      asGotOptions: () => toGotOptions(getNodeAgents()),
+      asUndiciDispatcher: () => getUndiciDispatcher(),
+      asUndiciFetch: () => {
+        if (!undiciFetchFn) {
+          undiciFetchFn = createUndiciFetch(getUndiciDispatcher());
         }
-        return nodeAgent;
+        return undiciFetchFn;
       },
       stop,
       close: stop,
@@ -210,6 +302,13 @@ export class AluviaClient {
     this.started = true;
 
     return connection;
+    })();
+
+    try {
+      return await this.startPromise;
+    } finally {
+      this.startPromise = null;
+    }
   }
 
   /**
@@ -218,6 +317,15 @@ export class AluviaClient {
    * - Stop config polling.
    */
   async stop(): Promise<void> {
+    // If start is in-flight, wait for it to settle so we don't leave a running proxy behind.
+    if (this.startPromise) {
+      try {
+        await this.startPromise;
+      } catch {
+        // ignore startup errors; if startup failed there is nothing to stop
+      }
+    }
+
     if (!this.started) {
       return;
     }
@@ -236,7 +344,7 @@ export class AluviaClient {
    * @param rules
    */
   async updateRules(rules: Array<string>): Promise<void> {
-    await this.configManager.setConfig({rules: rules});
+    await this.configManager.setConfig({ rules: rules });
   }
 
   /**
@@ -244,6 +352,8 @@ export class AluviaClient {
    * @param sessionId
    */
   async updateSessionId(sessionId: string): Promise<void> {
-    await this.configManager.setConfig({session_id: sessionId});
+    await this.configManager.setConfig({ session_id: sessionId });
   }
 }
+
+
