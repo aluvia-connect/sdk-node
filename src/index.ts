@@ -2,12 +2,13 @@
 // Main entry point
 
 // Public class
-export { AluviaClient } from './AluviaClient.js';
+export { AluviaClient } from './client/AluviaClient.js';
+export { AluviaApi } from './api/AluviaApi.js';
 
 // Public error classes
 export {
-  MissingConnectionTokenError,
-  InvalidConnectionTokenError,
+  MissingApiKeyError,
+  InvalidApiKeyError,
   ApiError,
   ProxyStartError,
 } from './errors.js';
@@ -17,6 +18,18 @@ export type {
   GatewayProtocol,
   LogLevel,
   AluviaClientOptions,
-  AluviaClientSession,
+  AluviaClientConnection,
   PlaywrightProxySettings,
-} from './types.js';
+} from './client/types.js';
+
+export type {
+  Account,
+  AccountUsage,
+  AccountPayment,
+  AccountConnection,
+  AccountConnectionDeleteResult,
+  Geo,
+  SuccessEnvelope,
+  ErrorEnvelope,
+  Envelope,
+} from './api/types.js';

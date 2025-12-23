@@ -1,274 +1,248 @@
-# @aluvia/aluvia-node
+## @aluvia/sdk
 
-Local smart proxy for AI agents - Node.js client for Aluvia.
+**Aluvia SDK** is a Node.js library for AI agents and automation workloads that need outbound HTTP(S) traffic to go either:
 
-## Installation
+- **Direct to the destination**, or
+- **Via the Aluvia gateway proxy**
+
+The SDK’s main feature is **`AluviaClient`**: it can run a **local proxy** on `127.0.0.1` (recommended) and decide **per request** whether to route direct or through Aluvia based on hostname rules.
+
+If you don’t want a local proxy process, the SDK also supports **gateway mode**, where it returns upstream gateway proxy settings directly.
+
+### Requirements
+
+- Node.js **18+**
+
+### Install
 
 ```bash
-npm install @aluvia/aluvia-node
-# or
-yarn add @aluvia/aluvia-node
-# or
-pnpm add @aluvia/aluvia-node
+npm install @aluvia/sdk
 ```
 
-## Requirements
+### Quick start (Playwright)
 
-- Node.js 18 or higher
-
-## Quick Start
-
-```typescript
-import { AluviaClient } from '@aluvia/aluvia-node';
-
-const client = new AluviaClient({
-  token: process.env.ALV_CONNECTION_TOKEN, // Required: your Aluvia connection API token
-});
-
-const session = await client.start();
-
-console.log(`Proxy listening on ${session.url}`);
-// session.host -> '127.0.0.1'
-// session.port -> 54321 (or auto-assigned port)
-// session.url  -> 'http://127.0.0.1:54321'
-
-// When done:
-await session.stop();
-```
-
-## How It Works
-
-1. **Authentication**: The client authenticates with Aluvia using your connection API token
-2. **Configuration**: Fetches proxy credentials, routing rules, and targeting settings from `/connection`
-3. **Local Proxy**: Starts a local HTTP proxy on `127.0.0.1`
-4. **Smart Routing**: Routes requests through Aluvia or directly based on your rules
-5. **Live Updates**: Polls for configuration changes using ETag for efficiency
-
-## Configuration Options
-
-```typescript
-const client = new AluviaClient({
-  // Required: your Aluvia connection API token
-  token: process.env.ALV_CONNECTION_TOKEN,
-
-  // Optional: base URL for the Aluvia API
-  // Default: 'https://api.aluvia.io/v1'
-  apiBaseUrl: 'https://api.aluvia.io/v1',
-
-  // Optional: polling interval for refreshing config
-  // Default: 5000 (ms)
-  pollIntervalMs: 5000,
-
-  // Optional: protocol for connecting to Aluvia gateway
-  // Default: 'http'
-  gatewayProtocol: 'http', // or 'https'
-
-  // Optional: port for Aluvia gateway
-  // Default: 8080 for 'http', 8443 for 'https'
-  gatewayPort: 8080,
-
-  // Optional: local port for the proxy to listen on
-  // Default: auto-assigned by OS
-  localPort: 54321,
-
-  // Optional: logging verbosity
-  // Default: 'info'
-  logLevel: 'silent', // 'silent' | 'info' | 'debug'
-});
-```
-
-## API Reference
-
-### AluviaClient
-
-#### `new AluviaClient(options)`
-
-Creates a new client instance.
-
-**Options:**
-- `token` (required): Your Aluvia connection API token
-- `apiBaseUrl` (optional): Aluvia API base URL
-- `pollIntervalMs` (optional): Config polling interval in milliseconds
-- `gatewayProtocol` (optional): `'http'` or `'https'`
-- `gatewayPort` (optional): Gateway port number
-- `localPort` (optional): Local proxy port
-- `logLevel` (optional): `'silent'` | `'info'` | `'debug'`
-
-#### `client.start(): Promise<AluviaClientSession>`
-
-Starts the proxy session:
-1. Fetches initial configuration from Aluvia
-2. Starts the local proxy server
-3. Begins polling for configuration updates
-
-Returns a session object with:
-- `host`: Local host (`'127.0.0.1'`)
-- `port`: Local port number
-- `url`: Full proxy URL (`'http://127.0.0.1:<port>'`)
-- `stop()`: Async function to stop this session
-
-#### `client.stop(): Promise<void>`
-
-Stops the proxy server and configuration polling.
-
-### AluviaClientSession
-
-#### `session.stop(): Promise<void>`
-
-Stops this specific session, closing the proxy server and stopping config polling.
-
-## Error Handling
-
-```typescript
-import { 
-  AluviaClient,
-  MissingUserTokenError,
-  InvalidUserTokenError,
-  ApiError,
-  ProxyStartError 
-} from '@aluvia/aluvia-node';
-
-try {
-  const client = new AluviaClient({ token: '' });
-} catch (error) {
-  if (error instanceof MissingUserTokenError) {
-    console.error('Token is required');
-  }
-}
-
-try {
-  await client.start();
-} catch (error) {
-  if (error instanceof InvalidUserTokenError) {
-    console.error('Invalid or expired token');
-  } else if (error instanceof ApiError) {
-    console.error(`API error: ${error.message} (status: ${error.statusCode})`);
-  } else if (error instanceof ProxyStartError) {
-    console.error('Failed to start proxy server');
-  }
-}
-```
-
-## Usage with Playwright
-
-```typescript
+```ts
 import { chromium } from 'playwright';
-import { AluviaClient } from '@aluvia/aluvia-node';
+import { AluviaClient } from '@aluvia/sdk';
 
 const client = new AluviaClient({
-  token: process.env.ALV_CONNECTION_TOKEN,
+  apiKey: process.env.ALUVIA_API_KEY!,
 });
 
-const session = await client.start();
+const connection = await client.start(); // idempotent
 
 const browser = await chromium.launch({
-  proxy: session.asPlaywright(),
+  proxy: connection.asPlaywright(),
 });
 
-const page = await browser.newPage();
-await page.goto('https://example.com');
-
-// ... do your automation
-
-await browser.close();
-await session.stop();
+try {
+  const page = await browser.newPage();
+  await page.goto('https://example.com');
+} finally {
+  await browser.close();
+  await connection.close(); // recommended cleanup
+}
 ```
 
-## Usage with Axios
+## Using `AluviaClient` (the main SDK)
 
-```typescript
+### Mental model
+
+`AluviaClient` has two planes:
+
+- **Control plane**: loads an account connection from Aluvia (`/account/connections/...`) and optionally polls for updates.
+- **Data plane**: (optional) runs a local proxy and routes requests **by hostname**.
+
+### Modes
+
+#### Client proxy mode (default, recommended)
+
+Set `local_proxy: true` (or omit it).
+
+- **Starts a local proxy** on `http://127.0.0.1:<port>` (binds to loopback only).
+- Your tooling (Playwright/Puppeteer/Axios/etc.) points at the **local proxy** (safe to share; no embedded credentials).
+- The SDK decides per request whether to go **direct** or through the Aluvia gateway based on hostname rules.
+- The SDK **polls** for config changes; routing updates apply without restarting your browser/client.
+
+In this mode:
+
+- `connection.url` is always `http://127.0.0.1:<port>`
+- `connection.getUrl()` is the same value (no secrets)
+
+#### Gateway mode (no local proxy)
+
+Set `local_proxy: false`.
+
+- **Does not** start a local proxy.
+- `connection.url` is the gateway server URL (no embedded credentials).
+- `connection.getUrl()` embeds proxy credentials (**contains secrets**).
+
+In this mode, some tools (notably Chromium via Puppeteer/Selenium) may require you to implement **proxy authentication** handling yourself.
+
+## The `connection` object (adapters you plug into tools)
+
+After `const connection = await client.start()`, you get a connection with:
+
+- **`asPlaywright()`** → `{ server, username?, password? }`
+- **`asPuppeteer()`** → `['--proxy-server=<server>']` (no embedded creds)
+- **`asSelenium()`** → `'--proxy-server=<server>'` (no embedded creds)
+- **`asNodeAgents()`** → `{ http, https }` Node agents (useful for Axios/got)
+- **`asAxiosConfig()`** → `{ proxy: false, httpAgent, httpsAgent }`
+- **`asGotOptions()`** → `{ agent: { http, https } }`
+- **`asUndiciDispatcher()`** → `undici.Dispatcher`
+- **`asUndiciFetch()`** → `fetch` (powered by `undici`)
+
+### Proxying `fetch` (Node 18+)
+
+Node’s built-in `fetch()` does not accept Node proxy agents; use the undici-powered adapter:
+
+```ts
+import { AluviaClient } from '@aluvia/sdk';
+
+const client = new AluviaClient({ apiKey: process.env.ALUVIA_API_KEY! });
+const connection = await client.start();
+
+const fetch = connection.asUndiciFetch();
+
+try {
+  const res = await fetch('https://ipconfig.io/json');
+  console.log(await res.json());
+} finally {
+  await connection.close();
+}
+```
+
+### Proxying Axios
+
+```ts
 import axios from 'axios';
-import { AluviaClient } from '@aluvia/aluvia-node';
+import { AluviaClient } from '@aluvia/sdk';
 
-const client = new AluviaClient({
-  token: process.env.ALV_CONNECTION_TOKEN,
-});
+const client = new AluviaClient({ apiKey: process.env.ALUVIA_API_KEY! });
+const connection = await client.start();
 
-const session = await client.start();
-
-const agent = session.asNodeAgent();
-
-const response = await axios.get('https://api.example.com/data', {
-  proxy: false, // Disable Axios' own proxy handling
-  httpAgent: agent,
-  httpsAgent: agent,
-});
-
-await session.stop();
+try {
+  const res = await axios.get('https://ipconfig.io/json', connection.asAxiosConfig());
+  console.log(res.data);
+} finally {
+  await connection.close();
+}
 ```
 
-## Usage with got
+## Routing rules (hostname-only)
 
-```typescript
-import got from 'got';
-import { AluviaClient } from '@aluvia/aluvia-node';
+Routing decisions are **hostname-based** (not full URL path).
 
-const client = new AluviaClient({
-  token: process.env.ALV_CONNECTION_TOKEN,
-});
+Patterns supported:
 
-const session = await client.start();
+- `*` matches any hostname
+- `example.com` exact match
+- `*.example.com` matches any subdomain depth (but not `example.com` itself)
+- `google.*` matches `google.com`, `google.co.uk`, etc.
 
-const agent = session.asNodeAgent();
+Rule semantics:
 
-const response = await got('https://api.example.com/data', {
-  agent: {
-    http: agent,
-    https: agent,
-  },
-});
+- Empty `[]` → proxy nothing
+- Rules prefixed with `-` are excludes and win over includes
+- If positive rules include `*`, proxy everything not excluded
+- Rule `AUTO` is ignored (placeholder)
 
-await session.stop();
+### Updating rules at runtime
+
+```ts
+import { AluviaClient } from '@aluvia/sdk';
+
+const client = new AluviaClient({ apiKey: process.env.ALUVIA_API_KEY! });
+const connection = await client.start();
+
+// Proxy everything except example.com:
+await client.updateRules(['*', '-example.com']);
+
+await connection.close();
 ```
 
-## Usage with node-fetch
+### Sticky sessions / IP rotation (session id)
 
-```typescript
-import fetch from 'node-fetch';
-import { AluviaClient } from '@aluvia/aluvia-node';
-
-const client = new AluviaClient({
-  token: process.env.ALV_CONNECTION_TOKEN,
-});
-
-const session = await client.start();
-
-const response = await fetch('https://api.example.com/data', {
-  agent: session.asNodeAgent(),
-});
-
-await session.stop();
+```ts
+await client.updateSessionId('my-session-id');
 ```
 
-## Usage with Puppeteer
+## Lifecycle and cleanup
 
-```typescript
-import puppeteer from 'puppeteer';
-import { AluviaClient } from '@aluvia/aluvia-node';
+- **`await client.start()`** is idempotent (and concurrency-safe).
+- Prefer **`await connection.close()`** for full cleanup:
+  - stops polling
+  - stops the local proxy (client proxy mode only)
+  - releases cached Node agents / undici dispatcher created by adapters
+- **`await client.stop()`** stops polling + local proxy, but cannot release adapter caches if you’ve already created them (those caches live on the connection).
 
-const client = new AluviaClient({
-  token: process.env.ALV_CONNECTION_TOKEN,
+## Configuration
+
+```ts
+new AluviaClient({
+  apiKey: process.env.ALUVIA_API_KEY!, // required (Bearer token)
+
+  connection_id: process.env.ALUVIA_CONNECTION_ID, // optional; otherwise the SDK POSTs /account/connections
+
+  local_proxy: true, // optional, default true
+  strict: true, // optional, default true
+
+  apiBaseUrl: 'https://api.aluvia.io/v1', // optional
+  pollIntervalMs: 5000, // optional (client proxy mode polling)
+  timeoutMs: 30_000, // optional (affects client.api only)
+
+  gatewayProtocol: 'http', // optional ('http' | 'https'), default 'http'
+  gatewayPort: 8080, // optional (defaults to 8080 for http, 8443 for https)
+  localPort: 0, // optional; local proxy port (0/undefined = OS picks)
+
+  logLevel: 'info', // optional ('silent' | 'info' | 'debug')
 });
-
-const session = await client.start();
-
-const browser = await puppeteer.launch({
-  args: session.asPuppeteer(),
-});
-
-// ... do your automation ...
-
-await browser.close();
-await session.stop();
 ```
 
-## Generic URL
+### `strict` vs `strict=false`
 
-```typescript
-const url = session.getUrl(); // 'http://127.0.0.1:<port>'
+- With **`strict: true`** (default), `start()` fails fast if the SDK can’t load/create initial connection config. This prevents “silent direct routing”.
+- With **`strict: false`**, the SDK may still start a local proxy (client proxy mode), but if it has no config it will route **direct** and polling will not self-heal until restart.
+
+## Errors and troubleshooting
+
+- **`MissingApiKeyError`**: you passed an empty `apiKey`.
+- **`InvalidApiKeyError`**: Aluvia API returned 401/403. These SDK calls use **`/account/...`** endpoints, so you must use an **account API token** (not a per-connection token).
+- **`ProxyStartError`**: local proxy failed to bind/listen (e.g., port in use).
+- **`ApiError`**: timeouts, non-2xx API responses, or malformed API payloads.
+
+## Security notes
+
+- Treat **`apiKey`** as a secret.
+- In **gateway mode** (`local_proxy: false`), **`connection.getUrl()` contains credentials**. Don’t log it, don’t put it into process args, and don’t send it to telemetry.
+- In client proxy mode, the local proxy binds to **`127.0.0.1`** only and does not expose gateway credentials to your tool.
+
+## API wrapper (secondary): `client.api` / `AluviaApi`
+
+You can call Aluvia’s REST API without starting the proxy:
+
+```ts
+import { AluviaClient } from '@aluvia/sdk';
+
+const client = new AluviaClient({ apiKey: process.env.ALUVIA_API_KEY! });
+
+const account = await client.api.account.get();
+const connections = await client.api.account.connections.list();
+
+// Low-level escape hatch (returns status + etag + body; does not throw based on status)
+const raw = await client.api.request({ method: 'GET', path: '/account' });
 ```
 
-## License
+## More docs
 
-ISC
+- `docs/use-connection.md`
+- `docs/configure-connection.md`
+- `docs/api-wrapper.md`
 
+## Development
+
+```bash
+npm ci
+npm test
+npm run build
+```

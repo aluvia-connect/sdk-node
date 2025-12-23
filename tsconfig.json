@@ -12,6 +12,6 @@
     "module": "ESNext",
     "moduleResolution": "Node16"
   },
-  "include": ["src/**/*", "tests/**/*"],
-  "exclude": ["node_modules", "dist", "test"]
+  "include": ["src/**/*", "test/**/*"],
+  "exclude": ["node_modules", "dist"]
 }

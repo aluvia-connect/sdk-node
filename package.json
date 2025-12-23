@@ -1,7 +1,7 @@
 {
-  "name": "@aluvia/aluvia-node",
+  "name": "@aluvia/sdk",
   "version": "1.0.0",
-  "description": "Local smart proxy for AI agents - Node.js client for Aluvia",
+  "description": "Aluvia SDK for Node.js - local smart proxy for automation workloads and AI agents",
   "license": "MIT",
   "author": "Aluvia",
   "type": "module",
@@ -43,7 +43,9 @@
     "typescript": "^5.9.3"
   },
   "dependencies": {
+    "http-proxy-agent": "^7.0.2",
     "https-proxy-agent": "^7.0.6",
-    "proxy-chain": "^2.6.1"
+    "proxy-chain": "^2.6.1",
+    "undici": "^6.22.0"
   }
 }
