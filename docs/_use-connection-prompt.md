@@ -1,80 +1,66 @@
----
-title: Use Connection
-description: Use a connection with the Aluvia client
-sidebar_position: 1
----
+Review the following files:
+@ai_agent_setup/projectdoc.md  
+@ai_agent_setup/dev-explainer.md 
+@README.md 
 
-import Tabs from '@theme/Tabs';
-import TabItem from '@theme/TabItem';
+Review entire code base for the Aluvia SDK and develop a deep and complete understanding of how the Aluvia SDK works:
+@\home\unbuntu\aluvia-client\ 
 
-# Use a connection
+Once you have thought deeply, reflected on your knowledge, and truly understand how this repo works, you need to remember that you are an expert technical documentation writer. You have extensive experience writing clear, useful, and concise documentation for developers. You consistently write docs that quickly and effectively impart relevant information. The documentation you write is truly a joy to read.
 
-`AluviaClient` leverages the Aluvia API to create a connection (or use an existing connection) and configure automation tools to route traffic through Aluvia.
+When you write, follow the best practices outlined here:
+https://www.mintlify.com/guides/introduction
 
-Of course, you can also use the flexible Aluvia API for custom integration workflows. The Aluvia SDK offers language-specific API wrappers.
+Adhere the Google developer documentation style guide:
+https://developers.google.com/style
+
+When writing example code, keep it minimal, efficient, and clean.
+
+Dutifully fix any spelling or grammar errors that you find.
+
+The document @docs/use-connection.md  should have the following parts. Please review carefully and update the doc to align it with the outline below:
+
+# Use a connection with the Aluvia client
+Brief introduction sentence below the title. This sentence should sum up the purpose of this page.
 
 ## Get your account API key
-
-Get your account API key from the Aluvia dashboard:
-
-1. Log into the Aluvia dashboard.
-2. Go to the API page.
-3. Copy your API key.
+Brief instructions for obtaining an API key from the Aluvia dashboard:
+1. Log into the Aluvia dashboard
+2. Go to API page
+3. Copy API key
 
 ## Start the Aluvia client
-
-To start the client:
-
-- Use your **account API key** (required) as `apiKey`.
-- If you want to reuse an existing connection, include its **connection ID** as `connection_id` (optional).
-- If you omit `connection_id`, the client automatically creates a new connection during `start()`.
-- Always call `await connection.close()` when you’re done. This stops the local proxy (default mode) and polling timers so Node.js can shut down cleanly.
-
-```ts
-import { AluviaClient } from '@aluvia/sdk';
-
-const client = new AluviaClient({
-  apiKey: process.env.ALUVIA_API_KEY!, // required
-  connection_id: process.env.ALUVIA_CONNECTION_ID, // optional
-});
-
-const connection = await client.start();
-
-// Integration and automation code...
-
-await connection.close(); // recommended cleanup
-```
+Intro sentences that explain:
+1. User needs to use their API Key
+2. If user would like to use an existing connection, they need to include the `connection ID`
+3. If no connection ID is included, the client will automatically create a new connection
+4. User should use `await connection.close()` to close the connection and stop client processes. This is important so that Node.js can properly shut down when necessary.
 
 ### Client configuration options
+A code block that shows all available AluviaClient() configuration options. You can find this in src/client/AluviaClient.ts and it should look something like this:
 
 ```ts
 new AluviaClient({
-  apiKey: string, // required
-  connection_id?: string, // optional
-  local_proxy?: boolean, // optional, default true
-  strict?: boolean, // optional, default true (fail fast if config can't be loaded/created)
-  apiBaseUrl?: string, // optional, default https://api.aluvia.io/v1
-  pollIntervalMs?: number, // optional, default 5000
-  timeoutMs?: number, // optional, default 30000 (API wrapper HTTP only)
-  gatewayProtocol?: 'http' | 'https', // optional, default http
-  gatewayPort?: number, // optional, default 8080 or 8443 depending on protocol
-  localPort?: number, // optional; only relevant when local_proxy true
-  logLevel?: 'silent' | 'info' | 'debug', // optional, default info
+  apiKey: string,                 // required
+  connection_id?: string,         // optional
+  local_proxy?: boolean,        // optional, default true
+  strict?: boolean,              // optional, default true (fail fast if config can't be loaded/created)
+  apiBaseUrl?: string,            // optional, default https://api.aluvia.io/v1
+  pollIntervalMs?: number,        // optional, default 5000
+  timeoutMs?: number,             // optional, default 30000 (API wrapper HTTP only)
+  gatewayProtocol?: 'http'|'https', // optional, default http
+  gatewayPort?: number,           // optional, default 8080 or 8443 depending on protocol
+  localPort?: number,             // optional; only relevant when local_proxy true
+  logLevel?: 'silent'|'info'|'debug', // optional, default info
 });
 ```
 
 ## Integrate with tools
+explain what integration helpers are
+a code block with multiple tabs. the example code shows how to use integration helpers with various tools. should look something like:
 
-After `const connection = await client.start()`, the SDK returns a `connection` object with **integration helpers**. These helpers return proxy settings in the format each tool expects:
-
-- `asPlaywright()` → `{ server, username?, password? }`
-- `asPuppeteer()` → `['--proxy-server=<server>']` (no embedded creds)
-- `asSelenium()` → `'--proxy-server=<server>'` (no embedded creds)
-- `asNodeAgents()` → `{ http, https }`
-- `asAxiosConfig()` → `{ proxy: false, httpAgent, httpsAgent }`
-- `asGotOptions()` → `{ agent: { http, https } }`
-- `asUndiciDispatcher()` → `undici.Dispatcher` (proxy-aware dispatcher)
-- `asUndiciFetch()` → `fetch` function powered by `undici` with per-request `dispatcher`
+import Tabs from '@theme/Tabs';
+import TabItem from '@theme/TabItem';
 
 <Tabs groupId="node-tools">
 <TabItem value="playwright" label="Playwright" default>
@@ -222,4 +208,5 @@ try {
 </TabItem>
 </Tabs>
 
- 
+Do this now.
+

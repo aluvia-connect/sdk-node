@@ -354,6 +354,21 @@ export class AluviaClient {
   async updateSessionId(sessionId: string): Promise<void> {
     await this.configManager.setConfig({ session_id: sessionId });
   }
+
+  /**
+   * Update the upstream target_geo (geo targeting).
+   *
+   * Pass null to clear geo targeting.
+   */
+  async updateTargetGeo(targetGeo: string | null): Promise<void> {
+    if (targetGeo === null) {
+      await this.configManager.setConfig({ target_geo: null });
+      return;
+    }
+
+    const trimmed = targetGeo.trim();
+    await this.configManager.setConfig({ target_geo: trimmed.length > 0 ? trimmed : null });
+  }
 }
 
 

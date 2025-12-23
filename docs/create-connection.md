@@ -1,6 +1,6 @@
 ---
 title: Create Connection
-description: Create a new connection using Aluiva client
+description: Create a new connection using the Aluvia SDK
 sidebar_position: 0
 
 ---
@@ -8,28 +8,51 @@ sidebar_position: 0
 
 # How to create a new connection
 
-You can create new connections at any time. There are two ways to create a connection. 
+There are **three ways** to create a new connection:
+
+- **Starting the Aluvia client (`AluviaClient`)**: If you don’t provide `connection_id`, the client creates a new account connection automatically during startup.
+- **Using the Aluvia API wrapper (`AluviaApi`)**: Create a connection directly via `POST /account/connections`.
+- **Manually in the Aluvia dashboard**: Create a connection in the UI.
 
 
-## Using Aluvia API
 
-The Aluvia SDK provides a convenient Node wrapper for the Aluvia API. 
+## Create connection using the Aluvia client
+
+Starting `AluviaClient` creates a new account connection **when `connection_id` is omitted**.
 
 ```ts
-import { chromium } from 'playwright-core';
-import { AluviaApi } from '@aluvia/sdk';
+import { AluviaClient } from '@aluvia/sdk';
 
-//Create new connection via API
-const api = new AluviaApi({ apiKey: process.env.ALUVIA_API_KEY! });
-const connection = await api.account.connections.create({});
+const client = new AluviaClient({ apiKey: process.env.ALUVIA_API_KEY! });
 
+// Omitting `connection_id` makes `start()` create a new connection
+const connection = await client.start();
+
+// Integration and automation code...
+
+await connection.close(); // recommended cleanup
 ```
 
-Alternatively you can use the API directly. See the API reference docs.
+
+## Create connection using the Aluvia API
+
+Use `AluviaApi` to create a connection programmatically without starting `AluviaClient` (and without starting any local proxy processes). The SDK provides a Node wrapper around the Aluvia REST API.
+
+```ts
+import { AluviaApi } from '@aluvia/sdk';
+
+const api = new AluviaApi({ apiKey: process.env.ALUVIA_API_KEY! });
+
+const accountConnection = await api.account.connections.create({ target_geo: 'US' });
+
+console.log('Created connection:', accountConnection.id ?? accountConnection.connection_id);
+```
+
+Alternatively, you can call the API directly (`POST /account/connections`). See the API reference docs.
 
 
 ## Using Aluvia dashboard
 
-1. Sign into the dashboard
-2. Go to "Connections" page
-3. Click "create new"
+1. Sign in to the Aluvia dashboard.
+2. Go to **Connections**.
+3. Click **Create new**.

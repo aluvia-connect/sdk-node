@@ -11,6 +11,8 @@ import TabItem from '@theme/TabItem';
 
 Aluvia integrates with Playwright by **configuring Playwright’s proxy settings**. You pass a proxy object to Playwright (for example, `chromium.launch({ proxy: ... })`), and Playwright sends browser traffic through that proxy.
 
+
+
 ## Recommended (Node.js): use `AluviaClient` and `connection.asPlaywright()`
 
 By default, `AluviaClient` starts a **local proxy** on `127.0.0.1` and returns Playwright proxy settings pointing at that local proxy. This is the safest/cleanest integration because:

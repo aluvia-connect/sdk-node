@@ -113,6 +113,12 @@ Important: this requires an account connection id. If the SDK created the connec
 
 PATCHes via `ConfigManager.setConfig({ session_id: sessionId })` with the same id requirement as `updateRules()`.
 
+### `await client.updateTargetGeo(targetGeo: string | null)`
+
+PATCHes via `ConfigManager.setConfig({ target_geo: targetGeo })`.
+
+Pass `null` to clear geo targeting.
+
 ### `client.api` / `new AluviaApi(...)`
 
 HTTP wrapper for Aluvia endpoints; does not require starting the proxy.

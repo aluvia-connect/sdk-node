@@ -34,8 +34,7 @@ export function matchPattern(hostname: string, pattern: string): boolean {
     // Must end with the suffix and have something before it
     if (normalizedHostname.endsWith(suffix)) {
       const prefix = normalizedHostname.slice(0, -suffix.length);
-      // Prefix must not be empty and must not contain dots (single level subdomain match)
-      // Actually, *.example.com should match foo.bar.example.com too
+      // Prefix must not be empty. This matches any subdomain depth (for example, foo.example.com and foo.bar.example.com).
       return prefix.length > 0;
     }
     return false;

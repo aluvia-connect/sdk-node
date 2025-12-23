@@ -261,6 +261,54 @@ describe('AluviaClient', () => {
 
     await c1.close();
   });
+
+  test('updateTargetGeo() PATCHes target_geo via ConfigManager.setConfig', async () => {
+    const client = new AluviaClient({
+      apiKey: 'test-api-key',
+      logLevel: 'silent',
+    });
+
+    let capturedBody: any = null;
+    (client as any).configManager.setConfig = async (body: any) => {
+      capturedBody = body;
+      return null;
+    };
+
+    await client.updateTargetGeo('US');
+    assert.deepStrictEqual(capturedBody, { target_geo: 'US' });
+  });
+
+  test('updateTargetGeo() clears target_geo when passed null', async () => {
+    const client = new AluviaClient({
+      apiKey: 'test-api-key',
+      logLevel: 'silent',
+    });
+
+    let capturedBody: any = null;
+    (client as any).configManager.setConfig = async (body: any) => {
+      capturedBody = body;
+      return null;
+    };
+
+    await client.updateTargetGeo(null);
+    assert.deepStrictEqual(capturedBody, { target_geo: null });
+  });
+
+  test('updateTargetGeo() treats empty/whitespace string as clear (null)', async () => {
+    const client = new AluviaClient({
+      apiKey: 'test-api-key',
+      logLevel: 'silent',
+    });
+
+    let capturedBody: any = null;
+    (client as any).configManager.setConfig = async (body: any) => {
+      capturedBody = body;
+      return null;
+    };
+
+    await client.updateTargetGeo('   ');
+    assert.deepStrictEqual(capturedBody, { target_geo: null });
+  });
 });
 
 describe('requestCore', () => {

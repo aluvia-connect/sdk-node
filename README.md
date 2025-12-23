@@ -167,6 +167,16 @@ await connection.close();
 await client.updateSessionId('my-session-id');
 ```
 
+### Geo targeting (target geo)
+
+```ts
+// Set geo targeting by ISO country code:
+await client.updateTargetGeo('US');
+
+// Clear geo targeting:
+await client.updateTargetGeo(null);
+```
+
 ## Lifecycle and cleanup
 
 - **`await client.start()`** is idempotent (and concurrency-safe).
