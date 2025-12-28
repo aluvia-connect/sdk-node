@@ -15,8 +15,11 @@
  */
 export function matchPattern(hostname: string, pattern: string): boolean {
   // Normalize inputs to lowercase
-  const normalizedHostname = hostname.toLowerCase();
-  const normalizedPattern = pattern.toLowerCase();
+  const normalizedHostname = hostname.trim().toLowerCase();
+  const normalizedPattern = pattern.trim().toLowerCase();
+
+  if (!normalizedHostname) return false;
+  if (!normalizedPattern) return false;
 
   // Universal wildcard matches everything
   if (normalizedPattern === '*') {
@@ -73,13 +76,21 @@ export function matchPattern(hostname: string, pattern: string): boolean {
  * @returns true if the hostname should be proxied
  */
 export function shouldProxy(hostname: string, rules: string[]): boolean {
+  const normalizedHostname = hostname.trim();
+  if (!normalizedHostname) return false;
+
   // Empty rules means no proxy
   if (!rules || rules.length === 0) {
     return false;
   }
 
+  const normalizedRules = rules
+    .filter((r) => typeof r === 'string')
+    .map((r) => r.trim())
+    .filter((r) => r.length > 0);
+
   // Filter out AUTO placeholder
-  const effectiveRules = rules.filter((r) => r.toUpperCase() !== 'AUTO');
+  const effectiveRules = normalizedRules.filter((r) => r.toUpperCase() !== 'AUTO');
 
   // If no effective rules after filtering, no proxy
   if (effectiveRules.length === 0) {
@@ -92,7 +103,8 @@ export function shouldProxy(hostname: string, rules: string[]): boolean {
 
   for (const rule of effectiveRules) {
     if (rule.startsWith('-')) {
-      negativeRules.push(rule.slice(1)); // Remove the '-' prefix
+      const neg = rule.slice(1).trim(); // Remove the '-' prefix
+      if (neg.length > 0) negativeRules.push(neg);
     } else {
       positiveRules.push(rule);
     }
@@ -100,7 +112,7 @@ export function shouldProxy(hostname: string, rules: string[]): boolean {
 
   // Check if hostname matches any negative rule
   for (const negRule of negativeRules) {
-    if (matchPattern(hostname, negRule)) {
+    if (matchPattern(normalizedHostname, negRule)) {
       // Excluded by negative rule
       return false;
     }
@@ -116,7 +128,7 @@ export function shouldProxy(hostname: string, rules: string[]): boolean {
 
   // Without catch-all, check if hostname matches any positive rule
   for (const posRule of positiveRules) {
-    if (matchPattern(hostname, posRule)) {
+    if (matchPattern(normalizedHostname, posRule)) {
       return true;
     }
   }

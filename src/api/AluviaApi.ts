@@ -1,6 +1,7 @@
 import { requestCore } from './request.js';
 import { createAccountApi } from './account.js';
 import { createGeosApi } from './geos.js';
+import { MissingApiKeyError } from '../errors.js';
 
 export type AluviaApiOptions = {
   apiKey: string;
@@ -27,7 +28,12 @@ export class AluviaApi {
   public readonly geos: ReturnType<typeof createGeosApi>;
 
   constructor(options: AluviaApiOptions) {
-    this.apiKey = options.apiKey;
+    const apiKey = String(options.apiKey ?? '').trim();
+    if (!apiKey) {
+      throw new MissingApiKeyError('Aluvia apiKey is required');
+    }
+
+    this.apiKey = apiKey;
     this.apiBaseUrl = options.apiBaseUrl ?? 'https://api.aluvia.io/v1';
     this.timeoutMs = options.timeoutMs;
     this.fetchImpl = options.fetch;

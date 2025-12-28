@@ -1,6 +1,6 @@
 declare module 'proxy-chain' {
   export type PrepareRequestFunctionParams = {
-    request: { url?: string };
+    request: { url?: string; headers?: Record<string, string | string[] | undefined> };
     hostname?: string;
     port?: number;
     isHttp?: boolean;

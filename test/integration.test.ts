@@ -5,6 +5,7 @@ import assert from 'node:assert';
 import { AluviaClient } from '../src/client/AluviaClient.js';
 import { requestCore } from '../src/api/request.js';
 import { ConfigManager } from '../src/client/ConfigManager.js';
+import { ProxyServer } from '../src/client/ProxyServer.js';
 import { AluviaApi } from '../src/api/AluviaApi.js';
 import {
   MissingApiKeyError,
@@ -23,6 +24,13 @@ describe('AluviaClient', () => {
   test('throws MissingApiKeyError when apiKey is not provided', () => {
     assert.throws(
       () => new AluviaClient({ apiKey: '' }),
+      MissingApiKeyError
+    );
+  });
+
+  test('throws MissingApiKeyError when apiKey is whitespace-only', () => {
+    assert.throws(
+      () => new AluviaClient({ apiKey: '   ' }),
       MissingApiKeyError
     );
   });
@@ -823,6 +831,11 @@ describe('matchPattern', () => {
     assert.strictEqual(matchPattern('google.co.uk', 'google.*'), true);
     assert.strictEqual(matchPattern('notgoogle.com', 'google.*'), false);
   });
+
+  test('trims whitespace in patterns', () => {
+    assert.strictEqual(matchPattern('example.com', ' example.com '), true);
+    assert.strictEqual(matchPattern('foo.example.com', ' *.example.com '), true);
+  });
 });
 
 describe('shouldProxy', () => {
@@ -848,6 +861,68 @@ describe('shouldProxy', () => {
   test('AUTO is ignored as placeholder', () => {
     assert.strictEqual(shouldProxy('example.com', ['AUTO']), false);
     assert.strictEqual(shouldProxy('example.com', ['AUTO', 'example.com']), true);
+  });
+
+  test('trims hostname and rules and drops empty rules', () => {
+    assert.strictEqual(shouldProxy(' example.com ', [' example.com ']), true);
+    assert.strictEqual(shouldProxy('example.com', ['   ', '\n']), false);
+    assert.strictEqual(shouldProxy('example.com', ['*', ' -example.com ']), false);
+  });
+});
+
+describe('ProxyServer hostname extraction', () => {
+  test('extracts hostname from host/path without scheme', () => {
+    const config = {
+      rawProxy: {
+        protocol: 'http',
+        host: 'gateway.aluvia.io' as const,
+        port: 8080,
+        username: 'user',
+        password: 'pass',
+      },
+      rules: ['example.com'],
+      sessionId: null,
+      targetGeo: null,
+      etag: null,
+    };
+
+    const mgr = { getConfig: () => config } as any;
+    const proxy = new ProxyServer(mgr, { logLevel: 'silent' });
+
+    const res = (proxy as any).handleRequest({
+      request: { url: 'example.com/some-path' },
+    });
+
+    assert.deepStrictEqual(res, {
+      upstreamProxyUrl: 'http://user:pass@gateway.aluvia.io:8080',
+    });
+  });
+
+  test('falls back to Host header for origin-form URLs', () => {
+    const config = {
+      rawProxy: {
+        protocol: 'http',
+        host: 'gateway.aluvia.io' as const,
+        port: 8080,
+        username: 'user',
+        password: 'pass',
+      },
+      rules: ['example.com'],
+      sessionId: null,
+      targetGeo: null,
+      etag: null,
+    };
+
+    const mgr = { getConfig: () => config } as any;
+    const proxy = new ProxyServer(mgr, { logLevel: 'silent' });
+
+    const res = (proxy as any).handleRequest({
+      request: { url: '/some-path', headers: { host: 'example.com:1234' } },
+    });
+
+    assert.deepStrictEqual(res, {
+      upstreamProxyUrl: 'http://user:pass@gateway.aluvia.io:8080',
+    });
   });
 });
 

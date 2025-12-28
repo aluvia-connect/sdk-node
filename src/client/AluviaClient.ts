@@ -33,14 +33,14 @@ export class AluviaClient {
   public readonly api: AluviaApi;
 
   constructor(options: AluviaClientOptions) {
-    // Validate apiKey
-    if (!options.apiKey) {
+    const apiKey = String(options.apiKey ?? '').trim();
+    if (!apiKey) {
       throw new MissingApiKeyError('Aluvia apiKey is required');
     }
 
     const local_proxy = options.local_proxy ?? true;
     const strict = options.strict ?? true;
-    this.options = { ...options, local_proxy, strict };
+    this.options = { ...options, apiKey, local_proxy, strict };
 
     const connectionId = (() => {
       if (options.connection_id == null) return undefined;
@@ -59,7 +59,7 @@ export class AluviaClient {
 
     // Create ConfigManager
     this.configManager = new ConfigManager({
-      apiKey: options.apiKey,
+      apiKey,
       apiBaseUrl,
       pollIntervalMs,
       gatewayProtocol,
@@ -73,7 +73,7 @@ export class AluviaClient {
     this.proxyServer = new ProxyServer(this.configManager, { logLevel });
 
     this.api = new AluviaApi({
-      apiKey: options.apiKey,
+      apiKey,
       apiBaseUrl,
       timeoutMs,
     });

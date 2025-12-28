@@ -243,12 +243,6 @@ const connections = await client.api.account.connections.list();
 const raw = await client.api.request({ method: 'GET', path: '/account' });
 ```
 
-## More docs
-
-- `docs/use-connection.md`
-- `docs/configure-connection.md`
-- `docs/api-wrapper.md`
-
 ## Development
 
 ```bash
