@@ -1,5 +1,5 @@
 ---
-title: Manage a connection
+title: Manage Connection
 description: Update connection attributes with the Aluvia SDK
 sidebar_position: 2
 
