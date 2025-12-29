@@ -1,41 +1,41 @@
-## @aluvia/sdk
+# Aluvia Node.js SDK
 
 [![npm](https://img.shields.io/npm/v/@aluvia/sdk.svg)](https://www.npmjs.com/package/@aluvia/sdk)
 [![downloads](https://img.shields.io/npm/dm/@aluvia/sdk.svg)](https://www.npmjs.com/package/@aluvia/sdk)
 [![license](https://img.shields.io/npm/l/@aluvia/sdk.svg)](./LICENSE)
 [![node](https://img.shields.io/node/v/@aluvia/sdk.svg)](./package.json)
 
-**Make your agents finish workflows.** `@aluvia/sdk` is a small Node.js SDK that gives you a **single connection object** that works across your stack (Playwright, Puppeteer, Selenium, Axios, got, undici/fetch) and routes traffic **per hostname** either:
+[Aluvia](https://aluvia.io) provides reliable, scalable connectivity-as-a-service for AI agents. This Node.js SDK allows developers to easily integrate and configure Aluvia connectivity into their agent workflows.
 
-- **Direct to the destination**, or
-- **Via the Aluvia gateway** (when a site is blocky / geo-gated / rate-limited)
+There are two key components:
+1. Aluvia client - lets agents route traffic through Aluvia's trusted US mobile IP addresses instead of their own cloud/datacenter IPs. Reduces website blocks and allows for reliable agent workflows at scale.
+2. API wrapper - a Javascript wrapper for the Aluvia API
 
-The default (recommended) mode runs a **safe local proxy on `127.0.0.1`** so proxy credentials stay inside the SDK instead of getting sprayed across configs, args, and logs.
+## Aluvia client
 
-### Why this exists (the three recurring agent failure modes)
+The Aluvia client consists of a control plane to configure connection settings, and a local proxy server for routing traffic. 
 
-- **Reliability**: agents run in the cloud, sites see datacenter identity, you hit blocks/challenges/429/403 at the worst step (login/checkout/form submit) and the workflow fails.
-- **Integration pain**: every tool wants proxy configuration in a different shape.
-- **No runtime control**: when blocks appear mid-run, you need to change behavior live without restarting long-running fleets.
+Simply run the client on your agent's machine/server/container, and point your relevant tool (Playwright, Puppeteer, Axios, etc.) to the local proxy address (`127.0.0.1`). The client routes traffic to Aluvia's mobile IPs based on custom routing rules that you (or our agent) set. Rules can be updated during runtime, allowing agents to work around website blocks on the fly.
 
-### What you get
+Please see the [Aluvia client documentation ](https://docs.aluiva.io) for more details.
 
-- **Higher workflow completion rates**: route the hard hosts through Aluvia without proxying everything.
-- **One integration surface**: one `connection` object adapts to every tool in your stack.
-- **Live rules**: change routing behavior at runtime (no restarts).
-- **Secure by default**: in the default mode, your code only ever sees `http://127.0.0.1:<port>` (no embedded creds).
+### Benefits
+#### Improves agent reliability
+* **Problem:** agents run in the cloud, yet websites often treat datacenter traffic as higher-risk, resulting in challenges, rate limits (429), blocks (403), and broken workflows.
+- **Solution:** the client routes requests through Aluvia’s premium mobile IP addresses when needed, dramatically reducing blocks and increasing end-to-end workflow completion.
+#### Reduces the cost of using proxies
+- **Problem:** connecting to websites through mobile proxies is expensive and adds latency.
+- **Solution:** the SDK supports custom hostname routing rules. Developers, or the agents themselves, can specify specific hostnames to proxy. This minimizes cost while preserving reliability.
+#### Unblock agent workflows without restarts
+- **Problem:** adjusting an agent's proxy settings usually requires restarting long-running workers or redeploying a fleet.
+- **Solution:** the SDK's routing rules can be updated on the fly, allowing agents to dynamically respond to website blocks without restarts.
+#### Simplify integration
+- **Problem:** to proxy an agent's traffic, developers must learn how to configure a myriad of tools such as Playwright, Puppeteer, Selenium, Axios, etc.
+- **Solution:** one integration surface across multiple tools.
 
-### Requirements
+### Use case example
 
-- Node.js **18+**
-
-### Install
-
-```bash
-npm install @aluvia/sdk
-```
-
-### Quick start (Playwright in ~60 seconds)
+An agent browses the web to complete a task. When a website blocks the agent, it dynamically adds a hostname rule to route that site's traffic through Aluvia's mobile IPs—without restarting the browser.
 
 ```ts
 import { chromium } from 'playwright';
@@ -51,190 +51,60 @@ const browser = await chromium.launch({
   proxy: connection.asPlaywright(),
 });
 
-try {
+// Track which hostnames we've added rules for
+const proxiedHosts = new Set<string>();
+
+async function visitWithRetry(url: string): Promise<string> {
   const page = await browser.newPage();
-  await page.goto('https://example.com');
+
+  try {
+    const response = await page.goto(url, { waitUntil: 'domcontentloaded' });
+    const hostname = new URL(url).hostname;
+
+    // Detect block: 403, 429, or a challenge page
+    const status = response?.status() ?? 0;
+    const isBlocked =
+      status === 403 ||
+      status === 429 ||
+      (await page.title()).toLowerCase().includes('blocked');
+
+    if (isBlocked && !proxiedHosts.has(hostname)) {
+      console.log(`Blocked by ${hostname} — adding to proxy rules`);
+
+      // Add the hostname to routing rules (updates take effect immediately)
+      proxiedHosts.add(hostname);
+      await client.updateRules([...proxiedHosts]);
+
+      // Retry with the new rule in place
+      await page.close();
+      return visitWithRetry(url);
+    }
+
+    return await page.content();
+  } finally {
+    await page.close();
+  }
+}
+
+try {
+  // First attempt may be blocked; SDK will proxy on retry
+  const html = await visitWithRetry('https://example.com/data');
+  console.log('Success:', html.slice(0, 200));
 } finally {
   await browser.close();
   await connection.close();
 }
 ```
 
-## The core idea: one connection, everywhere
+### Quick start guides
+* [Understand how Aluvia connections work](https://docs.aluvia.io/fundamentals/connections)
+* [How to create a connection](https://docs.aluvia.io/connect/create-connection)
+* [How to use a connection](https://docs.aluvia.io/connect/use-connection)
+* [How to manage a connection](https://docs.aluvia.io/connect/manage-connection)
 
-After `await client.start()`, you get a `connection` with adapters you plug directly into your tools:
 
-- **Playwright**: `connection.asPlaywright()` → `{ server, username?, password? }`
-- **Puppeteer**: `connection.asPuppeteer()` → `['--proxy-server=<server>']`
-- **Selenium**: `connection.asSelenium()` → `'--proxy-server=<server>'`
-- **Axios**: `connection.asAxiosConfig()` → `{ proxy: false, httpAgent, httpsAgent }`
-- **got**: `connection.asGotOptions()` → `{ agent: { http, https } }`
-- **undici / fetch**: `connection.asUndiciDispatcher()` / `connection.asUndiciFetch()`
+## Aluvia API
 
-## Selective proxying (rules are hostname-only)
+The SDK provides convenient access to the Aluvia REST API from server-side TypeScript or JavaScript. The REST API documentation can be found in the [API reference docs](https://docs.aluvia.io/api/api-reference/aluvia-api-v-1).
 
-You can proxy only what needs it (lower cost + lower latency) and bypass everything else.
 
-Patterns supported:
-
-- `*` matches any hostname
-- `example.com` exact match
-- `*.example.com` matches subdomains (but not `example.com` itself)
-- `google.*` matches `google.com`, `google.co.uk`, etc.
-
-Rule semantics:
-
-- Empty `[]` → proxy nothing
-- Rules prefixed with `-` are excludes and win over includes
-- If positive rules include `*`, proxy everything not excluded
-- Rule `AUTO` is ignored (placeholder)
-
-### Update rules live (no restart)
-
-```ts
-import { AluviaClient } from '@aluvia/sdk';
-
-const client = new AluviaClient({ apiKey: process.env.ALUVIA_API_KEY! });
-const connection = await client.start();
-
-try {
-  // Proxy everything except your own app:
-  await client.updateRules(['*', '-example.com']);
-} finally {
-  await connection.close();
-}
-```
-
-## Modes: local proxy (recommended) vs gateway mode
-
-### Client proxy mode (default, recommended)
-
-Set `local_proxy: true` (or omit it).
-
-- Runs a local proxy on **loopback only**: `http://127.0.0.1:<port>`
-- Your tools point at the local proxy (safe to share; **no embedded credentials**)
-- The SDK decides per request whether to go direct or via Aluvia based on rules
-- Rules updates apply live because routing reads the latest config per request
-
-In this mode:
-
-- `connection.url === connection.getUrl() === "http://127.0.0.1:<port>"`
-
-### Gateway mode (no local proxy)
-
-Set `local_proxy: false`.
-
-- No local proxy is started
-- `connection.url` is the gateway URL without embedded credentials
-- `connection.getUrl()` embeds proxy credentials (**contains secrets**)
-
-Gateway mode is best when your stack cleanly supports proxy auth and you prefer not to run a local listener.
-
-## Common integrations
-
-### Fetch (Node 18+)
-
-Node’s built-in `fetch()` does not accept Node proxy agents. Use the undici-powered adapter:
-
-```ts
-import { AluviaClient } from '@aluvia/sdk';
-
-const client = new AluviaClient({ apiKey: process.env.ALUVIA_API_KEY! });
-const connection = await client.start();
-
-const fetch = connection.asUndiciFetch();
-
-try {
-  const res = await fetch('https://ipconfig.io/json');
-  console.log(await res.json());
-} finally {
-  await connection.close();
-}
-```
-
-### Axios
-
-```ts
-import axios from 'axios';
-import { AluviaClient } from '@aluvia/sdk';
-
-const client = new AluviaClient({ apiKey: process.env.ALUVIA_API_KEY! });
-const connection = await client.start();
-
-try {
-  const res = await axios.get('https://ipconfig.io/json', connection.asAxiosConfig());
-  console.log(res.data);
-} finally {
-  await connection.close();
-}
-```
-
-## Configuration
-
-```ts
-new AluviaClient({
-  apiKey: process.env.ALUVIA_API_KEY!,
-
-  connection_id: process.env.ALUVIA_CONNECTION_ID,
-
-  local_proxy: true,
-  strict: true,
-
-  apiBaseUrl: 'https://api.aluvia.io/v1',
-  pollIntervalMs: 5000,
-  timeoutMs: 30_000,
-
-  gatewayProtocol: 'http',
-  gatewayPort: 8080,
-  localPort: 0,
-
-  logLevel: 'info',
-});
-```
-
-### `strict` vs `strict=false`
-
-- **`strict: true`** (default): `start()` fails fast if it can’t load/create config (prevents “silently routing direct”).
-- **`strict: false`**: the SDK may still start a local proxy, but if config is unavailable it will route direct.
-
-## Lifecycle and cleanup
-
-- `await client.start()` is idempotent (and concurrency-safe).
-- Prefer `await connection.close()` for full cleanup (stops polling, stops local proxy, releases adapter caches).
-- `await client.stop()` stops polling + local proxy, but cannot release adapter caches created on the connection.
-
-## Errors and troubleshooting
-
-- **`MissingApiKeyError`**: empty/whitespace `apiKey`.
-- **`InvalidApiKeyError`**: Aluvia API returned 401/403. This SDK uses **account endpoints** (`/account/...`), so you must use an **account API token**.
-- **`ProxyStartError`**: local proxy failed to bind/listen (for example, port already in use).
-- **`ApiError`**: timeouts, non-2xx API responses, or malformed payloads.
-
-## Security notes
-
-- Treat **`apiKey`** as a secret.
-- In **gateway mode** (`local_proxy: false`), **`connection.getUrl()` contains credentials**. Do not log it or put it into process args.
-- In **client proxy mode** (default), the local proxy binds to **`127.0.0.1`** only and does not expose gateway credentials to your tool configuration.
-
-## API wrapper (secondary): `client.api`
-
-If you want to manage connections or fetch account metadata without starting a proxy, use `client.api`:
-
-```ts
-import { AluviaClient } from '@aluvia/sdk';
-
-const client = new AluviaClient({ apiKey: process.env.ALUVIA_API_KEY! });
-
-const account = await client.api.account.get();
-const connections = await client.api.account.connections.list();
-
-const raw = await client.api.request({ method: 'GET', path: '/account' });
-```
-
-## Development
-
-```bash
-npm ci
-npm test
-npm run build
-```
