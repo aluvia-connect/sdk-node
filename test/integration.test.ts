@@ -55,7 +55,7 @@ describe('AluviaClient', () => {
     const client = new AluviaClient({
       apiKey: 'test-api-key',
       logLevel: 'silent',
-      localProxy: true,
+      local_proxy: true,
     });
 
     const url = 'http://127.0.0.1:54321';
@@ -110,11 +110,11 @@ describe('AluviaClient', () => {
     assert.strictEqual((client as any).started, false);
   });
 
-  test('connection adapters use REMOTE proxy when localProxy is false', async () => {
+  test('connection adapters use REMOTE proxy when local_proxy is false', async () => {
     const client = new AluviaClient({
       apiKey: 'test-api-key',
       logLevel: 'silent',
-      localProxy: false,
+      local_proxy: false,
     });
 
     (client as any).configManager.init = async () => {};
@@ -181,7 +181,7 @@ describe('AluviaClient', () => {
     const client = new AluviaClient({
       apiKey: 'test-api-key',
       logLevel: 'silent',
-      localProxy: false,
+      local_proxy: false,
     });
 
     (client as any).configManager.init = async () => {};
@@ -195,7 +195,7 @@ describe('AluviaClient', () => {
     await assert.rejects(() => client.start(), ApiError);
   });
 
-  test('connection adapters use LOCAL proxy by default (localProxy default true)', async () => {
+  test('connection adapters use LOCAL proxy by default (local_proxy default true)', async () => {
     const client = new AluviaClient({
       apiKey: 'test-api-key',
       logLevel: 'silent',
@@ -225,7 +225,7 @@ describe('AluviaClient', () => {
     const client = new AluviaClient({
       apiKey: 'test-api-key',
       logLevel: 'silent',
-      localProxy: true,
+      local_proxy: true,
     });
 
     const url = 'http://127.0.0.1:54321';

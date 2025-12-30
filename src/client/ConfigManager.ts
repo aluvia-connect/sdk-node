@@ -162,8 +162,8 @@ export class ConfigManager {
       throw new ApiError(`Failed to fetch account connection config: HTTP ${result.status}`, result.status);
     }
 
-    // No connectionId: create an account connection (preferred)
-    this.logger.info('No connectionId provided; creating account connection...');
+    // No connection_id: create an account connection (preferred)
+    this.logger.info('No connection_id provided; creating account connection...');
     try {
       const created = await requestCore({
         apiBaseUrl: this.options.apiBaseUrl,

@@ -38,13 +38,13 @@ export class AluviaClient {
       throw new MissingApiKeyError('Aluvia apiKey is required');
     }
 
-    const localProxy = options.localProxy ?? true;
+    const local_proxy = options.local_proxy ?? true;
     const strict = options.strict ?? true;
-    this.options = { ...options, apiKey, localProxy, strict };
+    this.options = { ...options, apiKey, local_proxy, strict };
 
     const connectionId = (() => {
-      if (options.connectionId == null) return undefined;
-      const trimmed = String(options.connectionId).trim();
+      if (options.connection_id == null) return undefined;
+      const trimmed = String(options.connection_id).trim();
       return trimmed.length > 0 ? trimmed : undefined;
     })();
 
@@ -83,8 +83,8 @@ export class AluviaClient {
    * Start the Aluvia Client connection:
    * - Fetch initial account connection config from Aluvia.
    * - Start polling for config updates.
-   * - If localProxy is enabled (default): start a local HTTP proxy on 127.0.0.1:<localPort or free port>.
-   * - If localProxy is disabled: do NOT start a local proxy; adapters use gateway proxy settings.
+   * - If local_proxy is enabled (default): start a local HTTP proxy on 127.0.0.1:<localPort or free port>.
+   * - If local_proxy is disabled: do NOT start a local proxy; adapters use gateway proxy settings.
    *
    * Returns the active connection with host/port/url and a stop() method.
    */
@@ -100,7 +100,7 @@ export class AluviaClient {
     }
 
     this.startPromise = (async () => {
-    const localProxyEnabled = this.options.localProxy === true;
+    const localProxyEnabled = this.options.local_proxy === true;
 
     // Fetch initial configuration (may throw InvalidApiKeyError or ApiError)
     await this.configManager.init();
@@ -114,7 +114,7 @@ export class AluviaClient {
     }
 
     if (!localProxyEnabled) {
-      this.logger.debug('localProxy disabled — local proxy will not start');
+      this.logger.debug('local_proxy disabled — local proxy will not start');
 
       let nodeAgents: ReturnType<typeof createNodeProxyAgents> | null = null;
       let undiciDispatcher: ReturnType<typeof createUndiciDispatcher> | null = null;
@@ -228,7 +228,7 @@ export class AluviaClient {
     // In client proxy mode, keep config fresh so routing decisions update without restarting.
     this.configManager.startPolling();
 
-    // localProxy === true
+    // local_proxy === true
     const { host, port, url } = await this.proxyServer.start(this.options.localPort);
 
     let nodeAgents: ReturnType<typeof createNodeProxyAgents> | null = null;
@@ -331,7 +331,7 @@ export class AluviaClient {
     }
 
     // Only stop proxy if it was potentially started.
-    if (this.options.localProxy) {
+    if (this.options.local_proxy) {
       await this.proxyServer.stop();
     }
     this.configManager.stopPolling();

@@ -25,7 +25,7 @@ import { AluviaClient } from '@aluvia/sdk';
 
 const client = new AluviaClient({
   apiKey: process.env.ALUVIA_API_KEY!,
-  connectionId: process.env.ALUVIA_CONNECTION_ID, // optional
+  connection_id: process.env.ALUVIA_CONNECTION_ID, // optional
 });
 
 const connection = await client.start();

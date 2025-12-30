@@ -8,10 +8,6 @@
 
 **AI agents running in the cloud get blocked. A lot.**
 
-There are two key components:
-1. Aluvia client - lets agents route traffic through Aluvia's trusted US mobile IP addresses instead of their own cloud/datacenter IPs. Reduces website blocks and allows for reliable agent workflows at scale.
-2. API wrapper - a JavaScript wrapper for the Aluvia API
-
 Websites see datacenter IPs, trigger CAPTCHAs, return 403s, rate-limit with 429s—and your carefully orchestrated workflow breaks. Aluvia fixes this by routing your agent's traffic through trusted US mobile IP addresses, making your agent appear as a real user instead of a bot.
 
 ---
