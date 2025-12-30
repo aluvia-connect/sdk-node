@@ -22,14 +22,14 @@ The document @docs/create-connection.md should have the following parts. Please 
 
 # How to create a new connection
 Write a very brief overview introduction explaining that there are three ways to create a new connection.
-**Starting the Aluvia client (`AluviaClient`)**: if you don’t provide `connection_id`, client will **create a new account connection** automatically during startup.
+**Starting the Aluvia client (`AluviaClient`)**: if you don’t provide `connectionId`, client will **create a new account connection** automatically during startup.
 - **Using the Aluvia API wrapper (`AluviaApi`)**: create a connection directly via `POST /account/connections`.
 - **Manually in the Aluvia dashboard**
 
 
 ## Create connection using the Aluvia client
 
-Write a very brief overview introduction explaining that starting `AluviaClient` creates a new account connection **when `connection_id` is omitted**
+Write a very brief overview introduction explaining that starting `AluviaClient` creates a new account connection **when `connectionId` is omitted**
 
 Generate concise example code that shows how starting the aluvia client creates a new connection. It should look something like this:
 
@@ -38,7 +38,7 @@ import { AluviaClient } from '@aluvia/sdk';
 
 const client = new AluviaClient({ apiKey: process.env.ALUVIA_API_KEY! });
 
-// Omitting `connection_id` makes `start()` create a new connection 
+// Omitting `connectionId` makes `start()` create a new connection 
 const connection = await client.start();
 
 // Integration and automation code...

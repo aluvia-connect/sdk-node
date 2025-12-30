@@ -28,7 +28,7 @@ Of course, you can also use the flexible Aluvia API for custom workflows. The Al
 
 Use session IDs for sticky sessions and IP rotation.
 
-To update a session ID, you must provide a `connection_id` so the SDK can PATCH your account connection.
+To update a session ID, you must provide a `connectionId` so the SDK can PATCH your account connection.
 
 <Tabs groupId="node-tools">
 <TabItem value="playwright" label="Playwright" default>
@@ -39,7 +39,7 @@ import { AluviaClient } from '@aluvia/sdk';
 
 const client = new AluviaClient({
   apiKey: process.env.ALUVIA_API_KEY!,
-  connection_id: process.env.ALUVIA_CONNECTION_ID!, // required to update session_id
+  connectionId: process.env.ALUVIA_CONNECTION_ID!, // required to update session_id
 });
 
 const connection = await client.start();
@@ -72,11 +72,11 @@ try {
 import puppeteer from 'puppeteer';
 import { AluviaClient } from '@aluvia/sdk';
 
-// Tip: For Puppeteer, `local_proxy: true` (default) is recommended so you don't have to implement proxy auth yourself.
+// Tip: For Puppeteer, `localProxy: true` (default) is recommended so you don't have to implement proxy auth yourself.
 const client = new AluviaClient({
   apiKey: process.env.ALUVIA_API_KEY!,
-  connection_id: process.env.ALUVIA_CONNECTION_ID!, // required to update session_id
-  local_proxy: true, // true is default
+  connectionId: process.env.ALUVIA_CONNECTION_ID!, // required to update session_id
+  localProxy: true, // true is default
 });
 
 const connection = await client.start();
@@ -110,11 +110,11 @@ import { Builder } from 'selenium-webdriver';
 import chrome from 'selenium-webdriver/chrome';
 import { AluviaClient } from '@aluvia/sdk';
 
-// Tip: For Selenium, `local_proxy: true` (default) is recommended so you don't have to implement proxy auth yourself.
+// Tip: For Selenium, `localProxy: true` (default) is recommended so you don't have to implement proxy auth yourself.
 const client = new AluviaClient({
   apiKey: process.env.ALUVIA_API_KEY!,
-  connection_id: process.env.ALUVIA_CONNECTION_ID!, // required to update session_id
-  local_proxy: true, // true is default
+  connectionId: process.env.ALUVIA_CONNECTION_ID!, // required to update session_id
+  localProxy: true, // true is default
 });
 
 const connection = await client.start();
@@ -149,7 +149,7 @@ import { AluviaClient } from '@aluvia/sdk';
 // Node's built-in fetch does not accept Node proxy agents. Use the undici-powered fetch adapter.
 const client = new AluviaClient({
   apiKey: process.env.ALUVIA_API_KEY!,
-  connection_id: process.env.ALUVIA_CONNECTION_ID!, // required to update session_id
+  connectionId: process.env.ALUVIA_CONNECTION_ID!, // required to update session_id
 });
 const connection = await client.start();
 
@@ -177,7 +177,7 @@ import { AluviaClient } from '@aluvia/sdk';
 
 const client = new AluviaClient({
   apiKey: process.env.ALUVIA_API_KEY!,
-  connection_id: process.env.ALUVIA_CONNECTION_ID!, // required to update session_id
+  connectionId: process.env.ALUVIA_CONNECTION_ID!, // required to update session_id
 });
 const connection = await client.start();
 
@@ -203,7 +203,7 @@ import { AluviaClient } from '@aluvia/sdk';
 
 const client = new AluviaClient({
   apiKey: process.env.ALUVIA_API_KEY!,
-  connection_id: process.env.ALUVIA_CONNECTION_ID!, // required to update session_id
+  connectionId: process.env.ALUVIA_CONNECTION_ID!, // required to update session_id
 });
 const connection = await client.start();
 
@@ -225,7 +225,7 @@ try {
 
 ### Update routing rules
 
-To update routing rules, you must provide a `connection_id` so the SDK can PATCH your account connection.
+To update routing rules, you must provide a `connectionId` so the SDK can PATCH your account connection.
 
 <Tabs groupId="node-tools">
 <TabItem value="playwright" label="Playwright" default>
@@ -236,7 +236,7 @@ import { AluviaClient } from '@aluvia/sdk';
 
 const client = new AluviaClient({
   apiKey: process.env.ALUVIA_API_KEY!,
-  connection_id: process.env.ALUVIA_CONNECTION_ID!, // required to update rules
+  connectionId: process.env.ALUVIA_CONNECTION_ID!, // required to update rules
 });
 const connection = await client.start();
 
@@ -268,11 +268,11 @@ try {
 import puppeteer from 'puppeteer';
 import { AluviaClient } from '@aluvia/sdk';
 
-// Tip: For Puppeteer, `local_proxy: true` (default) is recommended so you don't have to implement proxy auth yourself.
+// Tip: For Puppeteer, `localProxy: true` (default) is recommended so you don't have to implement proxy auth yourself.
 const client = new AluviaClient({
   apiKey: process.env.ALUVIA_API_KEY!,
-  connection_id: process.env.ALUVIA_CONNECTION_ID!, // required to update rules
-  local_proxy: true, // true is default
+  connectionId: process.env.ALUVIA_CONNECTION_ID!, // required to update rules
+  localProxy: true, // true is default
 });
 const connection = await client.start();
 
@@ -305,11 +305,11 @@ import { Builder } from 'selenium-webdriver';
 import chrome from 'selenium-webdriver/chrome';
 import { AluviaClient } from '@aluvia/sdk';
 
-// Tip: For Selenium, `local_proxy: true` (default) is recommended so you don't have to implement proxy auth yourself.
+// Tip: For Selenium, `localProxy: true` (default) is recommended so you don't have to implement proxy auth yourself.
 const client = new AluviaClient({
   apiKey: process.env.ALUVIA_API_KEY!,
-  connection_id: process.env.ALUVIA_CONNECTION_ID!, // required to update rules
-  local_proxy: true, // true is default
+  connectionId: process.env.ALUVIA_CONNECTION_ID!, // required to update rules
+  localProxy: true, // true is default
 });
 const connection = await client.start();
 
@@ -343,7 +343,7 @@ import { AluviaClient } from '@aluvia/sdk';
 // Node's built-in fetch does not accept Node proxy agents. Use the undici-powered fetch adapter.
 const client = new AluviaClient({
   apiKey: process.env.ALUVIA_API_KEY!,
-  connection_id: process.env.ALUVIA_CONNECTION_ID!, // required to update rules
+  connectionId: process.env.ALUVIA_CONNECTION_ID!, // required to update rules
 });
 const connection = await client.start();
 
@@ -371,7 +371,7 @@ import { AluviaClient } from '@aluvia/sdk';
 
 const client = new AluviaClient({
   apiKey: process.env.ALUVIA_API_KEY!,
-  connection_id: process.env.ALUVIA_CONNECTION_ID!, // required to update rules
+  connectionId: process.env.ALUVIA_CONNECTION_ID!, // required to update rules
 });
 const connection = await client.start();
 
@@ -397,7 +397,7 @@ import { AluviaClient } from '@aluvia/sdk';
 
 const client = new AluviaClient({
   apiKey: process.env.ALUVIA_API_KEY!,
-  connection_id: process.env.ALUVIA_CONNECTION_ID!, // required to update rules
+  connectionId: process.env.ALUVIA_CONNECTION_ID!, // required to update rules
 });
 const connection = await client.start();
 
@@ -422,7 +422,7 @@ try {
 
 Set geo targeting, or pass `null` to clear geo targeting.
 
-To update geo targeting, you must provide a `connection_id` so the SDK can PATCH your account connection.
+To update geo targeting, you must provide a `connectionId` so the SDK can PATCH your account connection.
 
 <Tabs groupId="node-tools">
 <TabItem value="playwright" label="Playwright" default>
@@ -433,7 +433,7 @@ import { AluviaClient } from '@aluvia/sdk';
 
 const client = new AluviaClient({
   apiKey: process.env.ALUVIA_API_KEY!,
-  connection_id: process.env.ALUVIA_CONNECTION_ID!, // required to update target_geo
+  connectionId: process.env.ALUVIA_CONNECTION_ID!, // required to update target_geo
 });
 const connection = await client.start();
 
@@ -465,11 +465,11 @@ try {
 import puppeteer from 'puppeteer';
 import { AluviaClient } from '@aluvia/sdk';
 
-// Tip: For Puppeteer, `local_proxy: true` (default) is recommended so you don't have to implement proxy auth yourself.
+// Tip: For Puppeteer, `localProxy: true` (default) is recommended so you don't have to implement proxy auth yourself.
 const client = new AluviaClient({
   apiKey: process.env.ALUVIA_API_KEY!,
-  connection_id: process.env.ALUVIA_CONNECTION_ID!, // required to update target_geo
-  local_proxy: true, // true is default
+  connectionId: process.env.ALUVIA_CONNECTION_ID!, // required to update target_geo
+  localProxy: true, // true is default
 });
 const connection = await client.start();
 
@@ -502,11 +502,11 @@ import { Builder } from 'selenium-webdriver';
 import chrome from 'selenium-webdriver/chrome';
 import { AluviaClient } from '@aluvia/sdk';
 
-// Tip: For Selenium, `local_proxy: true` (default) is recommended so you don't have to implement proxy auth yourself.
+// Tip: For Selenium, `localProxy: true` (default) is recommended so you don't have to implement proxy auth yourself.
 const client = new AluviaClient({
   apiKey: process.env.ALUVIA_API_KEY!,
-  connection_id: process.env.ALUVIA_CONNECTION_ID!, // required to update target_geo
-  local_proxy: true, // true is default
+  connectionId: process.env.ALUVIA_CONNECTION_ID!, // required to update target_geo
+  localProxy: true, // true is default
 });
 const connection = await client.start();
 
@@ -540,7 +540,7 @@ import { AluviaClient } from '@aluvia/sdk';
 // Node's built-in fetch does not accept Node proxy agents. Use the undici-powered fetch adapter.
 const client = new AluviaClient({
   apiKey: process.env.ALUVIA_API_KEY!,
-  connection_id: process.env.ALUVIA_CONNECTION_ID!, // required to update target_geo
+  connectionId: process.env.ALUVIA_CONNECTION_ID!, // required to update target_geo
 });
 const connection = await client.start();
 

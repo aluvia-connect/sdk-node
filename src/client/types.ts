@@ -84,7 +84,7 @@ export type AluviaClientOptions = {
    * If omitted, the client will attempt to create a new account connection via:
    *   POST /account/connections
    */
-  connection_id?: string;
+  connectionId?: string;
 
   /**
    * Optional: enable local proxy mode (client proxy mode).
@@ -93,7 +93,7 @@ export type AluviaClientOptions = {
    * If false: do NOT start a local proxy; adapters return gateway proxy settings
    * from the account connection API response for direct use by Playwright/Axios/etc.
    */
-  local_proxy?: boolean;
+  localProxy?: boolean;
 
   /**
    * Optional: strict startup behavior.
@@ -115,7 +115,7 @@ export type AluviaClientConnection = {
   /**
    * Proxy host to configure in your client.
    *
-   * - In client proxy mode (local_proxy: true): this is the local proxy host ('127.0.0.1').
+   * - In client proxy mode (localProxy: true): this is the local proxy host ('127.0.0.1').
    * - In gateway mode: this is the Aluvia gateway host (typically 'gateway.aluvia.io').
    */
   host: string;
@@ -123,7 +123,7 @@ export type AluviaClientConnection = {
   /**
    * Proxy port to configure in your client.
    *
-   * - In client proxy mode (local_proxy: true): this is the local proxy port.
+   * - In client proxy mode (localProxy: true): this is the local proxy port.
    * - In gateway mode: this is the Aluvia gateway port (typically 8080 or 8443).
    */
   port: number;
@@ -131,7 +131,7 @@ export type AluviaClientConnection = {
   /**
    * Convenience URL for the proxy server endpoint (without embedding credentials).
    *
-   * - In client proxy mode (local_proxy: true): 'http://127.0.0.1:<port>'
+   * - In client proxy mode (localProxy: true): 'http://127.0.0.1:<port>'
    * - In gateway mode: '<protocol>://gateway.aluvia.io:<port>'
    *
    * (The local proxy itself is always HTTP; it may tunnel to an HTTP or HTTPS

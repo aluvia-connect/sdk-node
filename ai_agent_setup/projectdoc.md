@@ -7,8 +7,8 @@ This repository implements **`@aluvia/sdk`**, a small Node.js SDK for automation
 
 The SDK supports two operating modes:
 
-- **Client proxy mode (default)** (`local_proxy: true`): starts a local proxy on `127.0.0.1` and does **per-request hostname routing** (direct vs gateway).
-- **Gateway mode** (`local_proxy: false`): does **not** start a local proxy; instead it returns **gateway proxy settings** for you to plug into Playwright / Node HTTP clients.
+- **Client proxy mode (default)** (`localProxy: true`): starts a local proxy on `127.0.0.1` and does **per-request hostname routing** (direct vs gateway).
+- **Gateway mode** (`localProxy: false`): does **not** start a local proxy; instead it returns **gateway proxy settings** for you to plug into Playwright / Node HTTP clients.
 
 This doc focuses on **what the code actually does today**. If you change public behavior, update this doc and `test/integration.test.ts` in the same PR.
 
@@ -66,9 +66,9 @@ Key options (`src/client/types.ts`):
 
 - **`apiKey`** (required): used as `Authorization: Bearer <apiKey>`.
   - Important: this SDK uses **account endpoints** (`/account/...`), so the token must be an **account API token** (see `api-v1.yaml` for token types).
-- **`connection_id`** (optional): if provided, config is fetched via `GET /account/connections/:id`.
+- **`connectionId`** (optional): if provided, config is fetched via `GET /account/connections/:id`.
   - If omitted, the SDK attempts `POST /account/connections` to create one.
-- **`local_proxy`** (optional, default `true`): mode toggle.
+- **`localProxy`** (optional, default `true`): mode toggle.
 - **`strict`** (optional, default `true`): fail fast if the SDK cannot load/create an initial config (prevents “silent direct routing”).
 - **`apiBaseUrl`** (optional, default `https://api.aluvia.io/v1`)
 - **`pollIntervalMs`** (optional, default `5000`)
@@ -127,7 +127,7 @@ HTTP wrapper for Aluvia endpoints; does not require starting the proxy.
 
 ## Modes: client proxy vs gateway
 
-### Client proxy mode (`local_proxy: true`)
+### Client proxy mode (`localProxy: true`)
 
 - Starts a local proxy at `http://127.0.0.1:<port>`
 - For each request, decides:
@@ -140,7 +140,7 @@ Connection fields:
 - `connection.url`: `http://127.0.0.1:<port>`
 - `connection.getUrl()`: same as `connection.url` (still safe; no creds)
 
-### Gateway mode (`local_proxy: false`)
+### Gateway mode (`localProxy: false`)
 
 - No local proxy is started.
 - The connection describes the upstream gateway settings.
@@ -172,20 +172,20 @@ Gateway-mode requirement:
 
 All calls include `Authorization: Bearer <apiKey>` and `Accept: application/json`.
 
-- `GET /account/connections/:id` (when `connection_id` is provided)
-- `POST /account/connections` (when `connection_id` is omitted)
+- `GET /account/connections/:id` (when `connectionId` is provided)
+- `POST /account/connections` (when `connectionId` is omitted)
 - `PATCH /account/connections/:id` (for `updateRules` / `updateSessionId`)
 
 ### How `init()` works
 
-If `connection_id` is provided:
+If `connectionId` is provided:
 
 - GETs the config
 - on 401/403: throws `InvalidApiKeyError`
 - on non-200: throws `ApiError`
 - on 200: parses config and stores it
 
-If `connection_id` is omitted:
+If `connectionId` is omitted:
 
 - POSTs to create a connection
 - on 401/403: throws `InvalidApiKeyError`
@@ -382,7 +382,7 @@ High-level helpers live in `src/api/account.ts` and `src/api/geos.ts`. They call
   - `timeoutMs` currently affects **`client.api` only**; config/control-plane calls use `requestCore()` defaults.
 - **Reliability**:
   - Polling failures keep last-known config.
-  - With `strict=false`, if `init()` cannot create a connection (when `connection_id` is omitted), polling will not recover because there is no initial snapshot and no id.
+  - With `strict=false`, if `init()` cannot create a connection (when `connectionId` is omitted), polling will not recover because there is no initial snapshot and no id.
 
 ---
 

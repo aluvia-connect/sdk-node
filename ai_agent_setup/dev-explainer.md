@@ -64,7 +64,7 @@ It also exposes a secondary API wrapper:
 
 ### Modes: client proxy mode vs gateway mode
 
-#### Client proxy mode (default, recommended): `local_proxy: true`
+#### Client proxy mode (default, recommended): `localProxy: true`
 
 - The SDK starts a local proxy on **loopback only**: `http://127.0.0.1:<port>`.
 - Your browser/HTTP client points to the **local proxy** (no gateway credentials in your process args or config).
@@ -82,7 +82,7 @@ This is the best fit when:
 - You’re using **Chromium-based tools** where proxy auth can be annoying (Puppeteer/Selenium).
 - You want the safest default with minimal secret handling.
 
-#### Gateway mode: `local_proxy: false`
+#### Gateway mode: `localProxy: false`
 
 - No local proxy is started.
 - The connection describes the upstream gateway settings.
@@ -107,7 +107,7 @@ When you call `await client.start()`:
 
 - Validates `apiKey` (empty → `MissingApiKeyError`)
 - **Initializes config** via `ConfigManager.init()`:
-  - If you passed `connection_id`, it does `GET /account/connections/:id`
+  - If you passed `connectionId`, it does `GET /account/connections/:id`
   - Otherwise it does `POST /account/connections` to create one
   - It parses `proxy_username` / `proxy_password` and builds a gateway proxy config (the gateway host is currently fixed to `gateway.aluvia.io`)
 - Then:

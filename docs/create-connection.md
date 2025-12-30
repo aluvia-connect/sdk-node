@@ -10,7 +10,7 @@ sidebar_position: 0
 
 There are **three ways** to create a new connection:
 
-- **Starting the Aluvia client (`AluviaClient`)**: If you don’t provide `connection_id`, the client creates a new account connection automatically during startup.
+- **Starting the Aluvia client (`AluviaClient`)**: If you don’t provide `connectionId`, the client creates a new account connection automatically during startup.
 - **Using the Aluvia API wrapper (`AluviaApi`)**: Create a connection directly via `POST /account/connections`.
 - **Manually in the Aluvia dashboard**: Create a connection in the UI.
 
@@ -18,14 +18,14 @@ There are **three ways** to create a new connection:
 
 ## Create connection using the Aluvia client
 
-Starting `AluviaClient` creates a new account connection **when `connection_id` is omitted**.
+Starting `AluviaClient` creates a new account connection **when `connectionId` is omitted**.
 
 ```ts
 import { AluviaClient } from '@aluvia/sdk';
 
 const client = new AluviaClient({ apiKey: process.env.ALUVIA_API_KEY! });
 
-// Omitting `connection_id` makes `start()` create a new connection
+// Omitting `connectionId` makes `start()` create a new connection
 const connection = await client.start();
 
 // Integration and automation code...

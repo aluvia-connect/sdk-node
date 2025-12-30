@@ -9,7 +9,7 @@
 
 There are two key components:
 1. Aluvia client - lets agents route traffic through Aluvia's trusted US mobile IP addresses instead of their own cloud/datacenter IPs. Reduces website blocks and allows for reliable agent workflows at scale.
-2. API wrapper - a Javascript wrapper for the Aluvia API
+2. API wrapper - a JavaScript wrapper for the Aluvia API
 
 ## Aluvia client
 
