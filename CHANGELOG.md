@@ -128,12 +128,12 @@ Commit types map to changelog categories:
 At the bottom of the file, add comparison links:
 
 ```markdown
-[Unreleased]: https://github.com/aluvia/aluvia-sdk/compare/v1.0.0...HEAD
-[1.0.0]: https://github.com/aluvia/aluvia-sdk/releases/tag/v1.0.0
+[Unreleased]: https://github.com/aluvia-connect/sdk-node/compare/v1.0.0...HEAD
+[1.0.0]: https://github.com/aluvia-connect/sdk-node/releases/tag/v1.0.0
 ```
 
 ---
 
-[Unreleased]: https://github.com/aluvia/aluvia-sdk/compare/v1.0.0...HEAD
-[1.0.0]: https://github.com/aluvia/aluvia-sdk/releases/tag/v1.0.0
+[Unreleased]: https://github.com/aluvia-connect/sdk-node/compare/v1.0.0...HEAD
+[1.0.0]: https://github.com/aluvia-connect/sdk-node/releases/tag/v1.0.0
 

@@ -130,7 +130,7 @@ A **connection** object represents a set of credentials and configurations that 
 | **Target geo** | Geographic targeting for IPs (for example, `us-ny`). |
 
 
-You can manage connections through the [Dashboard](https://app.aluvia.io), this SDK (`AluivaApi`), or [REST API](docs/api-technical-guide.md). 
+You can manage connections through the [Dashboard](https://app.aluvia.io), this SDK (`AluviaApi`), or [REST API](docs/api-technical-guide.md). 
 
 
 

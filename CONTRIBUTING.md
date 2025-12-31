@@ -11,8 +11,8 @@ Thank you for your interest in contributing! This guide covers code style, testi
 
 ```bash
 # Clone and install
-git clone https://github.com/aluvia/aluvia-sdk.git
-cd aluvia-sdk
+git clone https://github.com/aluvia-connect/sdk-node.git
+cd sdk-node
 npm ci
 ```
 
