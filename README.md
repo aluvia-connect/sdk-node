@@ -28,7 +28,7 @@ Cloud providers use well-known IP ranges that bot detection systems flag as high
 
 ## Quick start
 
-### Before you begin
+### Get Aluvia API key
 
 1. Create an account at [app.aluvia.io](https://app.aluvia.io)
 2. Go to **Settings > API Keys** and create an **Account API Key**
@@ -75,7 +75,7 @@ await connection.close();
 
 ---
 
-## How it works
+## How the Aluvia client works
 
 ```
 ┌──────────────────┐      ┌──────────────────────────┐      ┌──────────────────────┐
@@ -85,17 +85,21 @@ await connection.close();
 │                  │      │                          │      │                      │
 └──────────────────┘      │  Per-request routing:    │      └──────────────────────┘
                           │                          │
-                          │  api.stripe.com ──────────────▶ Direct (free)
-                          │  target-site.com ─────────────▶ Via Aluvia
+                          │  not-blocked.com ──────────────▶ Direct
+                          │  blocked-site.com ─────────────▶ Via Aluvia
                           │                          │
                           └──────────────────────────┘
 ```
 
-The Aluvia Client starts a local proxy server that routes each request either directly or through Aluvia, based on hostname rules. You can update rules at runtime without restarting your agent.
+The Aluvia Client starts a local proxy server that routes each request based on hostname rules. Traffic can be sent either:
+* direct (using the agent's datacenter/cloud IP) or,
+* through Aluvia's mobile proxy IPs,
+
+**Rules can be updated at runtime without restarting the agent.**
 
 ---
 
-## Guides
+## Documentation
 
 ### Background:
 * [What is Aluvia?](https://docs.aluvia.io/)
@@ -111,7 +115,12 @@ The Aluvia Client starts a local proxy server that routes each request either di
 
 ## Understanding Aluvia connections
 
-A **connection** is a set of credentials and configuration that defines how your agent connects to Aluvia.
+A **connection** object represents a set of credentials and configurations that defines how your agent connects to Aluvia. For more information, see [Understanding Connections](https://docs.aluvia.io/fundamentals/connections).
+
+**Key points:**
+- Create as many connections as you need
+- You can update rules at runtime
+- Connections remain active until you delete them
 
 | Attribute | Description |
 |-----------|-------------|
@@ -120,14 +129,10 @@ A **connection** is a set of credentials and configuration that defines how your
 | **Session ID** | Controls IP rotation and sticky sessions. |
 | **Target geo** | Geographic targeting for IPs (for example, `us-ny`). |
 
-**Key points:**
-- Create as many connections as you need
-- You can update rules at runtime
-- Connections remain active until you delete them
 
 You can manage connections through the [Dashboard](https://app.aluvia.io), this SDK (`AluivaApi`), or [REST API](docs/api-technical-guide.md). 
 
-For more information, see [Understanding Connections](https://docs.aluvia.io/fundamentals/connections).
+
 
 ---
 
@@ -145,7 +150,7 @@ await client.updateRules(['*', '-api.stripe.com']);           // Proxy all excep
 await client.updateRules([]);                                 // Route all traffic direct
 ```
 
-### Supported patterns:
+### Supported routing rule patterns:
 
 | Pattern | Matches |
 |---------|---------|
@@ -221,7 +226,7 @@ try {
 
 ---
 
-## Tool adapters
+## Tool integration adapters
 
 Every tool has its own way of configuring proxies—Playwright wants { server, username, password }, Puppeteer wants CLI args, Axios wants agents, and Node's native fetch doesn't support proxies at all. The SDK handles all of this for you:
 
