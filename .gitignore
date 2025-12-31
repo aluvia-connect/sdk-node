@@ -4,4 +4,3 @@ dist/
 .env
 .idea/
 .vscode/
-agents/
