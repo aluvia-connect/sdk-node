@@ -141,7 +141,7 @@ await api.geos.list();
 
 | Option | Default | Notes |
 |--------|---------|-------|
-| `local_proxy` | `true` | Start local proxy |
+| `localProxy` | `true` | Start local proxy |
 | `strict` | `true` | Fail fast on config errors |
 | `apiBaseUrl` | `https://api.aluvia.io/v1` | API endpoint |
 | `pollIntervalMs` | `5000` | Config polling interval |
@@ -156,7 +156,7 @@ await api.geos.list();
 ### Client Proxy Mode (default)
 
 ```ts
-const client = new AluviaClient({ apiKey: '...', local_proxy: true });
+const client = new AluviaClient({ apiKey: '...', localProxy: true });
 const connection = await client.start();
 // connection.url = "http://127.0.0.1:<port>"
 ```
@@ -168,7 +168,7 @@ const connection = await client.start();
 ### Gateway Mode
 
 ```ts
-const client = new AluviaClient({ apiKey: '...', local_proxy: false });
+const client = new AluviaClient({ apiKey: '...', localProxy: false });
 const connection = await client.start();
 // connection.url = "http://gateway.aluvia.io:8080"
 // connection.getUrl() contains credentials (secret!)

@@ -63,16 +63,16 @@ The client is split into two independent **planes**:
 
 ## Operating Modes
 
-The client supports two modes controlled by the `local_proxy` option:
+The client supports two modes controlled by the `localProxy` option:
 
 ### Client Proxy Mode (Default)
 
-**`local_proxy: true`** (default)
+**`localProxy: true`** (default)
 
 ```ts
 const client = new AluviaClient({
   apiKey: process.env.ALUVIA_API_KEY!,
-  local_proxy: true, // default
+  localProxy: true, // default
 });
 ```
 
@@ -93,12 +93,12 @@ const client = new AluviaClient({
 
 ### Gateway Mode
 
-**`local_proxy: false`**
+**`localProxy: false`**
 
 ```ts
 const client = new AluviaClient({
   apiKey: process.env.ALUVIA_API_KEY!,
-  local_proxy: false,
+  localProxy: false,
 });
 ```
 
@@ -140,8 +140,8 @@ new AluviaClient(options: AluviaClientOptions)
 | Option | Type | Default | Description |
 |--------|------|---------|-------------|
 | `apiKey` | `string` | **required** | Account API key (used as `Bearer` token). |
-| `connection_id` | `string` | `undefined` | Existing connection ID. If omitted, creates a new connection. |
-| `local_proxy` | `boolean` | `true` | Enable client proxy mode (local proxy). |
+| `connectionId` | `string` | `undefined` | Existing connection ID. If omitted, creates a new connection. |
+| `localProxy` | `boolean` | `true` | Enable client proxy mode (local proxy). |
 | `strict` | `boolean` | `true` | Fail fast if config can't be loaded/created. |
 | `apiBaseUrl` | `string` | `"https://api.aluvia.io/v1"` | Aluvia API base URL. |
 | `pollIntervalMs` | `number` | `5000` | Config polling interval (ms). |
@@ -160,7 +160,7 @@ Starts the client and returns a connection object.
 **Behavior:**
 1. Validates `apiKey` (throws `MissingApiKeyError` if empty)
 2. Initializes configuration via `ConfigManager.init()`:
-   - If `connection_id` provided: `GET /account/connections/:id`
+   - If `connectionId` provided: `GET /account/connections/:id`
    - If omitted: `POST /account/connections` to create one
 3. Then, based on mode:
    - **Client proxy mode**: starts polling, starts local proxy, returns connection
@@ -414,7 +414,7 @@ Because config is read per-request, rule updates apply immediately without resta
 ```ts
 const client = new AluviaClient({
   apiKey: process.env.ALUVIA_API_KEY!,
-  connection_id: process.env.ALUVIA_CONNECTION_ID!, // Required for updates
+  connectionId: process.env.ALUVIA_CONNECTION_ID!, // Required for updates
 });
 
 const connection = await client.start();
@@ -460,7 +460,7 @@ await client.updateTargetGeo(null);
 
 Runtime update methods (`updateRules`, `updateSessionId`, `updateTargetGeo`) require an **account connection ID**:
 
-- If you provided `connection_id` in options, updates work immediately.
+- If you provided `connectionId` in options, updates work immediately.
 - If the SDK created the connection and the API returned an ID, updates work.
 - If the create response didn't include an ID, updates throw `ApiError('No account connection ID available')`.
 
@@ -578,7 +578,7 @@ client.start()
     │
     ├─► ConfigManager.init()
     │       │
-    │       ├─► connection_id provided?
+    │       ├─► connectionId provided?
     │       │       ├─► Yes: GET /account/connections/:id
     │       │       └─► No:  POST /account/connections
     │       │
@@ -588,7 +588,7 @@ client.start()
     │               • sessionId, targetGeo
     │               • etag
     │
-    ├─► local_proxy: true?
+    ├─► localProxy: true?
     │       │
     │       ├─► Yes (Client Proxy Mode):
     │       │       • Start polling (setInterval)
@@ -647,7 +647,7 @@ import { AluviaClient, ApiError, InvalidApiKeyError } from '@aluvia/sdk';
 async function main() {
   const client = new AluviaClient({
     apiKey: process.env.ALUVIA_API_KEY!,
-    connection_id: process.env.ALUVIA_CONNECTION_ID, // Optional
+    connectionId: process.env.ALUVIA_CONNECTION_ID, // Optional
     logLevel: 'info',
   });
 
