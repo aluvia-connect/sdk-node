@@ -5,77 +5,43 @@
 [![license](https://img.shields.io/npm/l/@aluvia/sdk.svg)](./LICENSE)
 [![node](https://img.shields.io/node/v/@aluvia/sdk.svg)](./package.json)
 
+## Overview
 
-**AI agents running in the cloud get blocked. A lot.**
+AI agents that work locally often fail in production. When you deploy to cloud infrastructure, requests encounter:
 
-Websites see datacenter IPs, trigger CAPTCHAs, return 403s, rate-limit with 429s—and your carefully orchestrated workflow breaks. Aluvia fixes this by routing your agent's traffic through trusted US mobile IP addresses, making your agent appear as a real user instead of a bot.
+- **403 Forbidden** responses
+- **CAPTCHAs** and verification challenges
+- **Rate limiting** after a few requests
 
----
+Cloud providers use well-known IP ranges that bot detection systems flag as high-risk.
 
-## Key Benefits
+**Aluvia solves this** by routing traffic through US mobile carrier IPs. Traffic from mobile IPs appears identical to traffic from real mobile users.
 
-**Improve agent reliability**
-- **Problem:** Agents run in the cloud, but websites treat datacenter traffic as higher-risk—resulting in CAPTCHAs, rate limits (429), blocks (403), and broken workflows.
-- **Solution:** Route requests through Aluvia's mobile IP addresses, dramatically reducing blocks and increasing end-to-end workflow completion.
-
-**Reduce proxy costs**
-- **Problem:** Routing all traffic through mobile proxies is expensive and adds latency.
-- **Solution:** Use hostname-based routing rules to proxy only the sites that need it. In typical workloads, this reduces bandwidth usage by 70-90%.
-
-**Unblock workflows without restarts**
-- **Problem:** Adjusting proxy settings usually requires restarting workers or redeploying.
-- **Solution:** Update routing rules at runtime—agents can dynamically respond to blocks without restarts.
-
-**Simplify integration**
-- **Problem:** Every tool (Playwright, Puppeteer, Axios, etc.) configures proxies differently.
-- **Solution:** One SDK with adapters for all major tools. No need to learn each library's quirks.
+| Benefit | Description |
+|---------|-------------|
+| **Unblock sites** | Mobile IPs bypass datacenter IP blocking |
+| **Reduce costs** | Route only blocked sites through Aluvia; other traffic goes direct |
+| **Update at runtime** | Change routing rules without restarting your agent |
+| **Unified API** | Single SDK with adapters for Playwright, Puppeteer, Axios, and more |
 
 ---
 
-## How It Works
+## Quick start
 
-```
-┌─────────────────┐      ┌─────────────────────────┐      ┌─────────────────────┐
-│    Your Agent   │─────▶│     Aluvia SDK          │─────▶│  gateway.aluvia.io  │
-│   (Playwright,  │      │    127.0.0.1:port       │      │   (Mobile IPs)      │
-│   Axios, etc.)  │      │                         │      └─────────────────────┘
-└─────────────────┘      │  Per-request routing:   │                │
-                         │                         │                ▼
-                         │  • api.stripe.com ────────────────▶ Direct (free, fast)
-                         │  • cdn.jsdelivr.net ──────────────▶ Direct (free, fast)
-                         │  • target-site.com ───────────────▶ Via Aluvia (unblocked)
-                         └─────────────────────────┘
-```
+### Before you begin
 
-The SDK runs a local proxy server that decides **per request** whether to route traffic direct or through Aluvia (for sites that block datacenter IPs). You control routing with simple hostname rules, and can update rules at runtime without restarting your agent.
+1. Create an account at [app.aluvia.io](https://app.aluvia.io)
+2. Go to **Settings > API Keys** and create an **Account API Key**
 
----
-
-## Documentation
-
-### The basics:
-* [What is Aluvia?](https://docs.aluvia.io/)
-* [Understanding Aluvia connections](https://docs.aluvia.io/fundamentals/connections)
-
-### Get started:
-* [Aluiva client - complete technical docs](docs/client-technical-guide.md)
-* [How to create a new connection](https://docs.aluvia.io/connect/create-connection)
-* [How to use a connection](https://docs.aluvia.io/connect/use-connection)
-* [How to manage a connection](https://docs.aluvia.io/connect/manage-connection)
-
----
-
-## Install
+### Install the SDK
 
 ```bash
 npm install @aluvia/sdk
 ```
 
-**Requirements:** Node.js 18+
+**Requirements:** Node.js 18 or later
 
----
-
-## Quick Start
+### Example: Aluvia client + Playwright
 
 ```ts
 import { chromium } from 'playwright';
@@ -84,10 +50,7 @@ import { AluviaClient } from '@aluvia/sdk';
 const client = new AluviaClient({ apiKey: process.env.ALUVIA_API_KEY! });
 const connection = await client.start();
 
-const browser = await chromium.launch({
-  proxy: connection.asPlaywright(),
-});
-
+const browser = await chromium.launch({ proxy: connection.asPlaywright() });
 const page = await browser.newPage();
 await page.goto('https://example.com');
 
@@ -95,11 +58,107 @@ await browser.close();
 await connection.close();
 ```
 
+### Example: Aluvia client + Axios
+
+```ts
+import axios from 'axios';
+import { AluviaClient } from '@aluvia/sdk';
+
+const client = new AluviaClient({ apiKey: process.env.ALUVIA_API_KEY! });
+const connection = await client.start();
+
+await client.updateRules(['target-site.com']); // Proxy only this hostname
+
+const response = await axios.get('https://target-site.com', connection.asAxiosConfig());
+await connection.close();
+```
+
 ---
 
-## Why Agents Use Aluvia: Self-Healing Recovery
+## How it works
 
-When a website blocks your agent, it can **automatically add that hostname to the proxy rules and retry**—without restarting the browser or redeploying:
+```
+┌──────────────────┐      ┌──────────────────────────┐      ┌──────────────────────┐
+│                  │      │                          │      │                      │
+│    Your Agent    │─────▶     Aluvia Client         ─────▶  gateway.aluvia.io    │
+│                  │      │     127.0.0.1:port       │      │    (Mobile IPs)      │
+│                  │      │                          │      │                      │
+└──────────────────┘      │  Per-request routing:    │      └──────────────────────┘
+                          │                          │
+                          │  api.stripe.com ──────────────▶ Direct (free)
+                          │  target-site.com ─────────────▶ Via Aluvia
+                          │                          │
+                          └──────────────────────────┘
+```
+
+The Aluvia Client starts a local proxy server that routes each request either directly or through Aluvia, based on hostname rules. You can update rules at runtime without restarting your agent.
+
+---
+
+## Guides
+
+### Background:
+* [What is Aluvia?](https://docs.aluvia.io/)
+* [Aluvia fundamentals](https://docs.aluvia.io/fundamentals/connections)
+
+### Aluvia Client:
+* [Client technical docs](docs/client-technical-guide.md)
+* [How to create a new connection](https://docs.aluvia.io/connect/create-connection)
+* [How to use a connection](https://docs.aluvia.io/connect/use-connection)
+* [How to manage a connection](https://docs.aluvia.io/connect/manage-connection)
+
+---
+
+## Understanding Aluvia connections
+
+A **connection** is a set of credentials and configuration that defines how your agent connects to Aluvia.
+
+| Attribute | Description |
+|-----------|-------------|
+| **Connection ID** | Unique identifier. Pass to `AluviaClient` to reuse an existing connection. |
+| **Routing rules** | Hostnames to route through Aluvia versus direct. |
+| **Session ID** | Controls IP rotation and sticky sessions. |
+| **Target geo** | Geographic targeting for IPs (for example, `us-ny`). |
+
+**Key points:**
+- Create as many connections as you need
+- You can update rules at runtime
+- Connections remain active until you delete them
+
+You can manage connections through the [Dashboard](https://app.aluvia.io), this SDK (`AluivaApi`), or [REST API](docs/api-technical-guide.md). 
+
+For more information, see [Understanding Connections](https://docs.aluvia.io/fundamentals/connections).
+
+---
+
+## Routing rules
+
+Route traffic to Aluvia using custom hostname routing rules that you (or our agent) set. 
+
+* Selectively routing traffic to mobile proxies results in significant cost savings. 
+* Rules can be updated during runtime, allowing agents to work around website blocks on the fly.
+
+```ts
+await client.updateRules(['*']);                              // Proxy all traffic
+await client.updateRules(['target-site.com', '*.google.com']); // Proxy specific hosts
+await client.updateRules(['*', '-api.stripe.com']);           // Proxy all except specified
+await client.updateRules([]);                                 // Route all traffic direct
+```
+
+### Supported patterns:
+
+| Pattern | Matches |
+|---------|---------|
+| `*` | All hostnames |
+| `example.com` | Exact match |
+| `*.example.com` | Subdomains of example.com |
+| `google.*` | google.com, google.co.uk, and similar |
+| `-example.com` | Exclude from proxying |
+
+
+### Example: Unblocking websites at runtime
+
+An agent browses the web to complete a task. When a website blocks the agent, it dynamically adds a hostname rule to route that site's traffic through Aluvia's mobile IPs—without restarting the browser.
 
 ```ts
 import { chromium } from 'playwright';
@@ -135,7 +194,7 @@ async function visitWithRetry(url: string): Promise<string> {
     if (isBlocked && !proxiedHosts.has(hostname)) {
       console.log(`Blocked by ${hostname} — adding to proxy rules`);
 
-      // Add the hostname to routing rules (takes effect immediately)
+      // Add the hostname to routing rules (updates take effect immediately)
       proxiedHosts.add(hostname);
       await client.updateRules([...proxiedHosts]);
 
@@ -160,95 +219,51 @@ try {
 }
 ```
 
-**What makes this powerful:**
-- No browser restart required—rules update instantly
-- Agent learns which sites need proxying as it runs
-- Minimizes proxy usage (and cost) by only proxying what's necessary
-
 ---
 
-## Routing Rules
+## Tool adapters
 
-Control which hostnames go through Aluvia:
+Every tool has its own way of configuring proxies—Playwright wants { server, username, password }, Puppeteer wants CLI args, Axios wants agents, and Node's native fetch doesn't support proxies at all. The SDK handles all of this for you:
 
-```ts
-// Proxy everything
-await client.updateRules(['*']);
-
-// Proxy only specific hosts
-await client.updateRules(['target-site.com', '*.example.com']);
-
-// Proxy everything except certain hosts
-await client.updateRules(['*', '-api.stripe.com', '-*.cdn.com']);
-
-// Clear rules (all traffic goes direct)
-await client.updateRules([]);
-```
-
-**Rule patterns:**
-- `*` — matches any hostname
-- `example.com` — exact match
-- `*.example.com` — matches subdomains (not `example.com` itself)
-- `google.*` — matches `google.com`, `google.co.uk`, etc.
-- `-example.com` — exclude from proxying (takes precedence)
-
----
-
-## Simplified Tool Integration
-
-Every tool has its own way of configuring proxies—Playwright wants `{ server, username, password }`, Puppeteer wants CLI args, Axios wants agents, and Node's native `fetch` doesn't support proxies at all. The SDK handles all of this for you:
-
-| Tool | Adapter | Returns |
-|------|---------|---------|
-| **Playwright** | `connection.asPlaywright()` | `{ server, username?, password? }` |
-| **Puppeteer** | `connection.asPuppeteer()` | `['--proxy-server=...']` |
-| **Selenium** | `connection.asSelenium()` | `'--proxy-server=...'` |
-| **Axios** | `connection.asAxiosConfig()` | `{ proxy: false, httpAgent, httpsAgent }` |
-| **got** | `connection.asGotOptions()` | `{ agent: { http, https } }` |
-| **fetch (undici)** | `connection.asUndiciFetch()` | `fetch` function with proxy support |
-| **Node.js http** | `connection.asNodeAgents()` | `{ http: Agent, https: Agent }` |
-
-One connection, any tool—no need to learn each library's proxy quirks.
+| Tool | Method | Returns |
+|------|--------|---------|
+| Playwright | `connection.asPlaywright()` | `{ server, username?, password? }` |
+| Puppeteer | `connection.asPuppeteer()` | `['--proxy-server=...']` |
+| Selenium | `connection.asSelenium()` | `'--proxy-server=...'` |
+| Axios | `connection.asAxiosConfig()` | `{ proxy: false, httpAgent, httpsAgent }` |
+| got | `connection.asGotOptions()` | `{ agent: { http, https } }` |
+| fetch | `connection.asUndiciFetch()` | Proxy-enabled `fetch` function |
+| Node.js http | `connection.asNodeAgents()` | `{ http: Agent, https: Agent }` |
 
 ---
 
 ## Aluvia API
 
-The SDK also includes a typed wrapper for the Aluvia REST API—useful for programmatically managing connections in multi-tenant agent platforms:
+The SDK includes a typed client for managing connections programmatically:
 
 ```ts
 import { AluviaApi } from '@aluvia/sdk';
 
 const api = new AluviaApi({ apiKey: process.env.ALUVIA_API_KEY! });
 
-// Check account balance before expensive operations
 const account = await api.account.get();
-console.log(`Balance: ${account.balance_gb} GB`);
-
-// List and manage connections
 const connections = await api.account.connections.list();
-const newConn = await api.account.connections.create({ description: 'my-agent' });
+const newConnection = await api.account.connections.create({ description: 'my-agent' });
 ```
 
-### Available Endpoints
+For the complete API reference, see [API Technical Guide](docs/api-technical-guide.md).
 
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| `api.account.get()` | `GET /account` | Account metadata and balance |
-| `api.account.usage.get()` | `GET /account/usage` | Usage summary (GB consumed) |
-| `api.account.payments.list()` | `GET /account/payments` | Payment history |
-| `api.account.connections.list()` | `GET /account/connections` | List all connections |
-| `api.account.connections.create()` | `POST /account/connections` | Create new connection |
-| `api.account.connections.get()` | `GET /account/connections/:id` | Get connection details |
-| `api.account.connections.patch()` | `PATCH /account/connections/:id` | Update connection |
-| `api.account.connections.delete()` | `DELETE /account/connections/:id` | Delete connection |
-| `api.geos.list()` | `GET /geos` | List available geo targets |
-| `api.request()` | Any | Low-level escape hatch |
+---
 
-For detailed documentation, see [API Technical Guide](docs/api-technical-guide.md) or the [REST API reference](https://docs.aluvia.io/api/api-reference/aluvia-api-v-1).
+## Additional resources
+
+- [What is Aluvia?](https://docs.aluvia.io/)
+- [Client Technical Guide](docs/client-technical-guide.md)
+- [API Technical Guide](docs/api-technical-guide.md)
+- [Self-healing recovery pattern](docs/client-technical-guide.md#example)
 
 ---
 
 ## License
 
-MIT License - see [LICENSE](./LICENSE) for details.
+MIT — see [LICENSE](./LICENSE)
