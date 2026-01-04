@@ -7,9 +7,9 @@
 
 ## Introduction
 
-AI agents require reliable web access, yet they often encounter 403 blocks, CAPTCHAs, and rate limits. While agents live in datacenters, humans don't, and websites treat agent datacenter/cloud IPs as suspicious.
+AI agents require reliable web access, yet they often encounter 403 blocks, CAPTCHAs, and rate limits. Real humans don't live in datacenters, so websites often treat agent coming from datacenter/cloud IPs as suspicious.
 
-**Aluvia solves this problem** by giving AI agents premium mobile IP addresses that don't get blocked.
+**Aluvia solves this problem** by connecting agents to the web through premium mobile IPs on US carrier networks. Unlike datacenter IPs, these reputable IPs are used by real humans, and they don’t get blocked by websites.
 
 **This Node.js SDK** makes it simple to integrate Aluvia into your agent workflow. There are two key components:
 1. `AluviaClient` - a local client for connecting to Aluvia. 
