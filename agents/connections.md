@@ -79,7 +79,7 @@ You can create, update, and delete connections through three interfaces:
 
 ### Dashboard
 
-The [Aluvia dashboard](https://app.aluvia.io) provides a visual interface for managing connections. Use the Connections page to create, view, update, or delete connections manually.
+The [Aluvia dashboard](https://dashboard.aluvia.io) provides a visual interface for managing connections. Use the Connections page to create, view, update, or delete connections manually.
 
 ### Aluvia Client
 

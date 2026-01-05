@@ -55,8 +55,8 @@ Simply point your automation tool at the local proxy address (`127.0.0.1`) and t
 
 ### Get Aluvia API key
 
-1. Create an account at [app.aluvia.io](https://app.aluvia.io)
-2. Go to **Settings > API Keys** and create an **Account API Key**
+1. Create an account at [dashboard.aluvia.io](https://dashboard.aluvia.io)
+2. Go to **API and SDKs** and get your **API Key**
 
 ### Install the SDK
 
@@ -223,9 +223,8 @@ Set `localProxy: false` to enable.
 ```ts
 const client = new AluviaClient({
   apiKey: process.env.ALUVIA_API_KEY!,
-  connectionId: 'existing-id',  // Optional: reuse an existing connection
+  connectionId: 123,  // Optional: reuse an existing connection
   localProxy: true,             // Optional: default true (recommended)
-  logLevel: 'info',              // Optional: 'silent' | 'info' | 'debug'
 });
 ```
 
@@ -254,7 +253,7 @@ While your agent is running, you can update routing rules, rotate IPs, or change
 
 ```ts
 await client.updateRules(['blocked-site.com']);    // Add hostname to proxy rules
-await client.updateSessionId('new-session');       // Rotate to a new IP
+await client.updateSessionId('newsession');       // Rotate to a new IP
 await client.updateTargetGeo('us-ca');             // Target California IPs
 ```
 

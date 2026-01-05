@@ -85,7 +85,7 @@ You are automatically connected to the optimal node. All gateway nodes are locat
 
 ### Username and password
 
-To authenticate with gateway nodes, use the `proxy_username` and `proxy_password` from a connection object. You can create connections through the [dashboard](https://app.aluvia.io), the [Aluvia API](/api/connections), or the Aluvia Client.
+To authenticate with gateway nodes, use the `proxy_username` and `proxy_password` from a connection object. You can create connections through the [dashboard](https://dashboard.aluvia.io), the [Aluvia API](/api/connections), or the Aluvia Client.
 
 
 

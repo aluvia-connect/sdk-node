@@ -449,7 +449,7 @@ describe('ConfigManager polling', () => {
       gatewayProtocol: 'http',
       gatewayPort: 8080,
       logLevel: 'silent',
-      connectionId: '123',
+      connectionId: 123,
       strict: true,
     });
 
@@ -476,7 +476,7 @@ describe('ConfigManager polling', () => {
       gatewayProtocol: 'http',
       gatewayPort: 8080,
       logLevel: 'silent',
-      connectionId: '123',
+      connectionId: 123,
       strict: true,
     });
 
@@ -500,7 +500,7 @@ describe('ConfigManager polling', () => {
       gatewayProtocol: 'http',
       gatewayPort: 8080,
       logLevel: 'silent',
-      connectionId: '123',
+      connectionId: 123,
     });
 
     const existingConfig = {
@@ -580,7 +580,7 @@ describe('ConfigManager polling', () => {
       gatewayProtocol: 'http',
       gatewayPort: 8080,
       logLevel: 'silent',
-      connectionId: '123',
+      connectionId: 123,
     });
 
     await mgr.init();

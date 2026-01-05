@@ -59,7 +59,7 @@ The Aluvia client starts a local proxy server that routes each request based on 
 
 ### Get Aluvia API key
 
-1. Create an account at [app.aluvia.io](https://app.aluvia.io)
+1. Create an account at [dashboard.aluvia.io](https://dashboard.aluvia.io)
 2. Go to **Settings > API Keys** and create an **Account API Key**
 
 ### Install the SDK
