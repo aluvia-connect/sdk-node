@@ -1,0 +1,10 @@
+{
+    "name": "playwright-example",
+    "version": "1.0.0",
+    "type": "module",
+    "private": true,
+    "main": "main.js",
+    "dependencies": {
+        "playwright": "^1.56.1"
+    }
+}
