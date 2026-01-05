@@ -204,7 +204,7 @@ The Aluvia client has two operating modes: **Client Proxy Mode** (default) and *
 
 ### Gateway Mode
 
-Set `local_proxy: false` to enable.
+Set `localProxy: false` to enable.
 
 **How it works:** No local proxy. Your tools connect directly to `gateway.aluvia.io` and **ALL** traffic goes through Aluvia.
 
@@ -223,8 +223,8 @@ Set `local_proxy: false` to enable.
 ```ts
 const client = new AluviaClient({
   apiKey: process.env.ALUVIA_API_KEY!,
-  connection_id: 'existing-id',  // Optional: reuse an existing connection
-  local_proxy: true,             // Optional: default true (recommended)
+  connectionId: 'existing-id',  // Optional: reuse an existing connection
+  localProxy: true,             // Optional: default true (recommended)
   logLevel: 'info',              // Optional: 'silent' | 'info' | 'debug'
 });
 ```

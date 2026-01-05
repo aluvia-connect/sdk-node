@@ -30,7 +30,7 @@ What it does **not** do:
 Use `AluviaClient` when you want to:
 
 - Start a connection and **get proxy settings** to plug into Playwright/Puppeteer/Selenium/Node HTTP clients.
-- Optionally run a local proxy that does **hostname-based smart routing** (`local_proxy: true`, default).
+- Optionally run a local proxy that does **hostname-based smart routing** (`localProxy: true`, default).
 
 What it does in addition to API calls:
 
@@ -58,7 +58,7 @@ Choose **`AluviaClient`** when:
 - You want a one-liner way to configure automation tooling with proxy settings (`connection.asPlaywright()`, etc.).
 - You want hostname-based routing without building a routing layer yourself (client proxy mode).
 
-Use **`AluviaClient` + `local_proxy: false` (gateway mode)** when:
+Use **`AluviaClient` + `localProxy: false` (gateway mode)** when:
 
 - You want the SDK to fetch proxy credentials/config, but you do not want to run a local proxy.
 
@@ -123,7 +123,7 @@ import { AluviaClient } from '@aluvia/sdk';
 
 const client = new AluviaClient({
   apiKey: process.env.ALUVIA_API_KEY!,
-  local_proxy: true, // default
+  localProxy: true, // default
 });
 
 const connection = await client.start();
@@ -142,7 +142,7 @@ await connection.close();
 ## Common pitfalls
 
 - **Token type matters**: these helpers call `/account/...` endpoints, which require an **account API token** (not a per-connection token).
-- **Secrets**: in gateway mode (`local_proxy: false`), `connection.getUrl()` embeds proxy credentials; avoid logging it.
+- **Secrets**: in gateway mode (`localProxy: false`), `connection.getUrl()` embeds proxy credentials; avoid logging it.
 - **Browser proxy auth**: Puppeteer/Selenium helpers only provide `--proxy-server=...` and do not implement browser proxy authentication flows.
 
 

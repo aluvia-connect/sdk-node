@@ -42,15 +42,15 @@ A code block that shows all available AluviaClient() configuration options. You 
 ```ts
 new AluviaClient({
   apiKey: string,                 // required
-  connection_id?: string,         // optional
-  local_proxy?: boolean,        // optional, default true
+  connectionId?: string,         // optional
+  localProxy?: boolean,        // optional, default true
   strict?: boolean,              // optional, default true (fail fast if config can't be loaded/created)
   apiBaseUrl?: string,            // optional, default https://api.aluvia.io/v1
   pollIntervalMs?: number,        // optional, default 5000
   timeoutMs?: number,             // optional, default 30000 (API wrapper HTTP only)
   gatewayProtocol?: 'http'|'https', // optional, default http
   gatewayPort?: number,           // optional, default 8080 or 8443 depending on protocol
-  localPort?: number,             // optional; only relevant when local_proxy true
+  localPort?: number,             // optional; only relevant when localProxy true
   logLevel?: 'silent'|'info'|'debug', // optional, default info
 });
 ```
@@ -71,7 +71,7 @@ import { AluviaClient } from '@aluvia/sdk';
 
 const client = new AluviaClient({
   apiKey: process.env.ALUVIA_API_KEY!,
-  connection_id: process.env.ALUVIA_CONNECTION_ID, // optional
+  connectionId: process.env.ALUVIA_CONNECTION_ID, // optional
 });
 
 const connection = await client.start();
@@ -96,11 +96,11 @@ try {
 import puppeteer from 'puppeteer';
 import { AluviaClient } from '@aluvia/sdk';
 
-// Tip: For Puppeteer, `local_proxy: true` (default) is recommended so you don't have to implement proxy auth yourself.
+// Tip: For Puppeteer, `localProxy: true` (default) is recommended so you don't have to implement proxy auth yourself.
 const client = new AluviaClient({
   apiKey: process.env.ALUVIA_API_KEY!,
-  connection_id: process.env.ALUVIA_CONNECTION_ID, // optional
-  local_proxy: true, // true is default
+  connectionId: process.env.ALUVIA_CONNECTION_ID, // optional
+  localProxy: true, // true is default
 });
 
 const connection = await client.start();
@@ -127,11 +127,11 @@ import { Builder } from 'selenium-webdriver';
 import chrome from 'selenium-webdriver/chrome';
 import { AluviaClient } from '@aluvia/sdk';
 
-// Tip: For Selenium, `local_proxy: true` (default) is recommended so you don't have to implement proxy auth yourself.
+// Tip: For Selenium, `localProxy: true` (default) is recommended so you don't have to implement proxy auth yourself.
 const client = new AluviaClient({
   apiKey: process.env.ALUVIA_API_KEY!,
-  connection_id: process.env.ALUVIA_CONNECTION_ID, // optional
-  local_proxy: true, // true is default
+  connectionId: process.env.ALUVIA_CONNECTION_ID, // optional
+  localProxy: true, // true is default
 });
 
 const connection = await client.start();
