@@ -84,7 +84,7 @@ export type AluviaClientOptions = {
    * If omitted, the client will attempt to create a new account connection via:
    *   POST /account/connections
    */
-  connectionId?: string;
+  connectionId?: number;
 
   /**
    * Optional: enable local proxy mode (client proxy mode).

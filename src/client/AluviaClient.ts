@@ -42,11 +42,7 @@ export class AluviaClient {
     const strict = options.strict ?? true;
     this.options = { ...options, apiKey, localProxy, strict };
 
-    const connectionId = (() => {
-      if (options.connectionId == null) return undefined;
-      const trimmed = String(options.connectionId).trim();
-      return trimmed.length > 0 ? trimmed : undefined;
-    })();
+    const connectionId = Number(options.connectionId) ?? null
 
     const apiBaseUrl = options.apiBaseUrl ?? 'https://api.aluvia.io/v1';
     const pollIntervalMs = options.pollIntervalMs ?? 5000;
