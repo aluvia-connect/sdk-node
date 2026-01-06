@@ -58,6 +58,33 @@ function toAccountConnectionApiResponse(value: unknown): AccountConnectionApiRes
   return { data: data as AccountConnectionData };
 }
 
+function toValidationErrors(
+  value: unknown,
+): string[] | null {
+  if (!isRecord(value)) return null;
+
+  const apiError = value['error'];
+  if (!isRecord(apiError)) return null;
+  if (apiError['code'] !== 'validation_error') return null;
+
+  const details = apiError['details'];
+  const errors: string[] = [];
+
+  if (isRecord(details)) {
+    for (const fieldMessages of Object.values(details)) {
+      if (Array.isArray(fieldMessages)) {
+        for (const message of fieldMessages) {
+          if (typeof message === 'string') {
+            errors.push(message);
+          }
+        }
+      }
+    }
+  }
+
+  return errors.length ? errors : null;
+}
+
 /**
  * Options for ConfigManager constructor.
  */
@@ -278,6 +305,17 @@ export class ConfigManager {
       this.logger.debug('Configuration updated from API');
       this.logger.debug('New config summary:', this.redactConfig(this.config));
       return this.config;
+    }
+
+
+    if (result.status === 422 && result.body) {
+      const validationErrors = toValidationErrors(result.body);
+      if (validationErrors) {
+        throw new ApiError(
+          `Failed to update account connection config: ${validationErrors[0]}`,
+          result.status,
+        );
+      }
     }
 
     throw new ApiError(`Failed to update account connection config: HTTP ${result.status}`, result.status);
