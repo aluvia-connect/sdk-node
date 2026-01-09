@@ -334,7 +334,7 @@ components:
         target_geo:
           nullable: true
           type: string
-          example: us-ny
+          example: us_ny
         proxy_urls:
           $ref: "#/components/schemas/ProxyUrls"
 
@@ -371,7 +371,7 @@ components:
         target_geo:
           type: string
           nullable: true
-          example: us-ny
+          example: us_ny
         proxy_urls:
           $ref: "#/components/schemas/ProxyUrls"
 
@@ -672,7 +672,7 @@ paths:
             example:
               description: new-pricing-bot-east
               rules: ["*", "-example.com"]
-              target_geo: us-ny
+              target_geo: us_ny
               session_id: null
       responses:
         "201":
@@ -699,7 +699,7 @@ paths:
                       api_token: alv_connection_token_abc123def456
                       rules: ["*", "-example.com"]
                       session_id: null
-                      target_geo: us-ny
+                      target_geo: us_ny
                       proxy_urls:
                         raw:
                           protocol: http
@@ -761,7 +761,7 @@ paths:
                       api_token: alv_connection_token_abc123
                       rules: ["AUTO", "example.com"]
                       session_id: session-1234
-                      target_geo: us-ny
+                      target_geo: us_ny
                       proxy_urls:
                         raw:
                           protocol: http
@@ -803,7 +803,7 @@ paths:
             example:
               description: new-pricing-bot-east-v2
               rules: ["AUTO", "example.com"]
-              target_geo: us-ny
+              target_geo: us_ny
               session_id: session-5678
       responses:
         "200":
@@ -893,7 +893,7 @@ paths:
                       proxy_password: abc123xyz
                       rules: ["AUTO", "example.com"]
                       session_id: session-1234
-                      target_geo: us-ny
+                      target_geo: us_ny
                       proxy_urls:
                         raw:
                           protocol: http
@@ -934,7 +934,7 @@ paths:
               $ref: "#/components/schemas/ConnectionSelfUpdateRequest"
             example:
               rules: ["*", "-example.com"]
-              target_geo: us-ca
+              target_geo: us_ca
               session_id: fresh-session-9999
       responses:
         "200":
@@ -986,35 +986,35 @@ paths:
                     data:
                       - code: us
                         label: United States (any)
-                      - code: us-ny
+                      - code: us_ny
                         label: United States - New York
-                      - code: us-ca
+                      - code: us_ca
                         label: United States - California
-                      - code: us-tx
+                      - code: us_tx
                         label: United States - Texas
-                      - code: us-fl
+                      - code: us_fl
                         label: United States - Florida
-                      - code: us-il
+                      - code: us_il
                         label: United States - Illinois
-                      - code: us-wa
+                      - code: us_wa
                         label: United States - Washington
-                      - code: us-va
+                      - code: us_va
                         label: United States - Virginia
-                      - code: us-ga
+                      - code: us_ga
                         label: United States - Georgia
-                      - code: us-ma
+                      - code: us_ma
                         label: United States - Massachusetts
-                      - code: us-pa
+                      - code: us_pa
                         label: United States - Pennsylvania
-                      - code: us-oh
+                      - code: us_oh
                         label: United States - Ohio
-                      - code: us-nc
+                      - code: us_nc
                         label: United States - North Carolina
-                      - code: us-nj
+                      - code: us_nj
                         label: United States - New Jersey
-                      - code: us-az
+                      - code: us_az
                         label: United States - Arizona
-                      - code: us-co
+                      - code: us_co
                         label: United States - Colorado
                       - code: gb
                         label: United Kingdom

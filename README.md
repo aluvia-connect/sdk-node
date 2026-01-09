@@ -81,7 +81,7 @@ const client = new AluviaClient({ apiKey: process.env.ALUVIA_API_KEY! });
 const connection = await client.start();
 
 // Configure geo targeting (use California IPs)
-await client.updateTargetGeo('us-ca');
+await client.updateTargetGeo('us_ca');
 
 // Set session ID (requests with the same session ID use the same IP)
 await client.updateSessionId('agentsession1');
@@ -254,7 +254,7 @@ While your agent is running, you can update routing rules, rotate IPs, or change
 ```ts
 await client.updateRules(['blocked-site.com']);    // Add hostname to proxy rules
 await client.updateSessionId('newsession');       // Rotate to a new IP
-await client.updateTargetGeo('us-ca');             // Target California IPs
+await client.updateTargetGeo('us_ca');             // Target California IPs
 ```
 
 ### 5. Clean up when done
@@ -403,7 +403,7 @@ console.log('Balance:', account.balance_gb, 'GB');
 const connection = await api.account.connections.create({
   description: 'pricing-scraper',
   rules: ['competitor-site.com'],
-  target_geo: 'us-ca',
+  target_geo: 'us_ca',
 });
 console.log('Created:', connection.connection_id);
 

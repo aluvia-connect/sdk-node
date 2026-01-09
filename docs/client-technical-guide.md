@@ -205,7 +205,7 @@ await client.updateSessionId('session-abc-123');
 Updates geo targeting. Pass `null` to clear.
 
 ```ts
-await client.updateTargetGeo('us-ca');  // Target California IPs
+await client.updateTargetGeo('us_ca');  // Target California IPs
 await client.updateTargetGeo(null);    // Clear geo targeting
 ```
 
@@ -447,10 +447,10 @@ await client.updateSessionId('beta');
 
 ```ts
 // Target California IPs
-await client.updateTargetGeo('us-ca');
+await client.updateTargetGeo('us_ca');
 
 // Target New York IPs
-await client.updateTargetGeo('us-ny');
+await client.updateTargetGeo('us_ny');
 
 // Clear geo targeting
 await client.updateTargetGeo(null);

@@ -18,7 +18,7 @@ Each connection includes the following attributes:
 | **Username + password** | Credentials for authenticating with Aluvia gateway nodes. |
 | **Connection token** | API token scoped to this specific connection. Use with the Aluvia API for connection-level operations. |
 | **Session ID** | Controls IP rotation and sticky sessions. Set a session ID to maintain the same IP across requests. |
-| **Target geo** | Geographic targeting for IPs (for example, `us-ny` for New York). |
+| **Target geo** | Geographic targeting for IPs (for example, `us_ny` for New York). |
 | **Routing rules** | Hostname patterns that determine which traffic routes through Aluvia versus direct. |
 
 ### Example connection object
@@ -35,7 +35,7 @@ Each connection includes the following attributes:
     "api_token": "alv_connection_token_abc123def456",
     "rules": ["*", "-example.com"],
     "session_id": null,
-    "target_geo": "us-ny",
+    "target_geo": "us_ny",
     "proxy_urls": {
       "raw": {
         "protocol": "http",
@@ -104,7 +104,7 @@ const connection = await client.start();
 // Update attributes at runtime
 await client.updateRules(['*.example.com']);
 await client.updateSessionId('new-session');
-await client.updateTargetGeo('us-ca');
+await client.updateTargetGeo('us_ca');
 
 await connection.close();
 ```
@@ -125,7 +125,7 @@ const connections = await api.account.connections.list();
 const newConnection = await api.account.connections.create({
   description: 'web-scraper',
   rules: ['*'],
-  target_geo: 'us-ny',
+  target_geo: 'us_ny',
 });
 
 // Update an existing connection
@@ -155,7 +155,7 @@ curl -X POST "https://api.aluvia.io/v1/account/connections" \
   -d '{
     "description": "web-scraper",
     "rules": ["*"],
-    "target_geo": "us-ny"
+    "target_geo": "us_ny"
   }'
 
 # Update a connection

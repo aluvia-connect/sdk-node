@@ -353,7 +353,7 @@ Creates a new proxy connection with generated credentials.
 const connection = await api.account.connections.create({
   description: 'my-new-agent',
   rules: ['*', '-example.com'],
-  target_geo: 'us-ny',
+  target_geo: 'us_ny',
 });
 
 console.log('Connection ID:', connection.connection_id);
@@ -370,7 +370,7 @@ console.log('API token:', connection.api_token); // Only returned on creation
 |-------|------|-------------|
 | `description` | `string` | Optional. Human-readable description. |
 | `rules` | `string[]` | Optional. Routing rules array. |
-| `target_geo` | `string` | Optional. Geo-targeting code (e.g., `"us-ny"`). |
+| `target_geo` | `string` | Optional. Geo-targeting code (e.g., `"us_ny"`). |
 | `session_id` | `string` | Optional. Session ID for sticky sessions. |
 
 **Returns:** `AccountConnection` (full representation including credentials and `api_token`)
@@ -385,7 +385,7 @@ console.log('API token:', connection.api_token); // Only returned on creation
   api_token: "alv_connection_token_abc123def456",
   rules: ["*", "-example.com"],
   session_id: null,
-  target_geo: "us-ny",
+  target_geo: "us_ny",
   proxy_urls: { ... }
 }
 ```
@@ -445,7 +445,7 @@ await api.account.connections.patch('123', {
 
 // Update geo targeting
 await api.account.connections.patch('123', {
-  target_geo: 'us-ca',
+  target_geo: 'us_ca',
 });
 
 // Clear geo targeting
@@ -512,8 +512,8 @@ for (const geo of geos) {
 ```ts
 [
   { code: "us", label: "United States (any)" },
-  { code: "us-ny", label: "United States - New York" },
-  { code: "us-ca", label: "United States - California" },
+  { code: "us_ny", label: "United States - New York" },
+  { code: "us_ca", label: "United States - California" },
   { code: "gb", label: "United Kingdom" },
   { code: "de", label: "Germany" },
   // ...
@@ -950,7 +950,7 @@ const api = new AluviaApi({ apiKey: process.env.ALUVIA_API_KEY! });
 async function setupNewConnection() {
   // Get available geos
   const geos = await api.geos.list();
-  const nyGeo = geos.find(g => g.code === 'us-ny');
+  const nyGeo = geos.find(g => g.code === 'us_ny');
   
   // Create connection targeting New York
   const connection = await api.account.connections.create({

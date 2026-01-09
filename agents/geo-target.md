@@ -19,8 +19,8 @@ Geo targeting lets you route traffic through mobile IPs in specific US states.
 Use `updateTargetGeo()` to change your target state at runtime:
 
 ```ts
-await client.updateTargetGeo('us-ca');  // Target California
-await client.updateTargetGeo('us-ny');  // Switch to New York
+await client.updateTargetGeo('us_ca');  // Target California
+await client.updateTargetGeo('us_ny');  // Switch to New York
 await client.updateTargetGeo(null);     // Clear geo targeting
 ```
 
@@ -43,57 +43,57 @@ This format works with any HTTP client that supports proxy authentication.
 
 | Code | State |
 |------|-------|
-| `us-al` | Alabama |
-| `us-ak` | Alaska |
-| `us-az` | Arizona |
-| `us-ar` | Arkansas |
-| `us-ca` | California |
-| `us-co` | Colorado |
-| `us-ct` | Connecticut |
-| `us-de` | Delaware |
-| `us-fl` | Florida |
-| `us-ga` | Georgia |
-| `us-hi` | Hawaii |
-| `us-id` | Idaho |
-| `us-il` | Illinois |
-| `us-in` | Indiana |
-| `us-ia` | Iowa |
-| `us-ks` | Kansas |
-| `us-ky` | Kentucky |
-| `us-la` | Louisiana |
-| `us-me` | Maine |
-| `us-md` | Maryland |
-| `us-ma` | Massachusetts |
-| `us-mi` | Michigan |
-| `us-mn` | Minnesota |
-| `us-ms` | Mississippi |
-| `us-mo` | Missouri |
-| `us-mt` | Montana |
-| `us-ne` | Nebraska |
-| `us-nv` | Nevada |
-| `us-nh` | New Hampshire |
-| `us-nj` | New Jersey |
-| `us-nm` | New Mexico |
-| `us-ny` | New York |
-| `us-nc` | North Carolina |
-| `us-nd` | North Dakota |
-| `us-oh` | Ohio |
-| `us-ok` | Oklahoma |
-| `us-or` | Oregon |
-| `us-pa` | Pennsylvania |
-| `us-ri` | Rhode Island |
-| `us-sc` | South Carolina |
-| `us-sd` | South Dakota |
-| `us-tn` | Tennessee |
-| `us-tx` | Texas |
-| `us-ut` | Utah |
-| `us-vt` | Vermont |
-| `us-va` | Virginia |
-| `us-wa` | Washington |
-| `us-wv` | West Virginia |
-| `us-wi` | Wisconsin |
-| `us-wy` | Wyoming |
-| `us-dc` | District of Columbia |
+| `us_al` | Alabama |
+| `us_ak` | Alaska |
+| `us_az` | Arizona |
+| `us_ar` | Arkansas |
+| `us_ca` | California |
+| `us_co` | Colorado |
+| `us_ct` | Connecticut |
+| `us_de` | Delaware |
+| `us_fl` | Florida |
+| `us_ga` | Georgia |
+| `us_hi` | Hawaii |
+| `us_id` | Idaho |
+| `us_il` | Illinois |
+| `us_in` | Indiana |
+| `us_ia` | Iowa |
+| `us_ks` | Kansas |
+| `us_ky` | Kentucky |
+| `us_la` | Louisiana |
+| `us_me` | Maine |
+| `us_md` | Maryland |
+| `us_ma` | Massachusetts |
+| `us_mi` | Michigan |
+| `us_mn` | Minnesota |
+| `us_ms` | Mississippi |
+| `us_mo` | Missouri |
+| `us_mt` | Montana |
+| `us_ne` | Nebraska |
+| `us_nv` | Nevada |
+| `us_nh` | New Hampshire |
+| `us_nj` | New Jersey |
+| `us_nm` | New Mexico |
+| `us_ny` | New York |
+| `us_nc` | North Carolina |
+| `us_nd` | North Dakota |
+| `us_oh` | Ohio |
+| `us_ok` | Oklahoma |
+| `us_or` | Oregon |
+| `us_pa` | Pennsylvania |
+| `us_ri` | Rhode Island |
+| `us_sc` | South Carolina |
+| `us_sd` | South Dakota |
+| `us_tn` | Tennessee |
+| `us_tx` | Texas |
+| `us_ut` | Utah |
+| `us_vt` | Vermont |
+| `us_va` | Virginia |
+| `us_wa` | Washington |
+| `us_wv` | West Virginia |
+| `us_wi` | Wisconsin |
+| `us_wy` | Wyoming |
+| `us_dc` | District of Columbia |
 
 ### Fetch available states programmatically
 
