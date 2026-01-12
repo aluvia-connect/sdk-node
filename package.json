@@ -4,6 +4,14 @@
   "description": "Aluvia SDK for Node.js - local smart proxy for automation workloads and AI agents",
   "license": "MIT",
   "author": "Aluvia",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/aluvia-connect/sdk-node.git"
+  },
+  "homepage": "https://aluvia.io",
+  "bugs": {
+    "url": "https://github.com/aluvia-connect/sdk-node/issues"
+  },
   "type": "module",
   "main": "./dist/cjs/index.js",
   "module": "./dist/esm/index.js",
@@ -24,7 +32,12 @@
   "scripts": {
     "build": "tsc -p tsconfig.esm.json && tsc -p tsconfig.cjs.json && node -e \"require('fs').mkdirSync('dist/cjs',{recursive:true});require('fs').writeFileSync('dist/cjs/package.json','{\\\"type\\\":\\\"commonjs\\\"}')\"",
     "prepare": "npm run build",
-    "test": "node --import tsx --test test/integration.test.ts"
+    "test": "node --import tsx --test test/integration.test.ts",
+    "lint": "prettier --check src test",
+    "lint:fix": "prettier --write src test"
+  },
+  "publishConfig": {
+    "access": "public"
   },
   "engines": {
     "node": ">=18"
@@ -39,6 +52,7 @@
   "devDependencies": {
     "@types/node": "^24.10.2",
     "axios": "^1.13.2",
+    "prettier": "^3.4.2",
     "tsx": "^4.21.0",
     "typescript": "^5.9.3"
   },

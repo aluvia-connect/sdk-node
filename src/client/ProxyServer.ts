@@ -97,7 +97,7 @@ export class ProxyServer {
    * Decides whether to route through Aluvia or direct.
    */
   private handleRequest(params: {
-    request: { url?: string };
+    request: { url?: string; headers?: Record<string, string | string[] | undefined> };
     hostname?: string;
     port?: number;
     isHttp?: boolean;
@@ -154,24 +154,72 @@ export class ProxyServer {
    * Extract hostname from request parameters.
    */
   private extractHostname(params: {
-    request: { url?: string };
+    request: { url?: string; headers?: Record<string, string | string[] | undefined> };
     hostname?: string;
     port?: number;
     isHttp?: boolean;
   }): string | null {
     // For CONNECT requests (HTTPS), hostname is provided directly
-    if (params.hostname) {
-      return params.hostname;
+    if (typeof params.hostname === 'string') {
+      const trimmed = params.hostname.trim();
+      if (trimmed.length > 0) return trimmed;
     }
 
-    // For HTTP requests, try to parse from URL
-    if (params.request?.url) {
-      try {
-        const url = new URL(params.request.url);
-        return url.hostname;
-      } catch {
-        // Invalid URL, return null
+    const urlLikeRaw = params.request?.url;
+    if (typeof urlLikeRaw === 'string') {
+      const urlLike = urlLikeRaw.trim();
+      if (urlLike.length > 0) {
+        const fromUrlLike = (() => {
+          try {
+            return new URL(urlLike).hostname;
+          } catch {
+            // continue
+          }
+
+          if (urlLike.startsWith('//')) {
+            try {
+              return new URL(`http:${urlLike}`).hostname;
+            } catch {
+              // continue
+            }
+          }
+
+          if (urlLike.startsWith('/')) {
+            return null;
+          }
+
+          try {
+            return new URL(`http://${urlLike}`).hostname;
+          } catch {
+            return null;
+          }
+        })();
+
+        if (fromUrlLike) return fromUrlLike;
       }
+    }
+
+    // For origin-form URLs, fall back to Host header if available.
+    const hostHeader = (() => {
+      const headers = params.request?.headers;
+      if (!headers) return null;
+      const host = headers['host'];
+      if (Array.isArray(host)) return typeof host[0] === 'string' ? host[0] : null;
+      return typeof host === 'string' ? host : null;
+    })();
+
+    if (hostHeader) {
+      const value = hostHeader.trim();
+      if (!value) return null;
+
+      if (value.startsWith('[')) {
+        const end = value.indexOf(']');
+        if (end > 1) return value.slice(1, end);
+        return null;
+      }
+
+      const hostOnly = value.split(':')[0]?.trim();
+      return hostOnly && hostOnly.length > 0 ? hostOnly : null;
     }
 
     return null;

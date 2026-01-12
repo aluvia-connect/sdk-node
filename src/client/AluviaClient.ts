@@ -33,20 +33,16 @@ export class AluviaClient {
   public readonly api: AluviaApi;
 
   constructor(options: AluviaClientOptions) {
-    // Validate apiKey
-    if (!options.apiKey) {
+    const apiKey = String(options.apiKey ?? '').trim();
+    if (!apiKey) {
       throw new MissingApiKeyError('Aluvia apiKey is required');
     }
 
-    const local_proxy = options.local_proxy ?? true;
+    const localProxy = options.localProxy ?? true;
     const strict = options.strict ?? true;
-    this.options = { ...options, local_proxy, strict };
+    this.options = { ...options, apiKey, localProxy, strict };
 
-    const connectionId = (() => {
-      if (options.connection_id == null) return undefined;
-      const trimmed = String(options.connection_id).trim();
-      return trimmed.length > 0 ? trimmed : undefined;
-    })();
+    const connectionId = Number(options.connectionId) ?? null
 
     const apiBaseUrl = options.apiBaseUrl ?? 'https://api.aluvia.io/v1';
     const pollIntervalMs = options.pollIntervalMs ?? 5000;
@@ -59,7 +55,7 @@ export class AluviaClient {
 
     // Create ConfigManager
     this.configManager = new ConfigManager({
-      apiKey: options.apiKey,
+      apiKey,
       apiBaseUrl,
       pollIntervalMs,
       gatewayProtocol,
@@ -73,7 +69,7 @@ export class AluviaClient {
     this.proxyServer = new ProxyServer(this.configManager, { logLevel });
 
     this.api = new AluviaApi({
-      apiKey: options.apiKey,
+      apiKey,
       apiBaseUrl,
       timeoutMs,
     });
@@ -83,8 +79,8 @@ export class AluviaClient {
    * Start the Aluvia Client connection:
    * - Fetch initial account connection config from Aluvia.
    * - Start polling for config updates.
-   * - If local_proxy is enabled (default): start a local HTTP proxy on 127.0.0.1:<localPort or free port>.
-   * - If local_proxy is disabled: do NOT start a local proxy; adapters use gateway proxy settings.
+   * - If localProxy is enabled (default): start a local HTTP proxy on 127.0.0.1:<localPort or free port>.
+   * - If localProxy is disabled: do NOT start a local proxy; adapters use gateway proxy settings.
    *
    * Returns the active connection with host/port/url and a stop() method.
    */
@@ -100,7 +96,7 @@ export class AluviaClient {
     }
 
     this.startPromise = (async () => {
-    const localProxyEnabled = this.options.local_proxy === true;
+    const localProxyEnabled = this.options.localProxy === true;
 
     // Fetch initial configuration (may throw InvalidApiKeyError or ApiError)
     await this.configManager.init();
@@ -114,7 +110,7 @@ export class AluviaClient {
     }
 
     if (!localProxyEnabled) {
-      this.logger.debug('local_proxy disabled — local proxy will not start');
+      this.logger.debug('localProxy disabled — local proxy will not start');
 
       let nodeAgents: ReturnType<typeof createNodeProxyAgents> | null = null;
       let undiciDispatcher: ReturnType<typeof createUndiciDispatcher> | null = null;
@@ -228,7 +224,7 @@ export class AluviaClient {
     // In client proxy mode, keep config fresh so routing decisions update without restarting.
     this.configManager.startPolling();
 
-    // local_proxy === true
+    // localProxy === true
     const { host, port, url } = await this.proxyServer.start(this.options.localPort);
 
     let nodeAgents: ReturnType<typeof createNodeProxyAgents> | null = null;
@@ -331,7 +327,7 @@ export class AluviaClient {
     }
 
     // Only stop proxy if it was potentially started.
-    if (this.options.local_proxy) {
+    if (this.options.localProxy) {
       await this.proxyServer.stop();
     }
     this.configManager.stopPolling();
@@ -353,6 +349,21 @@ export class AluviaClient {
    */
   async updateSessionId(sessionId: string): Promise<void> {
     await this.configManager.setConfig({ session_id: sessionId });
+  }
+
+  /**
+   * Update the upstream target_geo (geo targeting).
+   *
+   * Pass null to clear geo targeting.
+   */
+  async updateTargetGeo(targetGeo: string | null): Promise<void> {
+    if (targetGeo === null) {
+      await this.configManager.setConfig({ target_geo: null });
+      return;
+    }
+
+    const trimmed = targetGeo.trim();
+    await this.configManager.setConfig({ target_geo: trimmed.length > 0 ? trimmed : null });
   }
 }
 

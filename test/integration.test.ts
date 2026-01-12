@@ -5,6 +5,7 @@ import assert from 'node:assert';
 import { AluviaClient } from '../src/client/AluviaClient.js';
 import { requestCore } from '../src/api/request.js';
 import { ConfigManager } from '../src/client/ConfigManager.js';
+import { ProxyServer } from '../src/client/ProxyServer.js';
 import { AluviaApi } from '../src/api/AluviaApi.js';
 import {
   MissingApiKeyError,
@@ -23,6 +24,13 @@ describe('AluviaClient', () => {
   test('throws MissingApiKeyError when apiKey is not provided', () => {
     assert.throws(
       () => new AluviaClient({ apiKey: '' }),
+      MissingApiKeyError
+    );
+  });
+
+  test('throws MissingApiKeyError when apiKey is whitespace-only', () => {
+    assert.throws(
+      () => new AluviaClient({ apiKey: '   ' }),
       MissingApiKeyError
     );
   });
@@ -47,7 +55,7 @@ describe('AluviaClient', () => {
     const client = new AluviaClient({
       apiKey: 'test-api-key',
       logLevel: 'silent',
-      local_proxy: true,
+      localProxy: true,
     });
 
     const url = 'http://127.0.0.1:54321';
@@ -102,11 +110,11 @@ describe('AluviaClient', () => {
     assert.strictEqual((client as any).started, false);
   });
 
-  test('connection adapters use REMOTE proxy when local_proxy is false', async () => {
+  test('connection adapters use REMOTE proxy when localProxy is false', async () => {
     const client = new AluviaClient({
       apiKey: 'test-api-key',
       logLevel: 'silent',
-      local_proxy: false,
+      localProxy: false,
     });
 
     (client as any).configManager.init = async () => {};
@@ -173,7 +181,7 @@ describe('AluviaClient', () => {
     const client = new AluviaClient({
       apiKey: 'test-api-key',
       logLevel: 'silent',
-      local_proxy: false,
+      localProxy: false,
     });
 
     (client as any).configManager.init = async () => {};
@@ -187,7 +195,7 @@ describe('AluviaClient', () => {
     await assert.rejects(() => client.start(), ApiError);
   });
 
-  test('connection adapters use LOCAL proxy by default (local_proxy default true)', async () => {
+  test('connection adapters use LOCAL proxy by default (localProxy default true)', async () => {
     const client = new AluviaClient({
       apiKey: 'test-api-key',
       logLevel: 'silent',
@@ -217,7 +225,7 @@ describe('AluviaClient', () => {
     const client = new AluviaClient({
       apiKey: 'test-api-key',
       logLevel: 'silent',
-      local_proxy: true,
+      localProxy: true,
     });
 
     const url = 'http://127.0.0.1:54321';
@@ -260,6 +268,54 @@ describe('AluviaClient', () => {
     assert.strictEqual(c1, c2);
 
     await c1.close();
+  });
+
+  test('updateTargetGeo() PATCHes target_geo via ConfigManager.setConfig', async () => {
+    const client = new AluviaClient({
+      apiKey: 'test-api-key',
+      logLevel: 'silent',
+    });
+
+    let capturedBody: any = null;
+    (client as any).configManager.setConfig = async (body: any) => {
+      capturedBody = body;
+      return null;
+    };
+
+    await client.updateTargetGeo('US');
+    assert.deepStrictEqual(capturedBody, { target_geo: 'US' });
+  });
+
+  test('updateTargetGeo() clears target_geo when passed null', async () => {
+    const client = new AluviaClient({
+      apiKey: 'test-api-key',
+      logLevel: 'silent',
+    });
+
+    let capturedBody: any = null;
+    (client as any).configManager.setConfig = async (body: any) => {
+      capturedBody = body;
+      return null;
+    };
+
+    await client.updateTargetGeo(null);
+    assert.deepStrictEqual(capturedBody, { target_geo: null });
+  });
+
+  test('updateTargetGeo() treats empty/whitespace string as clear (null)', async () => {
+    const client = new AluviaClient({
+      apiKey: 'test-api-key',
+      logLevel: 'silent',
+    });
+
+    let capturedBody: any = null;
+    (client as any).configManager.setConfig = async (body: any) => {
+      capturedBody = body;
+      return null;
+    };
+
+    await client.updateTargetGeo('   ');
+    assert.deepStrictEqual(capturedBody, { target_geo: null });
   });
 });
 
@@ -393,7 +449,7 @@ describe('ConfigManager polling', () => {
       gatewayProtocol: 'http',
       gatewayPort: 8080,
       logLevel: 'silent',
-      connectionId: '123',
+      connectionId: 123,
       strict: true,
     });
 
@@ -420,7 +476,7 @@ describe('ConfigManager polling', () => {
       gatewayProtocol: 'http',
       gatewayPort: 8080,
       logLevel: 'silent',
-      connectionId: '123',
+      connectionId: 123,
       strict: true,
     });
 
@@ -444,7 +500,7 @@ describe('ConfigManager polling', () => {
       gatewayProtocol: 'http',
       gatewayPort: 8080,
       logLevel: 'silent',
-      connectionId: '123',
+      connectionId: 123,
     });
 
     const existingConfig = {
@@ -524,7 +580,7 @@ describe('ConfigManager polling', () => {
       gatewayProtocol: 'http',
       gatewayPort: 8080,
       logLevel: 'silent',
-      connectionId: '123',
+      connectionId: 123,
     });
 
     await mgr.init();
@@ -775,6 +831,11 @@ describe('matchPattern', () => {
     assert.strictEqual(matchPattern('google.co.uk', 'google.*'), true);
     assert.strictEqual(matchPattern('notgoogle.com', 'google.*'), false);
   });
+
+  test('trims whitespace in patterns', () => {
+    assert.strictEqual(matchPattern('example.com', ' example.com '), true);
+    assert.strictEqual(matchPattern('foo.example.com', ' *.example.com '), true);
+  });
 });
 
 describe('shouldProxy', () => {
@@ -800,6 +861,68 @@ describe('shouldProxy', () => {
   test('AUTO is ignored as placeholder', () => {
     assert.strictEqual(shouldProxy('example.com', ['AUTO']), false);
     assert.strictEqual(shouldProxy('example.com', ['AUTO', 'example.com']), true);
+  });
+
+  test('trims hostname and rules and drops empty rules', () => {
+    assert.strictEqual(shouldProxy(' example.com ', [' example.com ']), true);
+    assert.strictEqual(shouldProxy('example.com', ['   ', '\n']), false);
+    assert.strictEqual(shouldProxy('example.com', ['*', ' -example.com ']), false);
+  });
+});
+
+describe('ProxyServer hostname extraction', () => {
+  test('extracts hostname from host/path without scheme', () => {
+    const config = {
+      rawProxy: {
+        protocol: 'http',
+        host: 'gateway.aluvia.io' as const,
+        port: 8080,
+        username: 'user',
+        password: 'pass',
+      },
+      rules: ['example.com'],
+      sessionId: null,
+      targetGeo: null,
+      etag: null,
+    };
+
+    const mgr = { getConfig: () => config } as any;
+    const proxy = new ProxyServer(mgr, { logLevel: 'silent' });
+
+    const res = (proxy as any).handleRequest({
+      request: { url: 'example.com/some-path' },
+    });
+
+    assert.deepStrictEqual(res, {
+      upstreamProxyUrl: 'http://user:pass@gateway.aluvia.io:8080',
+    });
+  });
+
+  test('falls back to Host header for origin-form URLs', () => {
+    const config = {
+      rawProxy: {
+        protocol: 'http',
+        host: 'gateway.aluvia.io' as const,
+        port: 8080,
+        username: 'user',
+        password: 'pass',
+      },
+      rules: ['example.com'],
+      sessionId: null,
+      targetGeo: null,
+      etag: null,
+    };
+
+    const mgr = { getConfig: () => config } as any;
+    const proxy = new ProxyServer(mgr, { logLevel: 'silent' });
+
+    const res = (proxy as any).handleRequest({
+      request: { url: '/some-path', headers: { host: 'example.com:1234' } },
+    });
+
+    assert.deepStrictEqual(res, {
+      upstreamProxyUrl: 'http://user:pass@gateway.aluvia.io:8080',
+    });
   });
 });
 

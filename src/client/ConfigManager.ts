@@ -58,6 +58,33 @@ function toAccountConnectionApiResponse(value: unknown): AccountConnectionApiRes
   return { data: data as AccountConnectionData };
 }
 
+function toValidationErrors(
+  value: unknown,
+): string[] | null {
+  if (!isRecord(value)) return null;
+
+  const apiError = value['error'];
+  if (!isRecord(apiError)) return null;
+  if (apiError['code'] !== 'validation_error') return null;
+
+  const details = apiError['details'];
+  const errors: string[] = [];
+
+  if (isRecord(details)) {
+    for (const fieldMessages of Object.values(details)) {
+      if (Array.isArray(fieldMessages)) {
+        for (const message of fieldMessages) {
+          if (typeof message === 'string') {
+            errors.push(message);
+          }
+        }
+      }
+    }
+  }
+
+  return errors.length ? errors : null;
+}
+
 /**
  * Options for ConfigManager constructor.
  */
@@ -73,7 +100,7 @@ export type ConfigManagerOptions = {
    * Optional: if provided, use /account/connections/:id.
    * If omitted, init() will attempt POST /account/connections.
    */
-  connectionId?: string;
+  connectionId?: number;
 
   /**
    * Optional: strict behavior (default true).
@@ -84,17 +111,6 @@ export type ConfigManagerOptions = {
    */
   strict?: boolean;
 };
-
-function normalizeConnectionId(value: unknown): string | null {
-  if (typeof value === 'string') {
-    const trimmed = value.trim();
-    return trimmed.length > 0 ? trimmed : null;
-  }
-  if (typeof value === 'number' && Number.isFinite(value)) {
-    return String(value);
-  }
-  return null;
-}
 
 /**
  * ConfigManager handles fetching and maintaining connection configuration from the Aluvia API.
@@ -111,7 +127,7 @@ export class ConfigManager {
   private readonly options: ConfigManagerOptions;
   private readonly strict: boolean;
 
-  private accountConnectionId: string | null = null;
+  private accountConnectionId: number | undefined;
   private pollInFlight = false;
 
   constructor(options: ConfigManagerOptions) {
@@ -128,10 +144,7 @@ export class ConfigManager {
    * @throws ApiError for other API errors
    */
   async init(): Promise<void> {
-    // Prefer account-connections behavior (current SDK semantics).
-    const hasExplicitId = typeof this.options.connectionId === 'string' && this.options.connectionId.length > 0;
-
-    if (hasExplicitId) {
+    if (this.options.connectionId) {
       this.accountConnectionId = this.options.connectionId ?? null;
       this.logger.info(`Using account connection API (connection id: ${this.accountConnectionId})`);
       let result: Awaited<ReturnType<typeof requestCore>>;
@@ -140,7 +153,7 @@ export class ConfigManager {
           apiBaseUrl: this.options.apiBaseUrl,
           apiKey: this.options.apiKey,
           method: 'GET',
-          path: `/account/connections/${this.accountConnectionId as string}`,
+          path: `/account/connections/${this.accountConnectionId}`,
         });
       } catch (err) {
         if (err instanceof ApiError) throw err;
@@ -162,8 +175,8 @@ export class ConfigManager {
       throw new ApiError(`Failed to fetch account connection config: HTTP ${result.status}`, result.status);
     }
 
-    // No connection_id: create an account connection (preferred)
-    this.logger.info('No connection_id provided; creating account connection...');
+    // No connectionId: create an account connection (preferred)
+    this.logger.info('No connectionId provided; creating account connection...');
     try {
       const created = await requestCore({
         apiBaseUrl: this.options.apiBaseUrl,
@@ -179,10 +192,7 @@ export class ConfigManager {
 
       if ((created.status === 200 || created.status === 201) && created.body) {
         const createdResponse = toAccountConnectionApiResponse(created.body);
-        // best-effort extract id for polling/patching
-        const maybeId = createdResponse.data?.id ?? createdResponse.data?.connection_id ?? null;
-
-        this.accountConnectionId = normalizeConnectionId(maybeId);
+        this.accountConnectionId = Number(createdResponse.data?.connection_id);
 
         if (this.accountConnectionId != null) {
           this.logger.info(`Account connection created (connection id: ${this.accountConnectionId})`);
@@ -270,9 +280,6 @@ export class ConfigManager {
 
   async setConfig(body: Object): Promise<ConnectionNetworkConfig | null> {
     this.logger.debug(`Setting config: ${JSON.stringify(body)}`);
-    if (typeof this.accountConnectionId !== 'string') {
-      throw new ApiError('No account connection ID available');
-    }
 
     let result: Awaited<ReturnType<typeof requestCore>>;
     try {
@@ -300,6 +307,17 @@ export class ConfigManager {
       return this.config;
     }
 
+
+    if (result.status === 422 && result.body) {
+      const validationErrors = toValidationErrors(result.body);
+      if (validationErrors) {
+        throw new ApiError(
+          `Failed to update account connection config: ${validationErrors[0]}`,
+          result.status,
+        );
+      }
+    }
+
     throw new ApiError(`Failed to update account connection config: HTTP ${result.status}`, result.status);
   }
 
@@ -310,10 +328,6 @@ export class ConfigManager {
   private async pollOnce(): Promise<void> {
     if (!this.config) {
       this.logger.warn('No config available, skipping poll');
-      return;
-    }
-    if (typeof this.accountConnectionId !== 'string') {
-      this.logger.warn('No account connection ID available, skipping poll');
       return;
     }
 
