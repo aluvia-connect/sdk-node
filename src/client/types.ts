@@ -106,6 +106,19 @@ export type AluviaClientOptions = {
    * route traffic directly when config is unavailable.
    */
   strict?: boolean;
+
+  /**
+   * Optional: automatically start Playwright and return the Playwright object.
+   *
+   * If true: the SDK will import and initialize Playwright, making it available
+   * via `connection.playwright`. The Playwright instance is automatically configured
+   * to use the Aluvia proxy.
+   *
+   * If false (default): Playwright is not initialized automatically.
+   *
+   * Note: Playwright must be installed as a dependency for this option to work.
+   */
+  startPlaywright?: boolean;
 };
 
 /**
@@ -196,7 +209,6 @@ export type AluviaClientConnection = {
     };
   };
 
-
   /**
    * undici proxy dispatcher (for undici fetch / undici clients).
    */
@@ -212,8 +224,19 @@ export type AluviaClientConnection = {
   asUndiciFetch(): typeof fetch;
 
   /**
+   * Playwright Chromium browser instance, automatically configured with Aluvia proxy.
+   *
+   * Only available if `startPlaywright: true` was passed to AluviaClientOptions.
+   * Otherwise this property is undefined.
+   *
+   * The browser is already configured to use the Aluvia proxy, so you can use it directly.
+   */
+  browser?: any;
+
+  /**
    * Stop this proxy instance:
    * - Close the local proxy server.
+   * - Close the browser (if started).
    * - Stop using it for new connections.
    */
   stop(): Promise<void>;
@@ -223,5 +246,3 @@ export type AluviaClientConnection = {
    */
   close(): Promise<void>;
 };
-
-

@@ -5,7 +5,13 @@ All notable changes to `@aluvia/sdk` are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [1.0.0] - 2025-05-01
+## [1.1.0] - 2026-01-26
+
+### Added
+- Option for the client to launch Playwright browser instances directly with built-in proxy settings.
+
+
+## [1.0.0] - 2025-01-12
 
 ### Added
 - Initial release of `@aluvia/sdk`
@@ -27,28 +33,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Hostname-based routing rules with wildcard support
 - ETag-based config polling for live updates
 - Error classes: `MissingApiKeyError`, `InvalidApiKeyError`, `ApiError`, `ProxyStartError`
-
----
-
-## [Unreleased]
-
-### Added
-- (Add new features here before release)
-
-### Changed
-- (Add changes to existing features here)
-
-### Deprecated
-- (Add deprecated features here)
-
-### Removed
-- (Add removed features here)
-
-### Fixed
-- (Add bug fixes here)
-
-### Security
-- (Add security fixes here)
 
 ---
 
