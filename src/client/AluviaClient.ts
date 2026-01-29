@@ -1,9 +1,14 @@
 // AluviaClient - Main public class for Aluvia Client
 
-import type { AluviaClientConnection, AluviaClientOptions, GatewayProtocol, LogLevel } from './types.js';
-import { ConfigManager } from './ConfigManager.js';
-import { ProxyServer } from './ProxyServer.js';
-import { ApiError, MissingApiKeyError } from '../errors.js';
+import type {
+  AluviaClientConnection,
+  AluviaClientOptions,
+  GatewayProtocol,
+  LogLevel,
+} from "./types.js";
+import { ConfigManager } from "./ConfigManager.js";
+import { ProxyServer } from "./ProxyServer.js";
+import { ApiError, MissingApiKeyError } from "../errors.js";
 import {
   createNodeProxyAgents,
   createUndiciDispatcher,
@@ -13,9 +18,9 @@ import {
   toPlaywrightProxySettings,
   toPuppeteerArgs,
   toSeleniumArgs,
-} from './adapters.js';
-import { Logger } from './logger.js';
-import { AluviaApi } from '../api/AluviaApi.js';
+} from "./adapters.js";
+import { Logger } from "./logger.js";
+import { AluviaApi } from "../api/AluviaApi.js";
 
 /**
  * AluviaClient is the main entry point for the Aluvia Client.
@@ -33,9 +38,9 @@ export class AluviaClient {
   public readonly api: AluviaApi;
 
   constructor(options: AluviaClientOptions) {
-    const apiKey = String(options.apiKey ?? '').trim();
+    const apiKey = String(options.apiKey ?? "").trim();
     if (!apiKey) {
-      throw new MissingApiKeyError('Aluvia apiKey is required');
+      throw new MissingApiKeyError("Aluvia apiKey is required");
     }
 
     const localProxy = options.localProxy ?? true;
@@ -44,12 +49,13 @@ export class AluviaClient {
 
     const connectionId = Number(options.connectionId) ?? null;
 
-    const apiBaseUrl = options.apiBaseUrl ?? 'https://api.aluvia.io/v1';
+    const apiBaseUrl = options.apiBaseUrl ?? "https://api.aluvia.io/v1";
     const pollIntervalMs = options.pollIntervalMs ?? 5000;
     const timeoutMs = options.timeoutMs;
-    const gatewayProtocol: GatewayProtocol = options.gatewayProtocol ?? 'http';
-    const gatewayPort = options.gatewayPort ?? (gatewayProtocol === 'https' ? 8443 : 8080);
-    const logLevel: LogLevel = options.logLevel ?? 'info';
+    const gatewayProtocol: GatewayProtocol = options.gatewayProtocol ?? "http";
+    const gatewayPort =
+      options.gatewayPort ?? (gatewayProtocol === "https" ? 8443 : 8080);
+    const logLevel: LogLevel = options.logLevel ?? "info";
 
     this.logger = new Logger(logLevel);
 
@@ -72,6 +78,32 @@ export class AluviaClient {
       apiKey,
       apiBaseUrl,
       timeoutMs,
+    });
+  }
+
+  /**
+   * Attaches a listener to detect when new pages are created in the browser
+   * and monitors their load status.
+   */
+  private attachPageLoadListener(browser: any): void {
+    browser.on("page", async (page: any) => {
+      page.on("domcontentloaded", async () => {
+        try {
+          // Check if the page loaded successfully by examining the page state
+          const url = page.url();
+
+          // Check if we can access basic page properties
+          // If the page failed to load, these operations might fail or return unexpected values
+          const content = await page.content().catch(() => "");
+
+          // A failed page load typically results in minimal or no content
+          if (!content || content.length < 100) {
+            this.logger.warn(`Page may have failed to load: ${url}`);
+          }
+        } catch (error: any) {
+          this.logger.warn(`Error checking page load status: ${error.message}`);
+        }
+      });
     });
   }
 
@@ -106,7 +138,7 @@ export class AluviaClient {
       if (this.options.startPlaywright) {
         try {
           // @ts-expect-error - playwright is an optional peer dependency
-          const pw = await import('playwright');
+          const pw = await import("playwright");
 
           // We need to launch the browser after we have proxy configuration
           // Store the chromium module for now, will launch after proxy is ready
@@ -122,28 +154,29 @@ export class AluviaClient {
       // Gateway mode cannot function without proxy credentials/config, so fail fast.
       if (!localProxyEnabled && !this.configManager.getConfig()) {
         throw new ApiError(
-          'Failed to load account connection config; cannot start in gateway mode without proxy credentials',
+          "Failed to load account connection config; cannot start in gateway mode without proxy credentials",
           500,
         );
       }
 
       if (!localProxyEnabled) {
-        this.logger.debug('localProxy disabled — local proxy will not start');
+        this.logger.debug("localProxy disabled — local proxy will not start");
 
         let nodeAgents: ReturnType<typeof createNodeProxyAgents> | null = null;
-        let undiciDispatcher: ReturnType<typeof createUndiciDispatcher> | null = null;
+        let undiciDispatcher: ReturnType<typeof createUndiciDispatcher> | null =
+          null;
         let undiciFetchFn: ReturnType<typeof createUndiciFetch> | null = null;
 
         const cfgAtStart = this.configManager.getConfig();
         const serverUrlAtStart = (() => {
-          if (!cfgAtStart) return '';
+          if (!cfgAtStart) return "";
           const { protocol, host, port } = cfgAtStart.rawProxy;
           return `${protocol}://${host}:${port}`;
         })();
 
         const getProxyUrlForHttpClients = () => {
           const cfg = this.configManager.getConfig();
-          if (!cfg) return 'http://127.0.0.1';
+          if (!cfg) return "http://127.0.0.1";
           const { protocol, host, port, username, password } = cfg.rawProxy;
           return `${protocol}://${encodeURIComponent(username)}:${encodeURIComponent(password)}@${host}:${port}`;
         };
@@ -168,9 +201,9 @@ export class AluviaClient {
           const d: any = undiciDispatcher as any;
           if (!d) return;
           try {
-            if (typeof d.close === 'function') {
+            if (typeof d.close === "function") {
               await d.close();
-            } else if (typeof d.destroy === 'function') {
+            } else if (typeof d.destroy === "function") {
               d.destroy();
             }
           } finally {
@@ -203,6 +236,9 @@ export class AluviaClient {
             launchedBrowser = await browserInstance.launch({
               proxy: proxySettings,
             });
+
+            // Attach page load detection
+            this.attachPageLoadListener(launchedBrowser);
           }
         }
 
@@ -215,18 +251,18 @@ export class AluviaClient {
 
         // Build connection object
         const connection: AluviaClientConnection = {
-          host: cfgAtStart?.rawProxy.host ?? '127.0.0.1',
+          host: cfgAtStart?.rawProxy.host ?? "127.0.0.1",
           port: cfgAtStart?.rawProxy.port ?? 0,
           url: serverUrlAtStart,
           getUrl: () => {
             const cfg = this.configManager.getConfig();
-            if (!cfg) return '';
+            if (!cfg) return "";
             const { protocol, host, port, username, password } = cfg.rawProxy;
             return `${protocol}://${encodeURIComponent(username)}:${encodeURIComponent(password)}@${host}:${port}`;
           },
           asPlaywright: () => {
             const cfg = this.configManager.getConfig();
-            if (!cfg) return { server: '' };
+            if (!cfg) return { server: "" };
             const { protocol, host, port, username, password } = cfg.rawProxy;
             return {
               ...toPlaywrightProxySettings(`${protocol}://${host}:${port}`),
@@ -275,7 +311,8 @@ export class AluviaClient {
       );
 
       let nodeAgents: ReturnType<typeof createNodeProxyAgents> | null = null;
-      let undiciDispatcher: ReturnType<typeof createUndiciDispatcher> | null = null;
+      let undiciDispatcher: ReturnType<typeof createUndiciDispatcher> | null =
+        null;
       let undiciFetchFn: ReturnType<typeof createUndiciFetch> | null = null;
 
       const getNodeAgents = () => {
@@ -296,9 +333,9 @@ export class AluviaClient {
         const d: any = undiciDispatcher as any;
         if (!d) return;
         try {
-          if (typeof d.close === 'function') {
+          if (typeof d.close === "function") {
             await d.close();
-          } else if (typeof d.destroy === 'function') {
+          } else if (typeof d.destroy === "function") {
             d.destroy();
           }
         } finally {
@@ -325,6 +362,9 @@ export class AluviaClient {
         launchedBrowser = await browserInstance.launch({
           proxy: proxySettings,
         });
+
+        // Attach page load detection
+        this.attachPageLoadListener(launchedBrowser);
       }
 
       const stopWithBrowser = async () => {
@@ -427,8 +467,8 @@ export class AluviaClient {
     }
 
     const trimmed = targetGeo.trim();
-    await this.configManager.setConfig({ target_geo: trimmed.length > 0 ? trimmed : null });
+    await this.configManager.setConfig({
+      target_geo: trimmed.length > 0 ? trimmed : null,
+    });
   }
 }
-
-
