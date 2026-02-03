@@ -21,6 +21,7 @@ import {
 } from "./adapters.js";
 import { Logger } from "./logger.js";
 import { AluviaApi } from "../api/AluviaApi.js";
+import { PageLoadDetection } from "./PageLoadDetection.js";
 
 /**
  * AluviaClient is the main entry point for the Aluvia Client.
@@ -36,6 +37,7 @@ export class AluviaClient {
   private startPromise: Promise<AluviaClientConnection> | null = null;
   private readonly logger: Logger;
   public readonly api: AluviaApi;
+  private pageLoadDetection: PageLoadDetection | null = null;
 
   constructor(options: AluviaClientOptions) {
     const apiKey = String(options.apiKey ?? "").trim();
@@ -79,6 +81,44 @@ export class AluviaClient {
       apiBaseUrl,
       timeoutMs,
     });
+
+    // Initialize page load detection if configured
+    if (options.pageLoadDetection !== undefined || options.startPlaywright) {
+      // Default to enabled if startPlaywright is true
+      const detectionConfig = options.pageLoadDetection ?? { enabled: true };
+
+      // Setup automatic rule addition callback if enabled
+      if (detectionConfig.autoAddRules) {
+        const originalCallback = detectionConfig.onBlockingDetected;
+        detectionConfig.onBlockingDetected = async (hostname, reason) => {
+          // Call original callback if provided
+          if (originalCallback) {
+            await originalCallback(hostname, reason);
+          }
+
+          // Automatically add hostname to rules
+          try {
+            const config = this.configManager.getConfig();
+            const currentRules = config?.rules ?? [];
+            if (!currentRules.includes(hostname)) {
+              this.logger.info(
+                `Auto-adding ${hostname} to routing rules due to blocking detection`,
+              );
+              await this.updateRules([...currentRules, hostname]);
+            }
+          } catch (error: any) {
+            this.logger.warn(
+              `Failed to auto-add rule for ${hostname}: ${error.message}`,
+            );
+          }
+        };
+      }
+
+      this.pageLoadDetection = new PageLoadDetection(
+        detectionConfig,
+        this.logger,
+      );
+    }
   }
 
   /**
@@ -87,18 +127,42 @@ export class AluviaClient {
    */
   private attachPageLoadListener(browser: any): void {
     browser.on("page", async (page: any) => {
+      // Store response for analysis
+      let pageResponse: any = null;
+
+      page.on("response", (response: any) => {
+        // Capture the main frame response
+        if (response.request().isNavigationRequest()) {
+          pageResponse = response;
+        }
+      });
+
       page.on("domcontentloaded", async () => {
         try {
-          // Check if the page loaded successfully by examining the page state
-          const url = page.url();
+          // Use enhanced detection if available
+          if (this.pageLoadDetection) {
+            const result = await this.pageLoadDetection.analyzePage(
+              page,
+              pageResponse,
+            );
 
-          // Check if we can access basic page properties
-          // If the page failed to load, these operations might fail or return unexpected values
-          const content = await page.content().catch(() => "");
+            if (result.blocked) {
+              this.logger.warn(
+                `Blocking detected on ${result.hostname}: ${result.reason?.details}`,
+              );
+            } else if (!result.success && result.reason) {
+              this.logger.warn(
+                `Page load issue for ${result.url}: ${result.reason.details}`,
+              );
+            }
+          } else {
+            // Fallback to simple detection
+            const url = page.url();
+            const content = await page.content().catch(() => "");
 
-          // A failed page load typically results in minimal or no content
-          if (!content || content.length < 100) {
-            this.logger.warn(`Page may have failed to load: ${url}`);
+            if (!content || content.length < 100) {
+              this.logger.warn(`Page may have failed to load: ${url}`);
+            }
           }
         } catch (error: any) {
           this.logger.warn(`Error checking page load status: ${error.message}`);
@@ -470,5 +534,29 @@ export class AluviaClient {
     await this.configManager.setConfig({
       target_geo: trimmed.length > 0 ? trimmed : null,
     });
+  }
+
+  /**
+   * Get a list of hostnames that have been detected as blocked.
+   *
+   * This list is maintained in-memory and cleared when the client is stopped.
+   * Only available when page load detection is enabled.
+   */
+  getBlockedHostnames(): string[] {
+    if (!this.pageLoadDetection) {
+      return [];
+    }
+    return this.pageLoadDetection.getBlockedHostnames();
+  }
+
+  /**
+   * Clear the list of blocked hostnames.
+   *
+   * Only available when page load detection is enabled.
+   */
+  clearBlockedHostnames(): void {
+    if (this.pageLoadDetection) {
+      this.pageLoadDetection.clearBlockedHostnames();
+    }
   }
 }

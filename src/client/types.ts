@@ -1,14 +1,19 @@
 // Public types for Aluvia Client Node
 
+import type {
+  PageLoadDetectionConfig,
+  BlockingReason,
+} from "./PageLoadDetection.js";
+
 /**
  * Protocol used to connect to the Aluvia gateway.
  */
-export type GatewayProtocol = 'http' | 'https';
+export type GatewayProtocol = "http" | "https";
 
 /**
  * Log level for the client.
  */
-export type LogLevel = 'silent' | 'info' | 'debug';
+export type LogLevel = "silent" | "info" | "debug";
 
 export type PlaywrightProxySettings = {
   server: string;
@@ -119,6 +124,19 @@ export type AluviaClientOptions = {
    * Note: Playwright must be installed as a dependency for this option to work.
    */
   startPlaywright?: boolean;
+
+  /**
+   * Optional: configuration for enhanced page load and blocking detection.
+   *
+   * When enabled (default), the SDK monitors pages for:
+   * - Blocking keywords (captcha, blocked, access denied, etc.)
+   * - HTTP status codes that indicate blocking (403, 429, 503)
+   * - Failed page loads (minimal content)
+   *
+   * You can configure automatic rule addition and provide a callback
+   * to be notified when blocking is detected.
+   */
+  pageLoadDetection?: PageLoadDetectionConfig;
 };
 
 /**
@@ -181,8 +199,8 @@ export type AluviaClientConnection = {
    * Useful for: Axios, got, node-fetch (legacy).
    */
   asNodeAgents(): {
-    http: import('node:http').Agent;
-    https: import('node:http').Agent;
+    http: import("node:http").Agent;
+    https: import("node:http").Agent;
   };
 
   /**
@@ -193,8 +211,8 @@ export type AluviaClientConnection = {
    */
   asAxiosConfig(): {
     proxy: false;
-    httpAgent: import('node:http').Agent;
-    httpsAgent: import('node:http').Agent;
+    httpAgent: import("node:http").Agent;
+    httpsAgent: import("node:http").Agent;
   };
 
   /**
@@ -204,8 +222,8 @@ export type AluviaClientConnection = {
    */
   asGotOptions(): {
     agent: {
-      http: import('node:http').Agent;
-      https: import('node:http').Agent;
+      http: import("node:http").Agent;
+      https: import("node:http").Agent;
     };
   };
 
@@ -213,7 +231,7 @@ export type AluviaClientConnection = {
    * undici proxy dispatcher (for undici fetch / undici clients).
    */
   // @ts-ignore
-  asUndiciDispatcher(): import('undici').Dispatcher;
+  asUndiciDispatcher(): import("undici").Dispatcher;
 
   /**
    * Returns a `fetch` function powered by undici that uses the proxy dispatcher per request.
@@ -246,3 +264,10 @@ export type AluviaClientConnection = {
    */
   close(): Promise<void>;
 };
+
+// Re-export PageLoadDetection types for public API
+export type {
+  PageLoadDetectionConfig,
+  BlockingReason,
+  PageLoadDetectionResult,
+} from "./PageLoadDetection.js";
