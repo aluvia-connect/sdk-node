@@ -39,11 +39,12 @@ export type PageLoadDetectionConfig = {
 
   /**
    * Callback when blocking is detected
-   * Receives the hostname and detection reason
+   * Receives the hostname, detection reason, and the page object
    */
   onBlockingDetected?: (
     hostname: string,
     reason: BlockingReason,
+    page: any,
   ) => void | Promise<void>;
 };
 
@@ -99,6 +100,7 @@ export class PageLoadDetection {
     onBlockingDetected?: (
       hostname: string,
       reason: BlockingReason,
+      page: any,
     ) => void | Promise<void>;
   };
   private logger: Logger;
@@ -178,7 +180,7 @@ export class PageLoadDetection {
       };
     }
 
-    this.logger.debug('Analyzing page load for URL: ' + page.url());
+    this.logger.debug("Analyzing page load for URL: " + page.url());
 
     const url = page.url();
     const hostname = this.extractHostname(url);
@@ -195,7 +197,7 @@ export class PageLoadDetection {
           details: `HTTP status code ${statusCode} indicates blocking`,
           statusCode,
         };
-        await this.handleBlocking(hostname, reason);
+        await this.handleBlocking(hostname, reason, page);
         return { url, hostname, success: false, blocked: true, reason };
       }
 
@@ -214,7 +216,7 @@ export class PageLoadDetection {
             details: `Blocking keyword detected: "${keyword}"`,
             keyword,
           };
-          await this.handleBlocking(hostname, reason);
+          await this.handleBlocking(hostname, reason, page);
           return { url, hostname, success: false, blocked: true, reason };
         }
       }
@@ -251,6 +253,7 @@ export class PageLoadDetection {
   private async handleBlocking(
     hostname: string,
     reason: BlockingReason,
+    page: any,
   ): Promise<void> {
     this.blockedHostnames.add(hostname);
     this.logger.warn(`Blocking detected for ${hostname}: ${reason.details}`);
@@ -258,7 +261,7 @@ export class PageLoadDetection {
     // Trigger callback if provided
     if (this.config.onBlockingDetected) {
       try {
-        await this.config.onBlockingDetected(hostname, reason);
+        await this.config.onBlockingDetected(hostname, reason, page);
       } catch (error: any) {
         this.logger.warn(
           `Error in onBlockingDetected callback: ${error.message}`,

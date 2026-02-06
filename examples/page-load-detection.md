@@ -6,12 +6,17 @@ This example demonstrates the enhanced page load detection feature that can auto
 
 - **Keyword Detection**: Searches page content for blocking keywords (captcha, blocked, access denied, etc.)
 - **Status Code Detection**: Monitors HTTP status codes (403, 429, 503)
-- **Automatic Rule Addition**: Optionally add blocked hostnames to routing rules automatically
-- **Custom Callbacks**: Get notified when blocking is detected
+- **Automatic Rule Addition & Reload**: By default, blocked hostnames are added to routing rules and the page is reloaded
+- **Custom Callbacks**: Override the default behavior with custom callbacks
 
 ## Basic Usage
 
-### 1. Enable Detection with Playwright
+### 1. Enable Detection with Playwright (Default Behavior)
+
+By default, when blocking is detected, the SDK will:
+
+1. Add the hostname to routing rules
+2. Reload the page automatically
 
 ```typescript
 import { AluviaClient } from "@aluvia/sdk";
@@ -19,22 +24,19 @@ import { AluviaClient } from "@aluvia/sdk";
 const client = new AluviaClient({
   apiKey: "your-api-key",
   startPlaywright: true,
-  pageLoadDetection: {
-    enabled: true,
-  },
+  // Page load detection is enabled by default with startPlaywright
 });
 
 const connection = await client.start();
 const browser = connection.browser;
 
 // Detection runs automatically for all pages
+// If blocking is detected, hostname is added to rules and page reloads
 const page = await browser.newPage();
 await page.goto("https://example.com");
 ```
 
-### 2. Automatic Rule Addition
-
-When `autoAddRules` is enabled, blocked hostnames are automatically added to routing rules:
+### 2. Explicit Page Load Detection Config
 
 ```typescript
 const client = new AluviaClient({
@@ -42,30 +44,14 @@ const client = new AluviaClient({
   startPlaywright: true,
   pageLoadDetection: {
     enabled: true,
-    autoAddRules: true, // Automatically add blocked hostnames to rules
+    // Default behavior: add hostname to rules and reload page
   },
 });
-
-const connection = await client.start();
-const browser = connection.browser;
-
-const page = await browser.newPage();
-
-// First attempt: bypasses Aluvia (default behavior)
-await page.goto("https://example.com");
-
-// If captcha detected:
-// 1. Hostname automatically added to rules
-// 2. Next request will go through Aluvia proxy
-// 3. Logs: "Auto-adding example.com to routing rules due to blocking detection"
-
-// Retry the page (now will use Aluvia proxy)
-await page.goto("https://example.com");
 ```
 
 ### 3. Custom Blocking Detection Callback
 
-Get notified when blocking is detected:
+Override the default behavior with your own callback:
 
 ```typescript
 const client = new AluviaClient({
@@ -73,7 +59,7 @@ const client = new AluviaClient({
   startPlaywright: true,
   pageLoadDetection: {
     enabled: true,
-    onBlockingDetected: async (hostname, reason) => {
+    onBlockingDetected: async (hostname, reason, page) => {
       console.log(`Blocking detected on ${hostname}`);
       console.log(`Reason: ${reason.details}`);
       console.log(`Type: ${reason.type}`);
@@ -84,8 +70,9 @@ const client = new AluviaClient({
         console.log(`Status code: ${reason.statusCode}`);
       }
 
-      // You can also rotate IP here
+      // Custom handling: rotate IP and reload
       await client.updateSessionId(`retry-${Date.now()}`);
+      await page.reload();
     },
   },
 });
@@ -114,7 +101,27 @@ const client = new AluviaClient({
 });
 ```
 
-### 5. Manual Retry Pattern
+### 5. Custom Callback with Auto-Add Rules
+
+If you want a custom callback AND automatic rule addition:
+
+```typescript
+const client = new AluviaClient({
+  apiKey: "your-api-key",
+  startPlaywright: true,
+  pageLoadDetection: {
+    enabled: true,
+    autoAddRules: true, // Will add hostname to rules after your callback
+    onBlockingDetected: async (hostname, reason, page) => {
+      console.log(`Blocking detected: ${hostname}`);
+      // Your custom logic here
+      // After this callback, the hostname will be auto-added to rules
+    },
+  },
+});
+```
+
+### 6. Manual Retry Pattern
 
 Combine with manual retry logic:
 
@@ -203,13 +210,16 @@ type PageLoadDetectionConfig = {
   minContentLength?: number;
 
   // Automatically add hostname to rules when blocking detected
+  // Only used when a custom onBlockingDetected callback is provided
   // Default: false
   autoAddRules?: boolean;
 
   // Callback when blocking is detected
+  // If not provided, default behavior is to add hostname to rules and reload page
   onBlockingDetected?: (
     hostname: string,
     reason: BlockingReason,
+    page: any,
   ) => void | Promise<void>;
 };
 
@@ -253,15 +263,17 @@ The following keywords are detected by default (case-insensitive):
    - Blocking keywords in page content and title
    - Specific HTTP status codes
    - Unusually short page content
-3. **Auto-Add Rules** (if enabled): Blocked hostname is added to routing rules
-4. **Next Request**: Future requests to that hostname go through Aluvia proxy
-5. **Callback**: Your custom callback is triggered (if provided)
+3. **Default Behavior**: When blocking is detected:
+   - Hostname is added to routing rules
+   - Page is automatically reloaded
+4. **Next Request**: The reloaded page (and future requests) go through Aluvia proxy
+5. **Custom Callback**: If you provide `onBlockingDetected`, the default behavior is replaced with your callback
 
 ## Best Practices
 
-1. **Start with autoAddRules: false** and use callbacks to understand what's being detected
-2. **Customize keywords** based on the sites you're scraping
-3. **Combine with session rotation** to get fresh IPs when blocking is detected
+1. **Use default behavior** for simple use cases - it handles blocking automatically
+2. **Provide custom callback** when you need specific handling (e.g., rotate IP, notify external service)
+3. **Customize keywords** based on the sites you're scraping
 4. **Monitor blocked hostnames** using `getBlockedHostnames()`
 5. **Clear blocked hostnames** periodically if you want to retry without proxy
 

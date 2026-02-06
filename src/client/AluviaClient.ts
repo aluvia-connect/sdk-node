@@ -84,18 +84,48 @@ export class AluviaClient {
 
     // Initialize page load detection if configured
     if (options.pageLoadDetection !== undefined || options.startPlaywright) {
-      this.logger.debug('Initializing page load detection');
+      this.logger.debug("Initializing page load detection");
       // Default to enabled if startPlaywright is true
       const detectionConfig = options.pageLoadDetection ?? { enabled: true };
 
-      // Setup automatic rule addition callback if enabled
-      if (detectionConfig.autoAddRules) {
-        const originalCallback = detectionConfig.onBlockingDetected;
-        detectionConfig.onBlockingDetected = async (hostname, reason) => {
-          // Call original callback if provided
-          if (originalCallback) {
-            await originalCallback(hostname, reason);
+      // Setup default blocking handler if no custom callback is provided
+      // Default behavior: add hostname to rules and reload the page
+      if (!detectionConfig.onBlockingDetected) {
+        detectionConfig.onBlockingDetected = async (hostname, reason, page) => {
+          // Automatically add hostname to rules
+          try {
+            const config = this.configManager.getConfig();
+            const currentRules = config?.rules ?? [];
+            if (!currentRules.includes(hostname)) {
+              this.logger.info(
+                `Auto-adding ${hostname} to routing rules due to blocking detection`,
+              );
+              await this.updateRules([...currentRules, hostname]);
+            }
+          } catch (error: any) {
+            this.logger.warn(
+              `Failed to auto-add rule for ${hostname}: ${error.message}`,
+            );
           }
+
+          // Reload the page to retry with the new rules
+          try {
+            this.logger.info(
+              `Reloading page after adding ${hostname} to rules`,
+            );
+            await page.reload();
+          } catch (error: any) {
+            this.logger.warn(
+              `Failed to reload page for ${hostname}: ${error.message}`,
+            );
+          }
+        };
+      } else if (detectionConfig.autoAddRules) {
+        // User provided a custom callback but also wants autoAddRules
+        const originalCallback = detectionConfig.onBlockingDetected;
+        detectionConfig.onBlockingDetected = async (hostname, reason, page) => {
+          // Call original callback if provided
+          await originalCallback(hostname, reason, page);
 
           // Automatically add hostname to rules
           try {
@@ -208,6 +238,7 @@ export class AluviaClient {
 
           // We need to launch the browser after we have proxy configuration
           // Store the chromium module for now, will launch after proxy is ready
+          // @ts-ignore
           browserInstance = pw.chromium;
         } catch (error: any) {
           throw new ApiError(

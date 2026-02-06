@@ -174,7 +174,6 @@ await connection.close();
 **Note:** To use `startPlaywright: true`, you must install Playwright:
 
 ```bash
-npm install playwright
 npx playwright install chromium
 ```
 

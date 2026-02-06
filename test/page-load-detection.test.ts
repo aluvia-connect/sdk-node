@@ -344,7 +344,11 @@ describe("PageLoadDetection", () => {
 
       const detection = new PageLoadDetection(
         {
-          onBlockingDetected: (hostname: string, reason: BlockingReason) => {
+          onBlockingDetected: (
+            hostname: string,
+            reason: BlockingReason,
+            page: any,
+          ) => {
             callbackHostname = hostname;
             callbackReason = reason;
           },

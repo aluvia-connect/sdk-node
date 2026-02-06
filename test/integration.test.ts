@@ -395,7 +395,7 @@ describe("PageLoadDetection Integration", () => {
       logLevel: "silent",
       pageLoadDetection: {
         enabled: true,
-        onBlockingDetected: (hostname, reason) => {
+        onBlockingDetected: (hostname, reason, page) => {
           callbackCalled = true;
           callbackHostname = hostname;
         },
@@ -429,7 +429,7 @@ describe("PageLoadDetection Integration", () => {
       pageLoadDetection: {
         enabled: true,
         autoAddRules: true,
-        onBlockingDetected: () => {
+        onBlockingDetected: (hostname, reason, page) => {
           originalCallbackCalled = true;
         },
       },
@@ -2005,7 +2005,7 @@ describe("PageLoadDetection Integration", () => {
       logLevel: "silent",
       pageLoadDetection: {
         enabled: true,
-        onBlockingDetected: (hostname, reason) => {
+        onBlockingDetected: (hostname, reason, page) => {
           callbackCalled = true;
           callbackHostname = hostname;
         },
@@ -2039,7 +2039,7 @@ describe("PageLoadDetection Integration", () => {
       pageLoadDetection: {
         enabled: true,
         autoAddRules: true,
-        onBlockingDetected: () => {
+        onBlockingDetected: (hostname, reason, page) => {
           originalCallbackCalled = true;
         },
       },
