@@ -84,6 +84,7 @@ export class AluviaClient {
 
     // Initialize page load detection if configured
     if (options.pageLoadDetection !== undefined || options.startPlaywright) {
+      this.logger.debug('Initializing page load detection');
       // Default to enabled if startPlaywright is true
       const detectionConfig = options.pageLoadDetection ?? { enabled: true };
 
@@ -125,8 +126,10 @@ export class AluviaClient {
    * Attaches a listener to detect when new pages are created in the browser
    * and monitors their load status.
    */
-  private attachPageLoadListener(browser: any): void {
-    browser.on("page", async (page: any) => {
+  private attachPageLoadListener(context: any): void {
+    this.logger.debug("Attaching page load listener to context");
+    context.on("page", async (page: any) => {
+      this.logger.debug(`New page detected: ${page.url()}`);
       // Store response for analysis
       let pageResponse: any = null;
 
@@ -201,7 +204,6 @@ export class AluviaClient {
       let browserInstance: any = undefined;
       if (this.options.startPlaywright) {
         try {
-          // @ts-expect-error - playwright is an optional peer dependency
           const pw = await import("playwright");
 
           // We need to launch the browser after we have proxy configuration
@@ -288,6 +290,7 @@ export class AluviaClient {
 
         // Launch browser if Playwright was requested
         let launchedBrowser: any = undefined;
+        let launchedBrowserContext: any = undefined;
         if (browserInstance) {
           const cfg = this.configManager.getConfig();
           if (cfg) {
@@ -299,10 +302,13 @@ export class AluviaClient {
             };
             launchedBrowser = await browserInstance.launch({
               proxy: proxySettings,
+              headless: false,
             });
 
+            launchedBrowserContext = await launchedBrowser.newContext();
+
             // Attach page load detection
-            this.attachPageLoadListener(launchedBrowser);
+            this.attachPageLoadListener(launchedBrowserContext);
           }
         }
 
@@ -357,6 +363,7 @@ export class AluviaClient {
             return undiciFetchFn;
           },
           browser: launchedBrowser,
+          browserContext: launchedBrowserContext,
           stop: stopWithBrowser,
           close: stopWithBrowser,
         };
@@ -421,14 +428,18 @@ export class AluviaClient {
 
       // Launch browser if Playwright was requested
       let launchedBrowser: any = undefined;
+      let launchedBrowserContext: any = undefined;
       if (browserInstance) {
         const proxySettings = toPlaywrightProxySettings(url);
         launchedBrowser = await browserInstance.launch({
           proxy: proxySettings,
+          headless: false,
         });
 
+        launchedBrowserContext = await launchedBrowser.newContext();
+
         // Attach page load detection
-        this.attachPageLoadListener(launchedBrowser);
+        this.attachPageLoadListener(launchedBrowserContext);
       }
 
       const stopWithBrowser = async () => {
@@ -458,6 +469,7 @@ export class AluviaClient {
           return undiciFetchFn;
         },
         browser: launchedBrowser,
+        browserContext: launchedBrowserContext,
         stop: stopWithBrowser,
         close: stopWithBrowser,
       };

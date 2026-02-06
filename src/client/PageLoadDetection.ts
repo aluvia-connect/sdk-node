@@ -178,6 +178,8 @@ export class PageLoadDetection {
       };
     }
 
+    this.logger.debug('Analyzing page load for URL: ' + page.url());
+
     const url = page.url();
     const hostname = this.extractHostname(url);
 

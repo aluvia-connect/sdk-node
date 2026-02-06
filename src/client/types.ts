@@ -251,6 +251,8 @@ export type AluviaClientConnection = {
    */
   browser?: any;
 
+  browserContext?: any;
+
   /**
    * Stop this proxy instance:
    * - Close the local proxy server.
