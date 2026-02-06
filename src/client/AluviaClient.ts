@@ -89,9 +89,25 @@ export class AluviaClient {
       const detectionConfig = options.pageLoadDetection ?? { enabled: true };
 
       // Setup default blocking handler if no custom callback is provided
-      // Default behavior: add hostname to rules and reload the page
+      // Default behavior: add hostname to rules and reload the page (once per URL)
       if (!detectionConfig.onBlockingDetected) {
+        // Track URLs that have already been retried to prevent reload loops
+        const retriedUrls = new Set<string>();
+
         detectionConfig.onBlockingDetected = async (hostname, reason, page) => {
+          const url = page.url();
+
+          // Check if we've already retried this URL
+          if (retriedUrls.has(url)) {
+            this.logger.warn(
+              `Blocking persists for ${url} after retry, not reloading again`,
+            );
+            return;
+          }
+
+          // Mark this URL as retried
+          retriedUrls.add(url);
+
           // Automatically add hostname to rules
           try {
             const config = this.configManager.getConfig();
