@@ -66,79 +66,6 @@ npm install @aluvia/sdk
 
 **Requirements:** Node.js 18 or later
 
-### Example: Dynamic unblocking with Playwright
-
-This example shows how an agent can use the Aluvia client to dynamically unblock websites. It demonstrates starting the client, using the Playwright integration adapter, configuring geo targeting and session ID, detecting blocks, and updating routing rules on the fly.
-
-```ts
-import { chromium } from "playwright";
-import { AluviaClient } from "@aluvia/sdk";
-
-// Initialize the Aluvia client with your API key
-const client = new AluviaClient({ apiKey: process.env.ALUVIA_API_KEY! });
-
-// Start the client (launches local proxy, fetches connection config)
-const connection = await client.start();
-
-// Configure geo targeting (use California IPs)
-await client.updateTargetGeo("us_ca");
-
-// Set session ID (requests with the same session ID use the same IP)
-await client.updateSessionId("agentsession1");
-
-// Launch browser using the Playwright integration adapter
-// The adapter returns proxy settings in Playwright's expected format
-const browser = await chromium.launch({ proxy: connection.asPlaywright() });
-
-// Track hostnames we've added to proxy rules
-const proxiedHosts = new Set<string>();
-
-async function visitWithRetry(url: string): Promise<string> {
-  const page = await browser.newPage();
-
-  try {
-    const response = await page.goto(url, { waitUntil: "domcontentloaded" });
-    const hostname = new URL(url).hostname;
-
-    // Detect if the site blocked us (403, 429, or challenge page)
-    const status = response?.status() ?? 0;
-    const isBlocked =
-      status === 403 ||
-      status === 429 ||
-      (await page.title()).toLowerCase().includes("blocked");
-
-    if (isBlocked && !proxiedHosts.has(hostname)) {
-      console.log(`Blocked by ${hostname} — adding to proxy rules`);
-
-      // Update routing rules to proxy this hostname through Aluvia
-      // Rules update at runtime—no need to restart the browser
-      proxiedHosts.add(hostname);
-      await client.updateRules([...proxiedHosts]);
-
-      // Rotate to a fresh IP by changing the session ID
-      await client.updateSessionId(`retry-${Date.now()}`);
-
-      await page.close();
-      return visitWithRetry(url);
-    }
-
-    return await page.content();
-  } finally {
-    await page.close();
-  }
-}
-
-try {
-  // First attempt goes direct; if blocked, retries through Aluvia
-  const html = await visitWithRetry("https://example.com/data");
-  console.log("Success:", html.slice(0, 200));
-} finally {
-  // Always close the browser and connection when done
-  await browser.close();
-  await connection.close();
-}
-```
-
 ### Example: Auto-launch Playwright browser
 
 For even simpler setup, the SDK can automatically launch a Chromium browser that's already configured with the Aluvia proxy. This eliminates the need to manually import Playwright and configure proxy settings.
@@ -181,12 +108,12 @@ npx playwright install chromium
 
 The Aluvia client provides ready-to-use adapters for popular automation and HTTP tools:
 
-- [Playwright](docs/integrations/integration-playwright.md)
-- [Puppeteer](docs/integrations/integration-puppeteer.md)
-- [Selenium](docs/integrations/integration-selenium.md)
-- [Axios](docs/integrations/integration-axios.md)
-- [got](docs/integrations/integration-got.md)
-- [fetch (Node 18+)](docs/integrations/integration-fetch.md)
+- [Playwright](https://docs.aluvia.io/integrations/integration-playwright.md)
+- [Puppeteer](https://docs.aluvia.io/integrations/integration-puppeteer.md)
+- [Selenium](https://docs.aluvia.io/integrations/integration-selenium.md)
+- [Axios](https://docs.aluvia.io/integrations/integration-axios.md)
+- [got](https://docs.aluvia.io/integrations/integration-got.md)
+- [fetch](https://docs.aluvia.io/integrations/integration-fetch.md)
 
 ---
 
