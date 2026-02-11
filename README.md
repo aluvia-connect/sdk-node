@@ -238,14 +238,28 @@ await client.updateRules([]); // Route all traffic direct
 
 The SDK includes a CLI that launches browser sessions as background daemons and outputs JSON for easy integration with AI agent frameworks. Multiple sessions can run in parallel, each with an auto-generated name (e.g. `swift-falcon`, `calm-river`). External tools can connect to any session's browser via CDP (Chrome DevTools Protocol) and share the same pages and contexts.
 
+### `open` -- Start a browser session
+
+```bash
+npx aluvia-sdk open <url> [options]
+```
+
+| Option | Description |
+|---|---|
+| `--connection-id <id>` | Use a specific connection ID |
+| `--headful` | Run browser in headful mode (default: headless) |
+| `--browser-session <name>` | Name for this session (auto-generated if omitted) |
+| `--auto-unblock` | Auto-detect blocks and reload through Aluvia |
+| `--disable-block-detection` | Disable block detection entirely |
+
 ```bash
 # Start a browser session (headless by default)
 npx aluvia-sdk open https://example.com
-# {"status":"ok","browser-session":"swift-falcon","url":"https://example.com","cdpUrl":"http://127.0.0.1:38209","connectionId":3449,"pid":12345}
+# {"status":"ok","browser-session":"swift-falcon","autoUnblock":false,"url":"https://example.com","cdpUrl":"http://127.0.0.1:38209","connectionId":3449,"pid":12345}
 
 # Start a second session in parallel
 npx aluvia-sdk open https://other-site.com
-# {"status":"ok","browser-session":"bold-tiger","url":"https://other-site.com","cdpUrl":"http://127.0.0.1:42017","connectionId":3450,"pid":12346}
+# {"status":"ok","browser-session":"bold-tiger","autoUnblock":false,"url":"https://other-site.com","cdpUrl":"http://127.0.0.1:42017","connectionId":3450,"pid":12346}
 
 # Start with a visible browser window
 npx aluvia-sdk open https://example.com --headful
@@ -256,16 +270,56 @@ npx aluvia-sdk open https://example.com --connection-id 3449
 # Enable automatic unblocking (detect blocks, add to proxy rules, reload)
 npx aluvia-sdk open https://example.com --auto-unblock
 
+# Disable block detection entirely
+npx aluvia-sdk open https://example.com --disable-block-detection
+
 # Name a session explicitly
 npx aluvia-sdk open https://example.com --browser-session my-scraper
+```
 
+### `status` -- Show session status
+
+```bash
+npx aluvia-sdk status [--browser-session <name>]
+```
+
+Status output includes `blockDetection` and `autoUnblock` flags, plus `lastDetection` with the most recent block detection result (or `null` if no detection has run yet).
+
+```bash
 # Check status of all sessions
 npx aluvia-sdk status
-# {"status":"ok","browser-sessions":[{"browser-session":"swift-falcon",...},{"browser-session":"bold-tiger",...}],"count":2}
+# {"status":"ok","browser-sessions":[{"browser-session":"swift-falcon","active":true,"pid":12345,"url":"https://example.com","cdpUrl":"http://127.0.0.1:38209","connectionId":3449,"ready":true,"blockDetection":true,"autoUnblock":false,"lastDetection":null}],"count":1}
 
 # Check status of a specific session
 npx aluvia-sdk status --browser-session swift-falcon
+# {"status":"ok","browser-session":"swift-falcon","active":true,"pid":12345,"url":"https://example.com","cdpUrl":"http://127.0.0.1:38209","connectionId":3449,"ready":true,"blockDetection":true,"autoUnblock":false,"lastDetection":{"hostname":"example.com","url":"https://example.com/page","tier":"blocked","score":0.85,"signals":["http_status_403","waf_header"],"pass":"fast","persistentBlock":false,"timestamp":1739290800000}}
+```
 
+The `lastDetection` object contains:
+
+| Field | Description |
+|---|---|
+| `hostname` | The hostname that was analyzed |
+| `url` | The full URL that was analyzed |
+| `tier` | `"blocked"`, `"suspected"`, or `"clear"` |
+| `score` | Detection confidence score (0.0 -- 1.0) |
+| `signals` | Signal names that fired (e.g. `["http_status_403", "waf_header"]`) |
+| `pass` | `"fast"` (HTTP-only) or `"full"` (content analysis) |
+| `persistentBlock` | Whether the hostname has been flagged as persistently blocked |
+| `timestamp` | Unix timestamp (ms) of when the detection ran |
+
+### `close` -- Stop a browser session
+
+```bash
+npx aluvia-sdk close [--browser-session <name>] [--all]
+```
+
+| Option | Description |
+|---|---|
+| `--browser-session <name>` | Close a specific session |
+| `--all` | Close all sessions |
+
+```bash
 # Stop a specific session
 npx aluvia-sdk close --browser-session swift-falcon
 
@@ -275,6 +329,8 @@ npx aluvia-sdk close
 # Stop all sessions at once
 npx aluvia-sdk close --all
 ```
+
+### Connecting to a running browser
 
 Connect to the running browser from your agent code using the CDP URL:
 
@@ -299,9 +355,9 @@ Most proxy solutions require you to decide upfront which sites to proxy. If a si
 
 **With Aluvia, your agent can unblock itself.** The SDK includes automatic website block detection that identifies blocks, CAPTCHAs, and WAF challenges using a weighted scoring system across multiple signals (HTTP status codes, WAF headers, challenge selectors, page content, redirect chains, and more). The `onDetection` callback fires on every page analysis with the detection score, tier, and signals — giving your agent full visibility into what's happening.
 
-### Automatic detection (recommended)
+### Automatic unblocking (recommended)
 
-Enable block detection to let the SDK handle blocks automatically:
+Set `autoUnblock: true` to let the SDK handle blocks automatically. When a block is detected, the SDK adds the hostname to proxy routing rules and reloads the page through Aluvia:
 
 ```ts
 const client = new AluviaClient({
@@ -309,6 +365,7 @@ const client = new AluviaClient({
   startPlaywright: true,
   blockDetection: {
     enabled: true,
+    autoUnblock: true,
     onDetection: (result, page) => {
       console.log(`${result.tier} on ${result.hostname} (score: ${result.score})`);
     },
@@ -316,13 +373,13 @@ const client = new AluviaClient({
 });
 
 const connection = await client.start();
-const page = await connection.browserContext.newPage();
+const page = await connection.browser.newPage();
 await page.goto("https://example.com"); // Auto-reloads through Aluvia if blocked
 ```
 
 ### Detection-only mode
 
-Block detection is enabled by default with `autoUnblock: false`, meaning it detects blocks but does not automatically remediate them. Set `autoUnblock: true` to automatically add blocked hostnames to routing rules and reload the page. In detection-only mode, your agent inspects scores and decides how to respond:
+With `autoUnblock` omitted or set to `false`, block detection still runs but does not automatically remediate blocks. Your agent inspects the scores via `onDetection` and decides how to respond:
 
 ```ts
 const client = new AluviaClient({
