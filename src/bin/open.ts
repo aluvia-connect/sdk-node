@@ -5,6 +5,8 @@ import type { BlockDetectionResult } from '../client/BlockDetection.js';
 import { output } from './cli.js';
 import { spawn } from 'node:child_process';
 import * as fs from 'node:fs';
+import * as path from 'node:path';
+import { pathToFileURL } from 'node:url';
 
 export type OpenOptions = {
   url: string;
@@ -13,13 +15,14 @@ export type OpenOptions = {
   sessionName?: string;
   autoUnblock?: boolean;
   disableBlockDetection?: boolean;
+  run?: string;
 };
 
 /**
  * Called from cli.ts when running `open <url>`.
  * Spawns the actual browser in a detached child and returns immediately.
  */
-export function handleOpen({ url, connectionId, headless, sessionName, autoUnblock, disableBlockDetection }: OpenOptions): void {
+export function handleOpen({ url, connectionId, headless, sessionName, autoUnblock, disableBlockDetection, run }: OpenOptions): void {
   // Generate session name if not provided
   const session = sessionName ?? generateSessionName();
 
@@ -66,6 +69,9 @@ export function handleOpen({ url, connectionId, headless, sessionName, autoUnblo
   }
   if (disableBlockDetection) {
     args.push('--disable-block-detection');
+  }
+  if (run) {
+    args.push('--run', run);
   }
 
   let child;
@@ -132,7 +138,7 @@ export function handleOpen({ url, connectionId, headless, sessionName, autoUnblo
  * Starts the proxy + browser, writes lock, and stays alive.
  * Logs go to the daemon log file (stdout is redirected), not to the user.
  */
-export async function handleOpenDaemon({ url, connectionId, headless, sessionName, autoUnblock, disableBlockDetection }: OpenOptions): Promise<void> {
+export async function handleOpenDaemon({ url, connectionId, headless, sessionName, autoUnblock, disableBlockDetection, run }: OpenOptions): Promise<void> {
   const apiKey = process.env.ALUVIA_API_KEY!;
 
   const blockDetectionEnabled = !disableBlockDetection;
@@ -216,6 +222,45 @@ export async function handleOpenDaemon({ url, connectionId, headless, sessionNam
     `[daemon] Session ready — session: ${sessionName ?? 'default'}, url: ${url}, cdpUrl: ${cdpUrl}, connectionId: ${connId ?? 'unknown'}, pid: ${process.pid}`,
   );
   if (pageTitle) console.log(`[daemon] Page title: ${pageTitle}`);
+
+  // If --run was provided, execute the script and then shut down
+  if (run) {
+    const scriptPath = path.resolve(run);
+    if (!fs.existsSync(scriptPath)) {
+      console.error(`[daemon] Script not found: ${scriptPath}`);
+      removeLock(sessionName);
+      await connection.close();
+      process.exit(1);
+    }
+
+    console.log(`[daemon] Running script: ${scriptPath}`);
+
+    // Inject page, browser, context as globals so the script can use them directly
+    const browser = connection.browser;
+    const context = connection.browserContext;
+    (globalThis as any).page = page;
+    (globalThis as any).browser = browser;
+    (globalThis as any).context = context;
+
+    let exitCode = 0;
+    try {
+      await import(pathToFileURL(scriptPath).href);
+    } catch (err: any) {
+      console.error(`[daemon] Script error: ${err.message}`);
+      if (err.stack) console.error(err.stack);
+      exitCode = 1;
+    }
+
+    // Clean up globals
+    delete (globalThis as any).page;
+    delete (globalThis as any).browser;
+    delete (globalThis as any).context;
+
+    console.log(`[daemon] Script finished.`);
+    removeLock(sessionName);
+    await connection.close();
+    process.exit(exitCode);
+  }
 
   // Graceful shutdown handler
   let stopping = false;

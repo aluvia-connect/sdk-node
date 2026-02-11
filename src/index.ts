@@ -5,12 +5,17 @@
 export { AluviaClient } from "./client/AluviaClient.js";
 export { AluviaApi } from "./api/AluviaApi.js";
 
+// Connect helper
+export { connect } from "./connect.js";
+export type { ConnectResult } from "./connect.js";
+
 // Public error classes
 export {
   MissingApiKeyError,
   InvalidApiKeyError,
   ApiError,
   ProxyStartError,
+  ConnectError,
 } from "./errors.js";
 
 // Public types

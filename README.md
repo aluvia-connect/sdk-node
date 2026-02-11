@@ -48,72 +48,92 @@ Simply point your automation tool at the local proxy address (`127.0.0.1`) and t
 
 ## Quick start
 
-### Understand the basics
+### 1. Get your API key
+
+1. Create an account at [dashboard.aluvia.io](https://dashboard.aluvia.io)
+2. Go to **API and SDKs** and copy your **API Key**
+
+```bash
+export ALUVIA_API_KEY="your-api-key"
+```
+
+### 2. Install
+
+```bash
+npm install @aluvia/sdk playwright
+```
+
+**Requirements:** Node.js 18 or later.
+
+### 3. Start a browser session
+
+```bash
+npx aluvia-sdk open https://example.com --auto-unblock
+```
+
+This launches a headless Chromium browser routed through Aluvia's mobile proxy network and returns a CDP endpoint you can connect to:
+
+```json
+{
+  "browser-session": "swift-falcon",
+  "autoUnblock": true,
+  "startUrl": "https://example.com",
+  "cdpUrl": "http://127.0.0.1:38209",
+  "connectionId": 3449,
+  "pid": 12345
+}
+```
+
+The browser runs as a background daemon. `--auto-unblock` enables automatic block detection — if a site returns a 403, CAPTCHA, or WAF challenge, the SDK reroutes it through Aluvia and reloads the page.
+
+### 4. Automate with Playwright
+
+#### Option A: `--run` (simplest)
+
+Write your automation in a script — `page`, `browser`, and `context` are injected automatically:
+
+```bash
+npx aluvia-sdk open https://example.com --auto-unblock --run script.mjs
+```
+
+```js
+// script.mjs — no imports needed
+console.log("Title:", await page.title());
+await page.click("button");
+```
+
+The browser launches, runs your script, and shuts down when it finishes.
+
+#### Option B: `connect()` (for AI agents and long-running processes)
+
+If your agent is already running and needs to attach to the browser:
+
+```ts
+import { connect } from "@aluvia/sdk";
+const { page } = await connect();
+console.log("Title:", await page.title());
+```
+
+This connects to the browser session started by `npx aluvia-sdk open` via CDP. Use this when your agent generates automation code dynamically at runtime.
+
+### 5. Close the session when done
+
+```bash
+npx aluvia-sdk close --browser-session swift-falcon
+
+# Or close all sessions at once
+npx aluvia-sdk close --all
+```
+
+### Learn more
 
 - [What is Aluvia?](https://docs.aluvia.io/)
 - [Understanding connections](https://docs.aluvia.io/fundamentals/connections)
+- [Playwright integration guide](https://docs.aluvia.io/integrations/integration-playwright.md)
 
-### Get Aluvia API key
+### Other integrations
 
-1. Create an account at [dashboard.aluvia.io](https://dashboard.aluvia.io)
-2. Go to **API and SDKs** and get your **API Key**
-
-### Install the SDK
-
-```bash
-npm install @aluvia/sdk
-```
-
-**Requirements:** Node.js 18 or later
-
-### Example: Auto-launch Playwright browser
-
-For even simpler setup, the SDK can automatically launch a Chromium browser that's already configured with the Aluvia proxy. This eliminates the need to manually import Playwright and configure proxy settings.
-
-```ts
-import { AluviaClient } from "@aluvia/sdk";
-
-// Initialize with startPlaywright option to auto-launch browser
-const client = new AluviaClient({
-  apiKey: process.env.ALUVIA_API_KEY!,
-  startPlaywright: true, // Automatically launch and configure Chromium
-});
-
-// Start the client - this also launches the browser
-const connection = await client.start();
-
-// Browser is already configured with Aluvia proxy
-const browser = connection.browser;
-const page = await browser.newPage();
-
-// Configure geo targeting and session ID
-await client.updateTargetGeo("us_ca");
-await client.updateSessionId("session1");
-
-// Navigate directly - proxy is already configured
-await page.goto("https://example.com");
-console.log("Title:", await page.title());
-
-// Cleanup - automatically closes both browser and proxy
-await connection.close();
-```
-
-**Note:** To use `startPlaywright: true`, you must install Playwright:
-
-```bash
-npx playwright install chromium
-```
-
-### Integration guides
-
-The Aluvia client provides ready-to-use adapters for popular automation and HTTP tools:
-
-- [Playwright](https://docs.aluvia.io/integrations/integration-playwright.md)
-- [Puppeteer](https://docs.aluvia.io/integrations/integration-puppeteer.md)
-- [Selenium](https://docs.aluvia.io/integrations/integration-selenium.md)
-- [Axios](https://docs.aluvia.io/integrations/integration-axios.md)
-- [got](https://docs.aluvia.io/integrations/integration-got.md)
-- [fetch](https://docs.aluvia.io/integrations/integration-fetch.md)
+The SDK also provides adapters for [Puppeteer](https://docs.aluvia.io/integrations/integration-puppeteer.md), [Selenium](https://docs.aluvia.io/integrations/integration-selenium.md), [Axios](https://docs.aluvia.io/integrations/integration-axios.md), [got](https://docs.aluvia.io/integrations/integration-got.md), and [fetch](https://docs.aluvia.io/integrations/integration-fetch.md).
 
 ---
 
@@ -330,21 +350,34 @@ npx aluvia-sdk close --all
 
 ### Connecting to a running browser
 
-Connect to the running browser from your agent code using the CDP URL:
+#### Using `--run`
+
+Pass a script to execute inside the daemon process. `page`, `browser`, and `context` are available as globals:
+
+```bash
+npx aluvia-sdk open https://example.com --run script.mjs
+```
+
+```js
+// script.mjs
+console.log("URL:", page.url());
+const newPage = await context.newPage();
+await newPage.goto("https://another-site.com");
+```
+
+#### Using `connect()`
+
+For AI agents and long-running processes that need to attach to an existing session:
 
 ```ts
-import { chromium } from "playwright";
+import { connect } from "@aluvia/sdk";
 
-// Use the cdpUrl from the CLI output
-const browser = await chromium.connectOverCDP("http://127.0.0.1:38209");
-
-// Access the existing page opened by the CLI
-const page = browser.contexts()[0].pages()[0];
+// Auto-discovers the running session
+const { page, browser, context } = await connect();
 console.log("URL:", page.url());
 
-// Or open new pages in the same browser
-const newPage = await browser.newPage();
-await newPage.goto("https://another-site.com");
+// For multiple sessions, specify by name
+const { page } = await connect("swift-falcon");
 ```
 
 ## Dynamic unblocking

@@ -17,6 +17,7 @@ type OpenArgs = {
   sessionName?: string;
   autoUnblock: boolean;
   disableBlockDetection: boolean;
+  run?: string;
 };
 
 function parseOpenArgs(args: string[], startIndex: number): OpenArgs {
@@ -26,6 +27,7 @@ function parseOpenArgs(args: string[], startIndex: number): OpenArgs {
   let sessionName: string | undefined;
   let autoUnblock = false;
   let disableBlockDetection = false;
+  let run: string | undefined;
 
   for (let i = startIndex; i < args.length; i++) {
     if (args[i] === '--connection-id' && args[i + 1]) {
@@ -38,6 +40,9 @@ function parseOpenArgs(args: string[], startIndex: number): OpenArgs {
     } else if (args[i] === '--browser-session' && args[i + 1]) {
       sessionName = args[i + 1];
       i++;
+    } else if (args[i] === '--run' && args[i + 1]) {
+      run = args[i + 1];
+      i++;
     } else if (args[i] === '--headful') {
       headed = true;
     } else if (args[i] === '--auto-unblock') {
@@ -49,7 +54,7 @@ function parseOpenArgs(args: string[], startIndex: number): OpenArgs {
     }
   }
 
-  return { url, connectionId, headed, sessionName, autoUnblock, disableBlockDetection };
+  return { url, connectionId, headed, sessionName, autoUnblock, disableBlockDetection, run };
 }
 
 function parseArgs(argv: string[]): {
@@ -62,6 +67,7 @@ function parseArgs(argv: string[]): {
   all?: boolean;
   autoUnblock?: boolean;
   disableBlockDetection?: boolean;
+  run?: string;
 } {
   const args = argv.slice(2);
   const command = args[0] ?? '';
@@ -141,7 +147,8 @@ function printHelp(toStderr = false): void {
   log('  --headful                  Run browser in headful mode');
   log('  --browser-session <name>   Name for this session (auto-generated if omitted)');
   log('  --auto-unblock             Auto-detect blocks and reload through Aluvia');
-  log('  --disable-block-detection  Disable block detection entirely\n');
+  log('  --disable-block-detection  Disable block detection entirely');
+  log('  --run <script>             Run a script with page, browser, context injected\n');
   log('Close options:');
   log('  --browser-session <name>   Close a specific session');
   log('  --all                      Close all sessions\n');
@@ -154,7 +161,7 @@ function printHelp(toStderr = false): void {
 }
 
 async function main(): Promise<void> {
-  const { command, url, connectionId, daemon, headed, sessionName, all, autoUnblock, disableBlockDetection } = parseArgs(process.argv);
+  const { command, url, connectionId, daemon, headed, sessionName, all, autoUnblock, disableBlockDetection, run } = parseArgs(process.argv);
 
   // Validate session name if provided
   if (sessionName && !validateSessionName(sessionName)) {
@@ -169,9 +176,9 @@ async function main(): Promise<void> {
     process.exit(0);
   } else if (command === 'open') {
     if (daemon) {
-      await handleOpenDaemon({ url: url!, connectionId, headless: !headed, sessionName, autoUnblock, disableBlockDetection });
+      await handleOpenDaemon({ url: url!, connectionId, headless: !headed, sessionName, autoUnblock, disableBlockDetection, run });
     } else {
-      handleOpen({ url: url!, connectionId, headless: !headed, sessionName, autoUnblock, disableBlockDetection });
+      handleOpen({ url: url!, connectionId, headless: !headed, sessionName, autoUnblock, disableBlockDetection, run });
     }
   } else if (command === 'close') {
     await handleClose(sessionName, all);
