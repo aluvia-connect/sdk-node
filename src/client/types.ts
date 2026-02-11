@@ -244,10 +244,13 @@ export type AluviaClientConnection = {
   browser?: any;
 
   /**
-   * Chrome DevTools Protocol WebSocket URL.
+   * Chrome DevTools Protocol HTTP endpoint URL (for example: http://127.0.0.1:<port>).
    *
    * Only available if `startPlaywright: true` was passed to AluviaClientOptions.
-   * Can be used to connect to the browser via CDP from external tools.
+   * Intended for use by external tools that connect to the browser via CDP.
+   * Tools that require a WebSocket debugger URL should derive it from this HTTP
+   * endpoint (for example, by fetching `${cdpUrl}/json/version` and using the
+   * `webSocketDebuggerUrl` field from the response).
    */
   cdpUrl?: string;
 
