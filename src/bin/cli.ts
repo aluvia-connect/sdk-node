@@ -47,6 +47,10 @@ function parseArgs(argv: string[]): {
     return { command: 'close' };
   }
 
+  if (command === 'help' || command === '--help' || command === '-h' || command === '') {
+    return { command: 'help' };
+  }
+
   if (command === 'open') {
     let url: string | undefined;
     let connectionId: number | undefined;
@@ -73,25 +77,34 @@ function parseArgs(argv: string[]): {
     return { command: 'open', url, connectionId };
   }
 
-  // Unknown or missing command
-  output(
-    {
-      status: 'error',
-      error: 'Unknown command.',
-      usage: {
-        open: 'npx @aluvia/sdk open <url> [--connection-id <id>]',
-        close: 'npx @aluvia/sdk close',
-      },
-      env: { ALUVIA_API_KEY: 'Required. Your Aluvia API key.' },
-    },
-    1,
-  );
+  // Unknown command — show help to stderr
+  if (command) {
+    console.error(`Unknown command: '${command}'\n`);
+  }
+  printHelp(true);
+  process.exit(1);
+}
+
+function printHelp(toStderr = false): void {
+  const log = toStderr ? console.error : console.log;
+  log('Aluvia SDK CLI\n');
+  log('Usage:');
+  log('  npx @aluvia/sdk open <url> [--connection-id <id>]   Start a browser session');
+  log('  npx @aluvia/sdk close                               Stop the running browser session');
+  log('  npx @aluvia/sdk help                                Show this help\n');
+  log('Environment:');
+  log('  ALUVIA_API_KEY   Required. Your Aluvia API key.\n');
+  log('Output:');
+  log('  All commands output JSON to stdout for machine consumption.');
 }
 
 async function main(): Promise<void> {
   const { command, url, connectionId, daemon } = parseArgs(process.argv);
 
-  if (command === 'open') {
+  if (command === 'help') {
+    printHelp();
+    process.exit(0);
+  } else if (command === 'open') {
     if (daemon) {
       await handleOpenDaemon(url!, connectionId);
     } else {
