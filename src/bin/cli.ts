@@ -67,7 +67,7 @@ function parseArgs(argv: string[]): {
       output(
         {
           status: 'error',
-          error: 'URL is required. Usage: npx @aluvia/sdk open <url> [--connection-id <id>]',
+          error: 'URL is required. Usage: npx aluvia-sdk open <url> [--connection-id <id>]',
         },
         1,
       );
@@ -88,9 +88,9 @@ function printHelp(toStderr = false): void {
   const log = toStderr ? console.error : console.log;
   log('Aluvia SDK CLI\n');
   log('Usage:');
-  log('  npx @aluvia/sdk open <url> [--connection-id <id>] [--headed]   Start a browser session');
-  log('  npx @aluvia/sdk close                               Stop the running browser session');
-  log('  npx @aluvia/sdk help                                Show this help\n');
+  log('  npx aluvia-sdk open <url> [--connection-id <id>] [--headed]   Start a browser session');
+  log('  npx aluvia-sdk close                               Stop the running browser session');
+  log('  npx aluvia-sdk help                                Show this help\n');
   log('Environment:');
   log('  ALUVIA_API_KEY   Required. Your Aluvia API key.\n');
   log('Output:');

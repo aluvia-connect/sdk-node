@@ -184,19 +184,19 @@ The SDK includes a CLI that launches a browser session as a background daemon an
 
 ```bash
 # Start a browser session (headless by default)
-npx @aluvia/sdk open https://example.com
+npx aluvia-sdk open https://example.com
 
 # Output (JSON):
 # {"status":"ok","url":"https://example.com","cdpUrl":"http://127.0.0.1:38209","connectionId":3449,"pid":12345}
 
 # Start with a visible browser window
-npx @aluvia/sdk open https://example.com --headed
+npx aluvia-sdk open https://example.com --headed
 
 # Reuse an existing connection
-npx @aluvia/sdk open https://example.com --connection-id 3449
+npx aluvia-sdk open https://example.com --connection-id 3449
 
 # Stop the running session
-npx @aluvia/sdk close
+npx aluvia-sdk close
 ```
 
 Connect to the running browser from your agent code using the CDP URL:
