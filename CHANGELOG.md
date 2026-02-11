@@ -7,10 +7,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- Multi-session CLI support. Multiple browser sessions can now run in parallel, each with an auto-generated name (e.g. `swift-falcon`, `calm-river`). Use `--browser-session <name>` to specify a custom name.
+- `status` CLI command to list all active sessions or inspect a specific session.
+- `--all` flag on `close` command to stop all sessions at once.
+- `session` field included in all CLI JSON responses for agent session tracking.
+
 ### Changed
 - Overhaul page load detection with weighted scoring system. Replaces binary keyword/status matching with probabilistic signal combination across 8 detector types (HTTP status, WAF headers, title keywords, challenge selectors, visible text, text-to-HTML ratio, redirect chains, meta refresh). Adds two-pass analysis (fast pass at `domcontentloaded`, full pass after `networkidle`), SPA navigation detection, word-boundary matching to prevent false positives, and hostname-level persistent block escalation. Detection results now include `tier` (`blocked`/`suspected`/`clear`), `score`, and `signals` array.
 - `onDetection` callback now fires on every page analysis, including `clear` results. Previously only fired for `blocked` and `suspected` tiers.
 - Add `autoReload` option to `PageLoadDetectionConfig` (default: `true`). Set to `false` to disable automatic rule updates and page reloads, enabling detection-only mode where agents receive scores via `onDetection` and decide how to respond.
+- Lock files are now per-session (`cli-<name>.lock`) instead of a single `cli.lock`.
+
+### Fixed
+- Fix control-flow bug in `close` command where missing `return` before `output()` calls caused fall-through execution, potentially sending SIGTERM to undefined PIDs.
 
 ### Removed
 - Remove gateway mode (`localProxy: false`). The SDK now always runs a local proxy on `127.0.0.1`. The `localProxy` option has been removed from `AluviaClientOptions`.

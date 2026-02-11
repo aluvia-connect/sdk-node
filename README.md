@@ -236,14 +236,16 @@ await client.updateRules([]); // Route all traffic direct
 
 ## CLI for AI agents
 
-The SDK includes a CLI that launches a browser session as a background daemon and outputs JSON for easy integration with AI agent frameworks. External tools can connect to the browser via CDP (Chrome DevTools Protocol) and share the same pages and contexts.
+The SDK includes a CLI that launches browser sessions as background daemons and outputs JSON for easy integration with AI agent frameworks. Multiple sessions can run in parallel, each with an auto-generated name (e.g. `swift-falcon`, `calm-river`). External tools can connect to any session's browser via CDP (Chrome DevTools Protocol) and share the same pages and contexts.
 
 ```bash
 # Start a browser session (headless by default)
 npx aluvia-sdk open https://example.com
+# {"status":"ok","session":"swift-falcon","url":"https://example.com","cdpUrl":"http://127.0.0.1:38209","connectionId":3449,"pid":12345}
 
-# Output (JSON):
-# {"status":"ok","url":"https://example.com","cdpUrl":"http://127.0.0.1:38209","connectionId":3449,"pid":12345}
+# Start a second session in parallel
+npx aluvia-sdk open https://other-site.com
+# {"status":"ok","session":"bold-tiger","url":"https://other-site.com","cdpUrl":"http://127.0.0.1:42017","connectionId":3450,"pid":12346}
 
 # Start with a visible browser window
 npx aluvia-sdk open https://example.com --headed
@@ -251,8 +253,24 @@ npx aluvia-sdk open https://example.com --headed
 # Reuse an existing connection
 npx aluvia-sdk open https://example.com --connection-id 3449
 
-# Stop the running session
+# Name a session explicitly
+npx aluvia-sdk open https://example.com --browser-session my-scraper
+
+# Check status of all sessions
+npx aluvia-sdk status
+# {"status":"ok","sessions":[{"session":"swift-falcon",...},{"session":"bold-tiger",...}],"count":2}
+
+# Check status of a specific session
+npx aluvia-sdk status --browser-session swift-falcon
+
+# Stop a specific session
+npx aluvia-sdk close --browser-session swift-falcon
+
+# Stop the running session (works when only one is active)
 npx aluvia-sdk close
+
+# Stop all sessions at once
+npx aluvia-sdk close --all
 ```
 
 Connect to the running browser from your agent code using the CDP URL:
