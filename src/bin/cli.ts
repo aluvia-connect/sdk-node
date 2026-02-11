@@ -19,6 +19,7 @@ function parseArgs(argv: string[]): {
   sessionName?: string;
   all?: boolean;
   autoUnblock?: boolean;
+  disableBlockDetection?: boolean;
 } {
   const args = argv.slice(2);
   const command = args[0] ?? '';
@@ -30,6 +31,7 @@ function parseArgs(argv: string[]): {
     let headed = false;
     let sessionName: string | undefined;
     let autoUnblock = false;
+    let disableBlockDetection = false;
 
     for (let i = 1; i < args.length; i++) {
       if (args[i] === '--connection-id' && args[i + 1]) {
@@ -42,12 +44,14 @@ function parseArgs(argv: string[]): {
         headed = true;
       } else if (args[i] === '--auto-unblock') {
         autoUnblock = true;
+      } else if (args[i] === '--disable-block-detection') {
+        disableBlockDetection = true;
       } else if (!url && !args[i].startsWith('--')) {
         url = args[i];
       }
     }
 
-    return { command: 'open', url, connectionId, daemon: true, headed, sessionName, autoUnblock };
+    return { command: 'open', url, connectionId, daemon: true, headed, sessionName, autoUnblock, disableBlockDetection };
   }
 
   if (command === 'close') {
@@ -89,6 +93,7 @@ function parseArgs(argv: string[]): {
     let headed = false;
     let sessionName: string | undefined;
     let autoUnblock = false;
+    let disableBlockDetection = false;
 
     for (let i = 1; i < args.length; i++) {
       if (args[i] === '--connection-id' && args[i + 1]) {
@@ -101,6 +106,8 @@ function parseArgs(argv: string[]): {
         headed = true;
       } else if (args[i] === '--auto-unblock') {
         autoUnblock = true;
+      } else if (args[i] === '--disable-block-detection') {
+        disableBlockDetection = true;
       } else if (!url && !args[i].startsWith('--')) {
         url = args[i];
       }
@@ -116,7 +123,7 @@ function parseArgs(argv: string[]): {
       );
     }
 
-    return { command: 'open', url, connectionId, headed, sessionName, autoUnblock };
+    return { command: 'open', url, connectionId, headed, sessionName, autoUnblock, disableBlockDetection };
   }
 
   // Unknown command — show help to stderr
@@ -139,7 +146,8 @@ function printHelp(toStderr = false): void {
   log('  --connection-id <id>       Use a specific connection ID');
   log('  --headful                  Run browser in headful mode');
   log('  --browser-session <name>   Name for this session (auto-generated if omitted)');
-  log('  --auto-unblock             Auto-detect blocks and reload through Aluvia\n');
+  log('  --auto-unblock             Auto-detect blocks and reload through Aluvia');
+  log('  --disable-block-detection  Disable block detection entirely\n');
   log('Close options:');
   log('  --browser-session <name>   Close a specific session');
   log('  --all                      Close all sessions\n');
@@ -152,7 +160,7 @@ function printHelp(toStderr = false): void {
 }
 
 async function main(): Promise<void> {
-  const { command, url, connectionId, daemon, headed, sessionName, all, autoUnblock } = parseArgs(process.argv);
+  const { command, url, connectionId, daemon, headed, sessionName, all, autoUnblock, disableBlockDetection } = parseArgs(process.argv);
 
   // Validate session name if provided
   if (sessionName && !validateSessionName(sessionName)) {
@@ -167,9 +175,9 @@ async function main(): Promise<void> {
     process.exit(0);
   } else if (command === 'open') {
     if (daemon) {
-      await handleOpenDaemon({ url: url!, connectionId, headless: !headed, sessionName, autoUnblock });
+      await handleOpenDaemon({ url: url!, connectionId, headless: !headed, sessionName, autoUnblock, disableBlockDetection });
     } else {
-      handleOpen({ url: url!, connectionId, headless: !headed, sessionName, autoUnblock });
+      handleOpen({ url: url!, connectionId, headless: !headed, sessionName, autoUnblock, disableBlockDetection });
     }
   } else if (command === 'close') {
     await handleClose(sessionName, all);

@@ -12,13 +12,14 @@ export type OpenOptions = {
   headless?: boolean;
   sessionName?: string;
   autoUnblock?: boolean;
+  disableBlockDetection?: boolean;
 };
 
 /**
  * Called from cli.ts when running `open <url>`.
  * Spawns the actual browser in a detached child and returns immediately.
  */
-export function handleOpen({ url, connectionId, headless, sessionName, autoUnblock }: OpenOptions): void {
+export function handleOpen({ url, connectionId, headless, sessionName, autoUnblock, disableBlockDetection }: OpenOptions): void {
   // Generate session name if not provided
   const session = sessionName ?? generateSessionName();
 
@@ -63,6 +64,9 @@ export function handleOpen({ url, connectionId, headless, sessionName, autoUnblo
   }
   if (autoUnblock) {
     args.push('--auto-unblock');
+  }
+  if (disableBlockDetection) {
+    args.push('--disable-block-detection');
   }
 
   const child = spawn(process.execPath, [process.argv[1], ...args], {
@@ -113,8 +117,10 @@ export function handleOpen({ url, connectionId, headless, sessionName, autoUnblo
  * Starts the proxy + browser, writes lock, and stays alive.
  * Logs go to the daemon log file (stdout is redirected), not to the user.
  */
-export async function handleOpenDaemon({ url, connectionId, headless, sessionName, autoUnblock }: OpenOptions): Promise<void> {
+export async function handleOpenDaemon({ url, connectionId, headless, sessionName, autoUnblock, disableBlockDetection }: OpenOptions): Promise<void> {
   const apiKey = process.env.ALUVIA_API_KEY!;
+
+  const blockDetectionEnabled = !disableBlockDetection;
 
   const updateLockWithDetection = (result: BlockDetectionResult) => {
     const lock = readLock(sessionName);
@@ -137,15 +143,17 @@ export async function handleOpenDaemon({ url, connectionId, headless, sessionNam
     startPlaywright: true,
     ...(connectionId != null ? { connectionId } : {}),
     headless: headless ?? true,
-    blockDetection: autoUnblock
-      ? { enabled: true, autoUnblock: true, onDetection: updateLockWithDetection }
-      : { enabled: true, onDetection: updateLockWithDetection },
+    blockDetection: blockDetectionEnabled
+      ? autoUnblock
+        ? { enabled: true, autoUnblock: true, onDetection: updateLockWithDetection }
+        : { enabled: true, onDetection: updateLockWithDetection }
+      : { enabled: false },
   });
 
   const connection = await client.start();
 
   // Write early lock so parent knows daemon is alive
-  writeLock({ pid: process.pid, session: sessionName, url, blockDetection: true, autoUnblock: !!autoUnblock }, sessionName);
+  writeLock({ pid: process.pid, session: sessionName, url, blockDetection: blockDetectionEnabled, autoUnblock: blockDetectionEnabled && !!autoUnblock }, sessionName);
 
   if (autoUnblock) console.log('[daemon] Auto-unblock enabled');
   console.log(`[daemon] Browser initialized — proxy: ${connection.url}`);
@@ -185,8 +193,8 @@ export async function handleOpenDaemon({ url, connectionId, headless, sessionNam
       cdpUrl,
       url,
       ready: true,
-      blockDetection: true,
-      autoUnblock: !!autoUnblock,
+      blockDetection: blockDetectionEnabled,
+      autoUnblock: blockDetectionEnabled && !!autoUnblock,
     },
     sessionName,
   );
