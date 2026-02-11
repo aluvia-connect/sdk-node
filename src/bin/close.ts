@@ -68,7 +68,7 @@ export async function handleClose(sessionName?: string, closeAll?: boolean): Pro
       return output({
         'browser-session': sessionName,
         message: 'Browser session closed.',
-        pageUrl: lock.url ?? null,
+        startUrl: lock.url ?? null,
         cdpUrl: lock.cdpUrl ?? null,
         connectionId: lock.connectionId ?? null,
         pid: lock.pid,
@@ -86,7 +86,7 @@ export async function handleClose(sessionName?: string, closeAll?: boolean): Pro
   return output({
     'browser-session': sessionName,
     message: 'Browser session force-killed.',
-    pageUrl: lock.url ?? null,
+    startUrl: lock.url ?? null,
     cdpUrl: lock.cdpUrl ?? null,
     connectionId: lock.connectionId ?? null,
     pid: lock.pid,

@@ -255,11 +255,11 @@ npx aluvia-sdk open <url> [options]
 ```bash
 # Start a browser session (headless by default)
 npx aluvia-sdk open https://example.com
-# {"browser-session":"swift-falcon","autoUnblock":false,"pageUrl":"https://example.com","cdpUrl":"http://127.0.0.1:38209","connectionId":3449,"pid":12345}
+# {"browser-session":"swift-falcon","autoUnblock":false,"startUrl":"https://example.com","cdpUrl":"http://127.0.0.1:38209","connectionId":3449,"pid":12345}
 
 # Start a second session in parallel
 npx aluvia-sdk open https://other-site.com
-# {"browser-session":"bold-tiger","autoUnblock":false,"pageUrl":"https://other-site.com","cdpUrl":"http://127.0.0.1:42017","connectionId":3450,"pid":12346}
+# {"browser-session":"bold-tiger","autoUnblock":false,"startUrl":"https://other-site.com","cdpUrl":"http://127.0.0.1:42017","connectionId":3450,"pid":12346}
 
 # Start with a visible browser window
 npx aluvia-sdk open https://example.com --headful
@@ -288,11 +288,11 @@ Status output includes `blockDetection` and `autoUnblock` flags, plus `lastDetec
 ```bash
 # Check status of all sessions
 npx aluvia-sdk status
-# {"browser-sessions":[{"browser-session":"swift-falcon","active":true,"pid":12345,"pageUrl":"https://example.com","cdpUrl":"http://127.0.0.1:38209","connectionId":3449,"ready":true,"blockDetection":true,"autoUnblock":false,"lastDetection":null}],"count":1}
+# {"browser-sessions":[{"browser-session":"swift-falcon","pid":12345,"startUrl":"https://example.com","cdpUrl":"http://127.0.0.1:38209","connectionId":3449,"blockDetection":true,"autoUnblock":false,"lastDetection":null}],"count":1}
 
 # Check status of a specific session
 npx aluvia-sdk status --browser-session swift-falcon
-# {"browser-session":"swift-falcon","active":true,"pid":12345,"pageUrl":"https://example.com","cdpUrl":"http://127.0.0.1:38209","connectionId":3449,"ready":true,"blockDetection":true,"autoUnblock":false,"lastDetection":{"hostname":"example.com","url":"https://example.com/page","blockStatus":"blocked","score":0.85,"signals":["http_status_403","waf_header"],"timestamp":1739290800000}}
+# {"browser-session":"swift-falcon","pid":12345,"startUrl":"https://example.com","cdpUrl":"http://127.0.0.1:38209","connectionId":3449,"blockDetection":true,"autoUnblock":false,"lastDetection":{"hostname":"example.com","lastUrl":"https://example.com/page","blockStatus":"blocked","score":0.85,"signals":["http_status_403","waf_header"],"timestamp":1739290800000}}
 ```
 
 The `lastDetection` object contains:
@@ -300,7 +300,7 @@ The `lastDetection` object contains:
 | Field | Description |
 |---|---|
 | `hostname` | The hostname that was analyzed |
-| `url` | The full URL that was analyzed |
+| `lastUrl` | The full URL that was analyzed |
 | `blockStatus` | `"blocked"`, `"suspected"`, or `"clear"` |
 | `score` | Detection confidence score (0.0 -- 1.0) |
 | `signals` | Signal names that fired (e.g. `["http_status_403", "waf_header"]`) |
@@ -394,6 +394,18 @@ const client = new AluviaClient({
   },
 });
 ```
+
+### Detection tiers
+
+Each page analysis produces a score from 0.0 to 1.0. The score maps to a detection tier:
+
+| Score | Tier | Meaning |
+|-------|------|---------|
+| >= 0.7 | `"blocked"` | High confidence the page is blocked (triggers reload when `autoUnblock: true`) |
+| >= 0.4 | `"suspected"` | Possible block, but not certain (reload only if `autoUnblockOnSuspected: true`) |
+| < 0.4 | `"clear"` | No block detected |
+
+Scores are computed by combining independent signal weights using probabilistic combination: `score = 1 - product(1 - weight)`. This prevents weak signals from stacking to false positives. For the full list of signal detectors and their weights, see the [Client Technical Guide](docs/client-technical-guide.md#signal-detectors).
 
 Detection runs in two passes: a fast pass at `domcontentloaded` for high-confidence HTTP signals, and a full pass after `networkidle` that checks page content, challenge selectors, and redirect chains. The SDK also detects SPA navigations and persistent blocks (hostname-level escalation prevents infinite retry loops).
 

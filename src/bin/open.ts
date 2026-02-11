@@ -30,7 +30,7 @@ export function handleOpen({ url, connectionId, headless, sessionName, autoUnblo
       {
         error: `A browser session named '${session}' is already running.`,
         'browser-session': session,
-        pageUrl: existing.url ?? null,
+        startUrl: existing.url ?? null,
         cdpUrl: existing.cdpUrl ?? null,
         connectionId: existing.connectionId ?? null,
         pid: existing.pid,
@@ -88,7 +88,7 @@ export function handleOpen({ url, connectionId, headless, sessionName, autoUnblo
       return output({
         'browser-session': session,
         autoUnblock: !!autoUnblock,
-        pageUrl: lock.url ?? null,
+        startUrl: lock.url ?? null,
         cdpUrl: lock.cdpUrl ?? null,
         connectionId: lock.connectionId ?? null,
         pid: lock.pid,
@@ -124,7 +124,7 @@ export async function handleOpenDaemon({ url, connectionId, headless, sessionNam
     if (!lock) return;
     const lastDetection: LockDetection = {
       hostname: result.hostname,
-      url: result.url,
+      lastUrl: result.url,
       blockStatus: result.tier,
       score: result.score,
       signals: result.signals.map((s) => s.name),

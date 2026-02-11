@@ -612,7 +612,7 @@ describe("BlockDetection Integration", () => {
     const testSession = `__test-detection-${Date.now()}`;
     const detection: LockDetection = {
       hostname: "example.com",
-      url: "https://example.com/test",
+      lastUrl: "https://example.com/test",
       blockStatus: "blocked",
       score: 0.85,
       signals: ["http_status_403", "waf_header"],

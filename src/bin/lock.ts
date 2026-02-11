@@ -24,7 +24,7 @@ function logFileName(sessionName?: string): string {
 
 export type LockDetection = {
   hostname: string;
-  url: string;
+  lastUrl: string;
   blockStatus: string;
   score: number;
   signals: string[];
@@ -118,7 +118,6 @@ export type SessionInfo = {
   connectionId?: number;
   cdpUrl?: string;
   url?: string;
-  ready?: boolean;
   blockDetection?: boolean;
   autoUnblock?: boolean;
   lastDetection?: LockDetection;
@@ -150,7 +149,6 @@ export function listSessions(): SessionInfo[] {
       connectionId: lock.connectionId,
       cdpUrl: lock.cdpUrl,
       url: lock.url,
-      ready: lock.ready,
       blockDetection: lock.blockDetection,
       autoUnblock: lock.autoUnblock,
       lastDetection: lock.lastDetection,
