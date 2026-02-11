@@ -22,6 +22,17 @@ function logFileName(sessionName?: string): string {
   return `cli-${sessionName ?? 'default'}.log`;
 }
 
+export type LockDetection = {
+  hostname: string;
+  url: string;
+  tier: string;
+  score: number;
+  signals: string[];
+  pass: string;
+  persistentBlock: boolean;
+  timestamp: number;
+};
+
 export type LockData = {
   pid: number;
   session?: string;
@@ -29,6 +40,7 @@ export type LockData = {
   cdpUrl?: string;
   url?: string;
   ready?: boolean;
+  lastDetection?: LockDetection;
 };
 
 export function writeLock(data: LockData, sessionName?: string): void {
@@ -107,6 +119,7 @@ export type SessionInfo = {
   cdpUrl?: string;
   url?: string;
   ready?: boolean;
+  lastDetection?: LockDetection;
 };
 
 export function listSessions(): SessionInfo[] {
@@ -136,6 +149,7 @@ export function listSessions(): SessionInfo[] {
       cdpUrl: lock.cdpUrl,
       url: lock.url,
       ready: lock.ready,
+      lastDetection: lock.lastDetection,
     });
   }
 

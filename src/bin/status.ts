@@ -17,6 +17,7 @@ export function handleStatus(sessionName?: string): void {
       cdpUrl: lock.cdpUrl ?? null,
       connectionId: lock.connectionId ?? null,
       ready: lock.ready ?? false,
+      lastDetection: lock.lastDetection ?? null,
     });
   }
 
@@ -31,6 +32,7 @@ export function handleStatus(sessionName?: string): void {
       cdpUrl: s.cdpUrl ?? null,
       connectionId: s.connectionId ?? null,
       ready: s.ready ?? false,
+      lastDetection: s.lastDetection ?? null,
     })),
     count: sessions.length,
   });

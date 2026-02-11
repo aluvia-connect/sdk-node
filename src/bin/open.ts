@@ -1,5 +1,7 @@
 import { AluviaClient } from '../client/AluviaClient.js';
 import { writeLock, readLock, removeLock, isProcessAlive, getLogFilePath, generateSessionName } from './lock.js';
+import type { LockDetection } from './lock.js';
+import type { BlockDetectionResult } from '../client/BlockDetection.js';
 import { output } from './cli.js';
 import { spawn } from 'node:child_process';
 import * as fs from 'node:fs';
@@ -114,14 +116,30 @@ export function handleOpen({ url, connectionId, headless, sessionName, autoUnblo
 export async function handleOpenDaemon({ url, connectionId, headless, sessionName, autoUnblock }: OpenOptions): Promise<void> {
   const apiKey = process.env.ALUVIA_API_KEY!;
 
+  const updateLockWithDetection = (result: BlockDetectionResult) => {
+    const lock = readLock(sessionName);
+    if (!lock) return;
+    const lastDetection: LockDetection = {
+      hostname: result.hostname,
+      url: result.url,
+      tier: result.tier,
+      score: result.score,
+      signals: result.signals.map((s) => s.name),
+      pass: result.pass,
+      persistentBlock: result.persistentBlock,
+      timestamp: Date.now(),
+    };
+    writeLock({ ...lock, lastDetection }, sessionName);
+  };
+
   const client = new AluviaClient({
     apiKey,
     startPlaywright: true,
     ...(connectionId != null ? { connectionId } : {}),
     headless: headless ?? true,
-    pageLoadDetection: autoUnblock
-      ? { enabled: true, autoReload: true }
-      : { enabled: false },
+    blockDetection: autoUnblock
+      ? { enabled: true, autoUnblock: true, onDetection: updateLockWithDetection }
+      : { enabled: true, onDetection: updateLockWithDetection },
   });
 
   const connection = await client.start();
