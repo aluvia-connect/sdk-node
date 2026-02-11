@@ -178,44 +178,6 @@ npm install playwright
 npx playwright install chromium
 ```
 
-### Example: CLI for AI agents
-
-The SDK includes a CLI that launches a browser session as a background daemon and outputs JSON for easy integration with AI agent frameworks. External tools can connect to the browser via CDP (Chrome DevTools Protocol) and share the same pages and contexts.
-
-```bash
-# Start a browser session (headless by default)
-npx aluvia-sdk open https://example.com
-
-# Output (JSON):
-# {"status":"ok","url":"https://example.com","cdpUrl":"http://127.0.0.1:38209","connectionId":3449,"pid":12345}
-
-# Start with a visible browser window
-npx aluvia-sdk open https://example.com --headed
-
-# Reuse an existing connection
-npx aluvia-sdk open https://example.com --connection-id 3449
-
-# Stop the running session
-npx aluvia-sdk close
-```
-
-Connect to the running browser from your agent code using the CDP URL:
-
-```ts
-import { chromium } from "playwright";
-
-// Use the cdpUrl from the CLI output
-const browser = await chromium.connectOverCDP("http://127.0.0.1:38209");
-
-// Access the existing page opened by the CLI
-const page = browser.contexts()[0].pages()[0];
-console.log("URL:", page.url());
-
-// Or open new pages in the same browser
-const newPage = await browser.newPage();
-await newPage.goto("https://another-site.com");
-```
-
 ### Integration guides
 
 The Aluvia client provides ready-to-use adapters for popular automation and HTTP tools:
@@ -377,6 +339,44 @@ await client.updateRules([]); // Route all traffic direct
 | `-example.com`  | Exclude from proxying                 |
 
 ---
+
+## CLI for AI agents
+
+The SDK includes a CLI that launches a browser session as a background daemon and outputs JSON for easy integration with AI agent frameworks. External tools can connect to the browser via CDP (Chrome DevTools Protocol) and share the same pages and contexts.
+
+```bash
+# Start a browser session (headless by default)
+npx aluvia-sdk open https://example.com
+
+# Output (JSON):
+# {"status":"ok","url":"https://example.com","cdpUrl":"http://127.0.0.1:38209","connectionId":3449,"pid":12345}
+
+# Start with a visible browser window
+npx aluvia-sdk open https://example.com --headed
+
+# Reuse an existing connection
+npx aluvia-sdk open https://example.com --connection-id 3449
+
+# Stop the running session
+npx aluvia-sdk close
+```
+
+Connect to the running browser from your agent code using the CDP URL:
+
+```ts
+import { chromium } from "playwright";
+
+// Use the cdpUrl from the CLI output
+const browser = await chromium.connectOverCDP("http://127.0.0.1:38209");
+
+// Access the existing page opened by the CLI
+const page = browser.contexts()[0].pages()[0];
+console.log("URL:", page.url());
+
+// Or open new pages in the same browser
+const newPage = await browser.newPage();
+await newPage.goto("https://another-site.com");
+```
 
 ## Dynamic unblocking
 
