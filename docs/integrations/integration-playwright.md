@@ -44,9 +44,9 @@ try {
 }
 ```
 
-## Auto-launch with page load detection
+## Auto-launch with block detection
 
-Use `startPlaywright: true` with `pageLoadDetection` to let the SDK launch a Chromium browser and automatically detect and recover from blocks:
+Use `startPlaywright: true` with `blockDetection` to let the SDK launch a Chromium browser and automatically detect and recover from blocks:
 
 ```ts
 import { AluviaClient } from '@aluvia/sdk';
@@ -54,7 +54,7 @@ import { AluviaClient } from '@aluvia/sdk';
 const client = new AluviaClient({
   apiKey: process.env.ALUVIA_API_KEY!,
   startPlaywright: true,
-  pageLoadDetection: {
+  blockDetection: {
     enabled: true,
     onDetection: (result, page) => {
       console.log(`${result.tier} on ${result.hostname} (score: ${result.score})`);
@@ -74,15 +74,14 @@ try {
 }
 ```
 
-Set `autoReload: false` to receive detection scores without automatic rule updates or reloads — useful when your agent needs to decide how to handle blocks:
+By default, `autoUnblock` is `false`, so detection scores are reported without automatic rule updates or reloads — useful when your agent needs to decide how to handle blocks:
 
 ```ts
 const client = new AluviaClient({
   apiKey: process.env.ALUVIA_API_KEY!,
   startPlaywright: true,
-  pageLoadDetection: {
+  blockDetection: {
     enabled: true,
-    autoReload: false,
     onDetection: (result, page) => {
       // Fires on every page load, including clear results
       console.log(`${result.tier} on ${result.hostname} (score: ${result.score})`);
@@ -91,7 +90,7 @@ const client = new AluviaClient({
 });
 ```
 
-The detection system uses a weighted scoring engine with two-pass analysis (fast pass at `domcontentloaded`, full pass after `networkidle`) and handles SPA navigations. See the [Client Technical Guide](../client-technical-guide.md#page-load-detection) for full configuration options and signal details.
+The detection system uses a weighted scoring engine with two-pass analysis (fast pass at `domcontentloaded`, full pass after `networkidle`) and handles SPA navigations. See the [Client Technical Guide](../client-technical-guide.md#block-detection) for full configuration options and signal details.
 
 ## Node.js: use the SDK API wrapper to fetch gateway proxy credentials
 

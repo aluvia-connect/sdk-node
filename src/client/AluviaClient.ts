@@ -22,9 +22,9 @@ import {
 import { Logger } from "./logger.js";
 import { AluviaApi } from "../api/AluviaApi.js";
 import {
-  PageLoadDetection,
-  type PageLoadDetectionResult,
-} from "./PageLoadDetection.js";
+  BlockDetection,
+  type BlockDetectionResult,
+} from "./BlockDetection.js";
 import * as net from "node:net";
 
 /**
@@ -41,14 +41,14 @@ export class AluviaClient {
   private startPromise: Promise<AluviaClientConnection> | null = null;
   private readonly logger: Logger;
   public readonly api: AluviaApi;
-  private pageLoadDetection: PageLoadDetection | null = null;
+  private blockDetection: BlockDetection | null = null;
   private pageStates = new WeakMap<
     any,
     {
       lastResponse: any;
       lastAnalysisTs: number;
       skipFullPass: boolean;
-      fastResult: PageLoadDetectionResult | null;
+      fastResult: BlockDetectionResult | null;
     }
   >();
 
@@ -94,11 +94,11 @@ export class AluviaClient {
       timeoutMs,
     });
 
-    // Initialize page load detection if configured
-    if (options.pageLoadDetection !== undefined || options.startPlaywright) {
-      this.logger.debug("Initializing page load detection");
-      const detectionConfig = options.pageLoadDetection ?? { enabled: true };
-      this.pageLoadDetection = new PageLoadDetection(
+    // Initialize block detection if configured
+    if (options.blockDetection !== undefined || options.startPlaywright) {
+      this.logger.debug("Initializing block detection");
+      const detectionConfig = options.blockDetection ?? { enabled: true };
+      this.blockDetection = new BlockDetection(
         detectionConfig,
         this.logger,
       );
@@ -113,7 +113,7 @@ export class AluviaClient {
       lastResponse: null as any,
       lastAnalysisTs: 0,
       skipFullPass: false,
-      fastResult: null as PageLoadDetectionResult | null,
+      fastResult: null as BlockDetectionResult | null,
     };
     this.pageStates.set(page, pageState);
 
@@ -135,9 +135,9 @@ export class AluviaClient {
 
     // Fast pass at domcontentloaded
     page.on("domcontentloaded", async () => {
-      if (!this.pageLoadDetection) return;
+      if (!this.blockDetection) return;
       try {
-        const result = await this.pageLoadDetection.analyzeFast(
+        const result = await this.blockDetection.analyzeFast(
           page,
           pageState.lastResponse,
         );
@@ -155,18 +155,18 @@ export class AluviaClient {
 
     // Full pass at load
     page.on("load", async () => {
-      if (!this.pageLoadDetection || pageState.skipFullPass) return;
+      if (!this.blockDetection || pageState.skipFullPass) return;
       try {
         // Wait for networkidle with timeout cap
         try {
           await page.waitForLoadState("networkidle", {
-            timeout: this.pageLoadDetection.getNetworkIdleTimeoutMs(),
+            timeout: this.blockDetection.getNetworkIdleTimeoutMs(),
           });
         } catch {
           // Timeout is ok, proceed anyway
         }
 
-        const result = await this.pageLoadDetection.analyzeFull(
+        const result = await this.blockDetection.analyzeFull(
           page,
           pageState.lastResponse,
           pageState.fastResult ?? undefined,
@@ -181,7 +181,7 @@ export class AluviaClient {
 
     // SPA detection via framenavigated
     page.on("framenavigated", async (frame: any) => {
-      if (!this.pageLoadDetection) return;
+      if (!this.blockDetection) return;
       try {
         // Only handle main frame
         if (frame !== page.mainFrame()) return;
@@ -195,7 +195,7 @@ export class AluviaClient {
         await new Promise((resolve) => setTimeout(resolve, 50));
         if (pageState.lastResponse !== responseBefore) return; // Not SPA
 
-        const result = await this.pageLoadDetection.analyzeSpa(page);
+        const result = await this.blockDetection.analyzeSpa(page);
         pageState.lastAnalysisTs = Date.now();
 
         await this.handleDetectionResult(result, page);
@@ -208,8 +208,8 @@ export class AluviaClient {
   /**
    * Attaches page listeners to all existing and future pages in a context.
    */
-  private attachPageLoadListener(context: any): void {
-    this.logger.debug("Attaching page load listener to context");
+  private attachBlockDetectionListener(context: any): void {
+    this.logger.debug("Attaching block detection listener to context");
 
     // Attach to existing pages
     try {
@@ -217,10 +217,10 @@ export class AluviaClient {
       for (const page of existingPages) {
         this.attachPageListeners(page);
         // Check if page has already loaded (not about:blank)
-        if (page.url() !== "about:blank" && this.pageLoadDetection) {
-          this.pageLoadDetection
+        if (page.url() !== "about:blank" && this.blockDetection) {
+          this.blockDetection
             .analyzeFull(page, null)
-            .then((result: PageLoadDetectionResult) => {
+            .then((result: BlockDetectionResult) => {
               this.handleDetectionResult(result, page);
             })
             .catch((error: any) => {
@@ -245,13 +245,13 @@ export class AluviaClient {
    * Handle a detection result: fire callback, check persistent block, reload if needed.
    */
   private async handleDetectionResult(
-    result: PageLoadDetectionResult,
+    result: BlockDetectionResult,
     page: any,
   ): Promise<void> {
-    if (!this.pageLoadDetection) return;
+    if (!this.blockDetection) return;
 
     // Fire user's onDetection callback for all tiers (including clear)
-    const onDetection = this.pageLoadDetection.getOnDetection();
+    const onDetection = this.blockDetection.getOnDetection();
     if (onDetection) {
       try {
         await onDetection(result, page);
@@ -261,13 +261,13 @@ export class AluviaClient {
     }
 
     // If auto-reload is disabled, stop here (detection-only mode)
-    if (!this.pageLoadDetection.isAutoReload()) return;
+    if (!this.blockDetection.isAutoUnblock()) return;
 
     // Check if auto-reload should fire for this tier
     const shouldReload =
       result.tier === "blocked" ||
       (result.tier === "suspected" &&
-        this.pageLoadDetection.isAutoReloadOnSuspected());
+        this.blockDetection.isAutoUnblockOnSuspected());
 
     if (!shouldReload) return;
 
@@ -275,7 +275,7 @@ export class AluviaClient {
     const hostname = result.hostname;
 
     // Check persistent block escalation
-    if (this.pageLoadDetection.persistentHostnames.has(hostname)) {
+    if (this.blockDetection.persistentHostnames.has(hostname)) {
       result.persistentBlock = true;
       this.logger.warn(
         `Persistent block on ${hostname}, skipping reload`,
@@ -283,10 +283,10 @@ export class AluviaClient {
       return;
     }
 
-    if (this.pageLoadDetection.retriedUrls.has(url)) {
+    if (this.blockDetection.retriedUrls.has(url)) {
       // Second block for this URL - mark hostname as persistent
       result.persistentBlock = true;
-      this.pageLoadDetection.persistentHostnames.add(hostname);
+      this.blockDetection.persistentHostnames.add(hostname);
       this.logger.warn(
         `Persistent block detected for ${hostname} after retry of ${url}`,
       );
@@ -294,7 +294,7 @@ export class AluviaClient {
     }
 
     // First block for this URL
-    this.pageLoadDetection.retriedUrls.add(url);
+    this.blockDetection.retriedUrls.add(url);
 
     // Add hostname to proxy routing rules
     try {
@@ -432,8 +432,8 @@ export class AluviaClient {
 
         launchedBrowserContext = await launchedBrowser.newContext();
 
-        // Attach page load detection
-        this.attachPageLoadListener(launchedBrowserContext);
+        // Attach block detection
+        this.attachBlockDetectionListener(launchedBrowserContext);
       }
 
       const stopWithBrowser = async () => {
@@ -542,24 +542,24 @@ export class AluviaClient {
    * Get a list of hostnames that have been detected as blocked.
    *
    * This list is maintained in-memory and cleared when the client is stopped.
-   * Only available when page load detection is enabled.
+   * Only available when block detection is enabled.
    */
   getBlockedHostnames(): string[] {
-    if (!this.pageLoadDetection) {
+    if (!this.blockDetection) {
       return [];
     }
-    return Array.from(this.pageLoadDetection.persistentHostnames);
+    return Array.from(this.blockDetection.persistentHostnames);
   }
 
   /**
    * Clear the list of blocked hostnames and retried URLs.
    *
-   * Only available when page load detection is enabled.
+   * Only available when block detection is enabled.
    */
   clearBlockedHostnames(): void {
-    if (this.pageLoadDetection) {
-      this.pageLoadDetection.persistentHostnames.clear();
-      this.pageLoadDetection.retriedUrls.clear();
+    if (this.blockDetection) {
+      this.blockDetection.persistentHostnames.clear();
+      this.blockDetection.retriedUrls.clear();
     }
   }
 

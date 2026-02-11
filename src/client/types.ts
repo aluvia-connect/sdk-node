@@ -1,12 +1,12 @@
 // Public types for Aluvia Client Node
 
 import type {
-  PageLoadDetectionConfig,
-  PageLoadDetectionResult,
+  BlockDetectionConfig,
+  BlockDetectionResult,
   DetectionTier,
   DetectionSignal,
   RedirectHop,
-} from "./PageLoadDetection.js";
+} from "./BlockDetection.js";
 
 /**
  * Protocol used to connect to the Aluvia gateway.
@@ -120,13 +120,13 @@ export type AluviaClientOptions = {
   startPlaywright?: boolean;
 
   /**
-   * Optional: configuration for enhanced page load and blocking detection.
+   * Optional: configuration for website block detection.
    *
    * When enabled (default), the SDK monitors pages using a weighted scoring
    * system across multiple signal types (HTTP status, WAF headers, DOM
    * selectors, visible text, redirect chains) with two-pass analysis.
    */
-  pageLoadDetection?: PageLoadDetectionConfig;
+  blockDetection?: BlockDetectionConfig;
 
   /**
    * Optional: run the Playwright browser in headless or headed mode.
@@ -263,11 +263,11 @@ export type AluviaClientConnection = {
   close(): Promise<void>;
 };
 
-// Re-export PageLoadDetection types for public API
+// Re-export BlockDetection types for public API
 export type {
-  PageLoadDetectionConfig,
-  PageLoadDetectionResult,
+  BlockDetectionConfig,
+  BlockDetectionResult,
   DetectionTier,
   DetectionSignal,
   RedirectHop,
-} from "./PageLoadDetection.js";
+} from "./BlockDetection.js";

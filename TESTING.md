@@ -28,10 +28,10 @@ This runs:
 node --import tsx --test test/integration.test.ts
 ```
 
-### Run Page Load Detection Tests
+### Run Block Detection Tests
 
 ```bash
-node --import tsx --test test/page-load-detection.test.ts
+node --import tsx --test test/block-detection.test.ts
 ```
 
 ### Run Specific Test File
@@ -56,8 +56,8 @@ node --import tsx --test --test-name-pattern="AluviaClient" test/integration.tes
 
 Tests are organized across two files:
 
-- **`test/integration.test.ts`** — Integration tests for AluviaClient, ConfigManager, AluviaApi, routing rules, ProxyServer, Logger, error classes, Playwright integration, and page load detection behavior (onDetection callback, autoReload option, persistent block escalation).
-- **`test/page-load-detection.test.ts`** — Unit tests for the page load detection system: scoring engine, signal detectors, word-boundary matching, text-to-HTML ratio, two-pass analysis flow, persistent block escalation, autoReload config, and edge cases.
+- **`test/integration.test.ts`** — Integration tests for AluviaClient, ConfigManager, AluviaApi, routing rules, ProxyServer, Logger, error classes, Playwright integration, and block detection behavior (onDetection callback, autoUnblock option, persistent block escalation).
+- **`test/block-detection.test.ts`** — Unit tests for the block detection system: scoring engine, signal detectors, word-boundary matching, text-to-HTML ratio, two-pass analysis flow, persistent block escalation, autoUnblock config, and edge cases.
 
 ### `test/integration.test.ts`
 
@@ -86,12 +86,12 @@ describe('shouldProxy', () => {
   // ...
 });
 
-describe('PageLoadDetection Integration', () => {
+describe('BlockDetection Integration', () => {
   // ...
 });
 ```
 
-### `test/page-load-detection.test.ts`
+### `test/block-detection.test.ts`
 
 ```ts
 describe('Scoring Engine', () => {

@@ -1,4 +1,4 @@
-// PageLoadDetection - Enhanced page load and blocking detection with weighted scoring
+// BlockDetection - Website block detection with weighted scoring
 
 import type { Logger } from "./logger.js";
 
@@ -26,9 +26,9 @@ export type RedirectHop = {
 };
 
 /**
- * Result of page load detection analysis
+ * Result of block detection analysis
  */
-export type PageLoadDetectionResult = {
+export type BlockDetectionResult = {
   url: string;
   hostname: string;
   tier: DetectionTier;
@@ -40,18 +40,18 @@ export type PageLoadDetectionResult = {
 };
 
 /**
- * Configuration for page load detection
+ * Configuration for block detection
  */
-export type PageLoadDetectionConfig = {
+export type BlockDetectionConfig = {
   enabled?: boolean;
   challengeSelectors?: string[];
   extraKeywords?: string[];
   extraStatusCodes?: number[];
   networkIdleTimeoutMs?: number;
-  autoReload?: boolean;
-  autoReloadOnSuspected?: boolean;
+  autoUnblock?: boolean;
+  autoUnblockOnSuspected?: boolean;
   onDetection?: (
-    result: PageLoadDetectionResult,
+    result: BlockDetectionResult,
     page: any,
   ) => void | Promise<void>;
 };
@@ -98,20 +98,20 @@ const CHALLENGE_DOMAIN_PATTERNS = [
 ];
 
 /**
- * PageLoadDetection handles enhanced detection of page load failures and blocking
+ * BlockDetection handles detection of website blocks, CAPTCHAs, and WAF challenges
  * using a weighted scoring system across multiple signal types.
  */
-export class PageLoadDetection {
+export class BlockDetection {
   private config: {
     enabled: boolean;
     challengeSelectors: string[];
     extraKeywords: string[];
     extraStatusCodes: number[];
     networkIdleTimeoutMs: number;
-    autoReload: boolean;
-    autoReloadOnSuspected: boolean;
+    autoUnblock: boolean;
+    autoUnblockOnSuspected: boolean;
     onDetection?: (
-      result: PageLoadDetectionResult,
+      result: BlockDetectionResult,
       page: any,
     ) => void | Promise<void>;
   };
@@ -121,7 +121,7 @@ export class PageLoadDetection {
   public retriedUrls = new Set<string>();
   public persistentHostnames = new Set<string>();
 
-  constructor(config: PageLoadDetectionConfig, logger: Logger) {
+  constructor(config: BlockDetectionConfig, logger: Logger) {
     this.logger = logger;
     this.config = {
       enabled: config.enabled ?? true,
@@ -130,8 +130,8 @@ export class PageLoadDetection {
       extraKeywords: config.extraKeywords ?? [],
       extraStatusCodes: config.extraStatusCodes ?? [],
       networkIdleTimeoutMs: config.networkIdleTimeoutMs ?? 3000,
-      autoReload: config.autoReload ?? true,
-      autoReloadOnSuspected: config.autoReloadOnSuspected ?? false,
+      autoUnblock: config.autoUnblock ?? false,
+      autoUnblockOnSuspected: config.autoUnblockOnSuspected ?? false,
       onDetection: config.onDetection,
     };
   }
@@ -146,19 +146,19 @@ export class PageLoadDetection {
 
   getOnDetection():
     | ((
-        result: PageLoadDetectionResult,
+        result: BlockDetectionResult,
         page: any,
       ) => void | Promise<void>)
     | undefined {
     return this.config.onDetection;
   }
 
-  isAutoReload(): boolean {
-    return this.config.autoReload;
+  isAutoUnblock(): boolean {
+    return this.config.autoUnblock;
   }
 
-  isAutoReloadOnSuspected(): boolean {
-    return this.config.autoReloadOnSuspected;
+  isAutoUnblockOnSuspected(): boolean {
+    return this.config.autoUnblockOnSuspected;
   }
 
   // --- Scoring Engine ---
@@ -479,7 +479,7 @@ export class PageLoadDetection {
   async analyzeFast(
     page: any,
     response: any,
-  ): Promise<PageLoadDetectionResult> {
+  ): Promise<BlockDetectionResult> {
     const url = page.url();
     const hostname = this.extractHostname(url);
 
@@ -506,8 +506,8 @@ export class PageLoadDetection {
   async analyzeFull(
     page: any,
     response: any,
-    fastResult?: PageLoadDetectionResult,
-  ): Promise<PageLoadDetectionResult> {
+    fastResult?: BlockDetectionResult,
+  ): Promise<BlockDetectionResult> {
     const url = page.url();
     const hostname = this.extractHostname(url);
 
@@ -577,7 +577,7 @@ export class PageLoadDetection {
   /**
    * SPA navigation analysis - content-based detectors only, no HTTP signals.
    */
-  async analyzeSpa(page: any): Promise<PageLoadDetectionResult> {
+  async analyzeSpa(page: any): Promise<BlockDetectionResult> {
     const url = page.url();
     const hostname = this.extractHostname(url);
 
@@ -635,7 +635,7 @@ export class PageLoadDetection {
     signals: DetectionSignal[],
     pass: "fast" | "full",
     redirectChain: RedirectHop[],
-  ): PageLoadDetectionResult {
+  ): BlockDetectionResult {
     const { score, tier } = this.computeScore(signals);
     return {
       url,
@@ -649,7 +649,7 @@ export class PageLoadDetection {
     };
   }
 
-  private logResult(result: PageLoadDetectionResult): void {
+  private logResult(result: BlockDetectionResult): void {
     this.logger.debug(
       `Detection result: ${JSON.stringify({
         url: result.url,

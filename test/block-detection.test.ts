@@ -1,12 +1,12 @@
-// Tests for PageLoadDetection - weighted scoring system
+// Tests for BlockDetection - weighted scoring system
 
 import { test, describe, beforeEach } from "node:test";
 import assert from "node:assert";
-import { PageLoadDetection } from "../src/client/PageLoadDetection.js";
+import { BlockDetection } from "../src/client/BlockDetection.js";
 import { Logger } from "../src/client/logger.js";
-import type { DetectionSignal } from "../src/client/PageLoadDetection.js";
+import type { DetectionSignal } from "../src/client/BlockDetection.js";
 
-describe("PageLoadDetection", () => {
+describe("BlockDetection", () => {
   let logger: Logger;
 
   beforeEach(() => {
@@ -14,39 +14,39 @@ describe("PageLoadDetection", () => {
   });
 
   test("can be instantiated with default config", () => {
-    const detection = new PageLoadDetection({}, logger);
+    const detection = new BlockDetection({}, logger);
     assert.ok(detection);
     assert.strictEqual(detection.isEnabled(), true);
   });
 
   test("can be instantiated with custom config", () => {
-    const detection = new PageLoadDetection(
+    const detection = new BlockDetection(
       {
         enabled: false,
         challengeSelectors: ["#custom"],
         extraKeywords: ["custom-block"],
         extraStatusCodes: [418],
         networkIdleTimeoutMs: 5000,
-        autoReload: false,
-        autoReloadOnSuspected: true,
+        autoUnblock: false,
+        autoUnblockOnSuspected: true,
       },
       logger,
     );
     assert.ok(detection);
     assert.strictEqual(detection.isEnabled(), false);
-    assert.strictEqual(detection.isAutoReload(), false);
-    assert.strictEqual(detection.isAutoReloadOnSuspected(), true);
+    assert.strictEqual(detection.isAutoUnblock(), false);
+    assert.strictEqual(detection.isAutoUnblockOnSuspected(), true);
     assert.strictEqual(detection.getNetworkIdleTimeoutMs(), 5000);
   });
 
-  test("autoReload defaults to true", () => {
-    const detection = new PageLoadDetection({}, logger);
-    assert.strictEqual(detection.isAutoReload(), true);
+  test("autoUnblock defaults to false", () => {
+    const detection = new BlockDetection({}, logger);
+    assert.strictEqual(detection.isAutoUnblock(), false);
   });
 
   describe("Scoring Engine", () => {
     test("empty signals produce score 0 and tier clear", async () => {
-      const detection = new PageLoadDetection({}, logger);
+      const detection = new BlockDetection({}, logger);
       const mockPage = {
         url: () => "https://example.com",
         title: async () => "Normal Page",
@@ -60,7 +60,7 @@ describe("PageLoadDetection", () => {
     });
 
     test("single high signal produces blocked tier", async () => {
-      const detection = new PageLoadDetection({}, logger);
+      const detection = new BlockDetection({}, logger);
       const mockPage = {
         url: () => "https://example.com",
       };
@@ -77,7 +77,7 @@ describe("PageLoadDetection", () => {
     test("probabilistic combination: two 0.2 signals produce ~0.36 not 0.4", async () => {
       // We test computeScore indirectly through analyzeFull
       // Two signals of weight 0.2 should give 1 - (0.8 * 0.8) = 0.36
-      const detection = new PageLoadDetection({}, logger);
+      const detection = new BlockDetection({}, logger);
 
       // Access private method for direct testing
       const computeScore = (detection as any).computeScore.bind(detection);
@@ -91,7 +91,7 @@ describe("PageLoadDetection", () => {
     });
 
     test("tier boundaries: 0.7 is blocked, 0.4 is suspected, below 0.4 is clear", () => {
-      const detection = new PageLoadDetection({}, logger);
+      const detection = new BlockDetection({}, logger);
       const computeScore = (detection as any).computeScore.bind(detection);
 
       // Exactly 0.7 -> blocked
@@ -114,7 +114,7 @@ describe("PageLoadDetection", () => {
     });
 
     test("0.85 + 0.1 produces blocked tier (~0.865)", () => {
-      const detection = new PageLoadDetection({}, logger);
+      const detection = new BlockDetection({}, logger);
       const computeScore = (detection as any).computeScore.bind(detection);
 
       const result = computeScore([
@@ -130,7 +130,7 @@ describe("PageLoadDetection", () => {
   describe("Signal Detectors", () => {
     describe("HTTP Status", () => {
       test("403 returns weight 0.85", async () => {
-        const detection = new PageLoadDetection({}, logger);
+        const detection = new BlockDetection({}, logger);
         const result = await detection.analyzeFast(
           { url: () => "https://example.com" },
           { status: () => 403, headers: () => ({}) },
@@ -144,7 +144,7 @@ describe("PageLoadDetection", () => {
       });
 
       test("429 returns weight 0.85", async () => {
-        const detection = new PageLoadDetection({}, logger);
+        const detection = new BlockDetection({}, logger);
         const result = await detection.analyzeFast(
           { url: () => "https://example.com" },
           { status: () => 429, headers: () => ({}) },
@@ -157,7 +157,7 @@ describe("PageLoadDetection", () => {
       });
 
       test("503 returns weight 0.6", async () => {
-        const detection = new PageLoadDetection({}, logger);
+        const detection = new BlockDetection({}, logger);
         const result = await detection.analyzeFast(
           { url: () => "https://example.com" },
           { status: () => 503, headers: () => ({}) },
@@ -171,7 +171,7 @@ describe("PageLoadDetection", () => {
       });
 
       test("200 returns no status signal", async () => {
-        const detection = new PageLoadDetection({}, logger);
+        const detection = new BlockDetection({}, logger);
         const result = await detection.analyzeFast(
           { url: () => "https://example.com" },
           { status: () => 200, headers: () => ({}) },
@@ -183,7 +183,7 @@ describe("PageLoadDetection", () => {
       });
 
       test("extra status codes are detected with weight 0.85", async () => {
-        const detection = new PageLoadDetection(
+        const detection = new BlockDetection(
           { extraStatusCodes: [418] },
           logger,
         );
@@ -201,7 +201,7 @@ describe("PageLoadDetection", () => {
 
     describe("Response Headers", () => {
       test("cf-mitigated: challenge returns weight 0.9", async () => {
-        const detection = new PageLoadDetection({}, logger);
+        const detection = new BlockDetection({}, logger);
         const result = await detection.analyzeFast(
           { url: () => "https://example.com" },
           {
@@ -217,7 +217,7 @@ describe("PageLoadDetection", () => {
       });
 
       test("server: cloudflare returns weight 0.1", async () => {
-        const detection = new PageLoadDetection({}, logger);
+        const detection = new BlockDetection({}, logger);
         const result = await detection.analyzeFast(
           { url: () => "https://example.com" },
           {
@@ -235,7 +235,7 @@ describe("PageLoadDetection", () => {
 
     describe("Title Keywords", () => {
       test("title with 'access denied' returns weight 0.8", async () => {
-        const detection = new PageLoadDetection({}, logger);
+        const detection = new BlockDetection({}, logger);
         const mockPage = {
           url: () => "https://example.com",
           title: async () => "Access Denied",
@@ -249,7 +249,7 @@ describe("PageLoadDetection", () => {
       });
 
       test("title with 'just a moment' returns weight 0.8", async () => {
-        const detection = new PageLoadDetection({}, logger);
+        const detection = new BlockDetection({}, logger);
         const mockPage = {
           url: () => "https://example.com",
           title: async () => "Just a moment...",
@@ -263,7 +263,7 @@ describe("PageLoadDetection", () => {
       });
 
       test("normal title produces no title_keyword signal", async () => {
-        const detection = new PageLoadDetection({}, logger);
+        const detection = new BlockDetection({}, logger);
         const mockPage = {
           url: () => "https://example.com",
           title: async () => "Welcome to Our Site",
@@ -279,7 +279,7 @@ describe("PageLoadDetection", () => {
 
     describe("Challenge Selectors", () => {
       test("page with #challenge-form returns weight 0.8", async () => {
-        const detection = new PageLoadDetection({}, logger);
+        const detection = new BlockDetection({}, logger);
         const mockPage = {
           url: () => "https://example.com",
           title: async () => "Test",
@@ -312,7 +312,7 @@ describe("PageLoadDetection", () => {
 
     describe("Visible Text", () => {
       test("short text (<50 chars) produces visible_text_short signal", async () => {
-        const detection = new PageLoadDetection({}, logger);
+        const detection = new BlockDetection({}, logger);
         const mockPage = {
           url: () => "https://example.com",
           title: async () => "Test",
@@ -334,7 +334,7 @@ describe("PageLoadDetection", () => {
       });
 
       test("strong keyword 'captcha' on short page returns weight 0.6", async () => {
-        const detection = new PageLoadDetection({}, logger);
+        const detection = new BlockDetection({}, logger);
         const mockPage = {
           url: () => "https://example.com",
           title: async () => "Test",
@@ -356,7 +356,7 @@ describe("PageLoadDetection", () => {
       });
 
       test("weak keyword 'blocked' with word boundary returns weight 0.15", async () => {
-        const detection = new PageLoadDetection({}, logger);
+        const detection = new BlockDetection({}, logger);
         const mockPage = {
           url: () => "https://example.com",
           title: async () => "Test",
@@ -382,28 +382,28 @@ describe("PageLoadDetection", () => {
 
     describe("Word Boundary Matching", () => {
       test("'blocked' matches 'you are blocked'", () => {
-        const detection = new PageLoadDetection({}, logger);
+        const detection = new BlockDetection({}, logger);
         const escapeRegex = (detection as any).escapeRegex.bind(detection);
         const regex = new RegExp("\\b" + escapeRegex("blocked") + "\\b", "i");
         assert.strictEqual(regex.test("you are blocked"), true);
       });
 
       test("'blocked' does not match 'blockchain'", () => {
-        const detection = new PageLoadDetection({}, logger);
+        const detection = new BlockDetection({}, logger);
         const escapeRegex = (detection as any).escapeRegex.bind(detection);
         const regex = new RegExp("\\b" + escapeRegex("blocked") + "\\b", "i");
         assert.strictEqual(regex.test("blockchain technology"), false);
       });
 
       test("'blocked' does not match 'ad-blocking'", () => {
-        const detection = new PageLoadDetection({}, logger);
+        const detection = new BlockDetection({}, logger);
         const escapeRegex = (detection as any).escapeRegex.bind(detection);
         const regex = new RegExp("\\b" + escapeRegex("blocked") + "\\b", "i");
         assert.strictEqual(regex.test("ad-blocking extension"), false);
       });
 
       test("'forbidden' does not match 'forbiddenly' or 'unforbidden'", () => {
-        const detection = new PageLoadDetection({}, logger);
+        const detection = new BlockDetection({}, logger);
         const escapeRegex = (detection as any).escapeRegex.bind(detection);
         const regex = new RegExp(
           "\\b" + escapeRegex("forbidden") + "\\b",
@@ -414,7 +414,7 @@ describe("PageLoadDetection", () => {
       });
 
       test("'cloudflare' matches 'Powered by Cloudflare'", () => {
-        const detection = new PageLoadDetection({}, logger);
+        const detection = new BlockDetection({}, logger);
         const escapeRegex = (detection as any).escapeRegex.bind(detection);
         const regex = new RegExp(
           "\\b" + escapeRegex("cloudflare") + "\\b",
@@ -426,7 +426,7 @@ describe("PageLoadDetection", () => {
 
     describe("Text-to-HTML Ratio", () => {
       test("fires when html >= 1000 bytes and ratio < 0.03", async () => {
-        const detection = new PageLoadDetection({}, logger);
+        const detection = new BlockDetection({}, logger);
         const mockPage = {
           url: () => "https://example.com",
           title: async () => "Test",
@@ -446,7 +446,7 @@ describe("PageLoadDetection", () => {
       });
 
       test("does not fire when html < 1000 bytes", async () => {
-        const detection = new PageLoadDetection({}, logger);
+        const detection = new BlockDetection({}, logger);
         const mockPage = {
           url: () => "https://example.com",
           title: async () => "Test",
@@ -465,7 +465,7 @@ describe("PageLoadDetection", () => {
       });
 
       test("does not fire when ratio >= 0.03", async () => {
-        const detection = new PageLoadDetection({}, logger);
+        const detection = new BlockDetection({}, logger);
         const mockPage = {
           url: () => "https://example.com",
           title: async () => "Test",
@@ -486,7 +486,7 @@ describe("PageLoadDetection", () => {
 
     describe("Redirect Chain", () => {
       test("redirect through challenge domain returns weight 0.7", async () => {
-        const detection = new PageLoadDetection({}, logger);
+        const detection = new BlockDetection({}, logger);
         const mockRedirectedFrom = {
           url: () => "https://challenges.cloudflare.com/abc",
           redirectedFrom: () => null,
@@ -526,7 +526,7 @@ describe("PageLoadDetection", () => {
 
     describe("Meta Refresh", () => {
       test("meta refresh to challenge URL returns weight 0.65", async () => {
-        const detection = new PageLoadDetection({}, logger);
+        const detection = new BlockDetection({}, logger);
         const mockPage = {
           url: () => "https://example.com",
           title: async () => "Test",
@@ -553,7 +553,7 @@ describe("PageLoadDetection", () => {
 
   describe("Two-Pass Flow", () => {
     test("fast pass returns pass='fast' with only HTTP signals", async () => {
-      const detection = new PageLoadDetection({}, logger);
+      const detection = new BlockDetection({}, logger);
       const result = await detection.analyzeFast(
         { url: () => "https://example.com" },
         {
@@ -570,7 +570,7 @@ describe("PageLoadDetection", () => {
     });
 
     test("full pass merges signals from fast pass", async () => {
-      const detection = new PageLoadDetection({}, logger);
+      const detection = new BlockDetection({}, logger);
       const mockResponse = {
         status: () => 403,
         headers: () => ({ server: "cloudflare" }),
@@ -607,7 +607,7 @@ describe("PageLoadDetection", () => {
     });
 
     test("full pass without fast pass still runs fast detectors", async () => {
-      const detection = new PageLoadDetection({}, logger);
+      const detection = new BlockDetection({}, logger);
       const mockResponse = {
         status: () => 403,
         headers: () => ({}),
@@ -626,7 +626,7 @@ describe("PageLoadDetection", () => {
     });
 
     test("analyzeSpa runs content-based detectors only", async () => {
-      const detection = new PageLoadDetection({}, logger);
+      const detection = new BlockDetection({}, logger);
       const mockPage = {
         url: () => "https://example.com",
         title: async () => "Access Denied",
@@ -656,21 +656,21 @@ describe("PageLoadDetection", () => {
 
   describe("Persistent Block Escalation", () => {
     test("retriedUrls tracks URLs", () => {
-      const detection = new PageLoadDetection({}, logger);
+      const detection = new BlockDetection({}, logger);
       assert.strictEqual(detection.retriedUrls.size, 0);
       detection.retriedUrls.add("https://example.com/page1");
       assert.strictEqual(detection.retriedUrls.has("https://example.com/page1"), true);
     });
 
     test("persistentHostnames tracks hostnames", () => {
-      const detection = new PageLoadDetection({}, logger);
+      const detection = new BlockDetection({}, logger);
       assert.strictEqual(detection.persistentHostnames.size, 0);
       detection.persistentHostnames.add("example.com");
       assert.strictEqual(detection.persistentHostnames.has("example.com"), true);
     });
 
     test("hostname already in persistentHostnames causes immediate skip", () => {
-      const detection = new PageLoadDetection({}, logger);
+      const detection = new BlockDetection({}, logger);
       detection.persistentHostnames.add("example.com");
       // Any new URL on example.com should be immediately skipped
       assert.strictEqual(
@@ -682,7 +682,7 @@ describe("PageLoadDetection", () => {
 
   describe("Edge Cases", () => {
     test("null response handled gracefully in analyzeFast", async () => {
-      const detection = new PageLoadDetection({}, logger);
+      const detection = new BlockDetection({}, logger);
       const result = await detection.analyzeFast(
         { url: () => "https://example.com" },
         null,
@@ -693,7 +693,7 @@ describe("PageLoadDetection", () => {
     });
 
     test("null response handled gracefully in analyzeFull", async () => {
-      const detection = new PageLoadDetection({}, logger);
+      const detection = new BlockDetection({}, logger);
       const mockPage = {
         url: () => "https://example.com",
         title: async () => "Normal Page",
@@ -707,7 +707,7 @@ describe("PageLoadDetection", () => {
     });
 
     test("page.evaluate failure handled gracefully", async () => {
-      const detection = new PageLoadDetection({}, logger);
+      const detection = new BlockDetection({}, logger);
       const mockPage = {
         url: () => "https://example.com",
         title: async () => {
@@ -725,7 +725,7 @@ describe("PageLoadDetection", () => {
     });
 
     test("disabled detection returns clear for all methods", async () => {
-      const detection = new PageLoadDetection({ enabled: false }, logger);
+      const detection = new BlockDetection({ enabled: false }, logger);
       const mockPage = { url: () => "https://example.com" };
       const mockResponse = { status: () => 403, headers: () => ({}) };
 
@@ -741,7 +741,7 @@ describe("PageLoadDetection", () => {
     });
 
     test("extracts hostname correctly from various URLs", async () => {
-      const detection = new PageLoadDetection({}, logger);
+      const detection = new BlockDetection({}, logger);
 
       const testCases = [
         { url: "https://example.com/test", expected: "example.com" },
@@ -776,7 +776,7 @@ describe("PageLoadDetection", () => {
         calls.push(args.join(" "));
       };
 
-      const detection = new PageLoadDetection({}, debugLogger);
+      const detection = new BlockDetection({}, debugLogger);
       await detection.analyzeFast(
         { url: () => "https://example.com" },
         { status: () => 403, headers: () => ({}) },

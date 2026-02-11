@@ -15,9 +15,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `session` field included in all CLI JSON responses for agent session tracking.
 
 ### Changed
-- Overhaul page load detection with weighted scoring system. Replaces binary keyword/status matching with probabilistic signal combination across 8 detector types (HTTP status, WAF headers, title keywords, challenge selectors, visible text, text-to-HTML ratio, redirect chains, meta refresh). Adds two-pass analysis (fast pass at `domcontentloaded`, full pass after `networkidle`), SPA navigation detection, word-boundary matching to prevent false positives, and hostname-level persistent block escalation. Detection results now include `tier` (`blocked`/`suspected`/`clear`), `score`, and `signals` array.
+- Overhaul website block detection with weighted scoring system. Replaces binary keyword/status matching with probabilistic signal combination across 8 detector types (HTTP status, WAF headers, title keywords, challenge selectors, visible text, text-to-HTML ratio, redirect chains, meta refresh). Adds two-pass analysis (fast pass at `domcontentloaded`, full pass after `networkidle`), SPA navigation detection, word-boundary matching to prevent false positives, and hostname-level persistent block escalation. Detection results now include `tier` (`blocked`/`suspected`/`clear`), `score`, and `signals` array.
 - `onDetection` callback now fires on every page analysis, including `clear` results. Previously only fired for `blocked` and `suspected` tiers.
-- Add `autoReload` option to `PageLoadDetectionConfig` (default: `true`). Set to `false` to disable automatic rule updates and page reloads, enabling detection-only mode where agents receive scores via `onDetection` and decide how to respond.
+- Add `autoUnblock` option to `BlockDetectionConfig` (default: `false`). Set to `true` to automatically add blocked hostnames to routing rules and reload the page. When `false` (the default), detection-only mode lets agents receive scores via `onDetection` and decide how to respond.
+- Rename `pageLoadDetection` option to `blockDetection` and `PageLoadDetectionConfig`/`PageLoadDetectionResult` types to `BlockDetectionConfig`/`BlockDetectionResult` for clarity.
 - Lock files are now per-session (`cli-<name>.lock`) instead of a single `cli.lock`.
 
 ### Fixed
