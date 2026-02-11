@@ -172,9 +172,7 @@ export class AluviaClient {
         );
         pageState.lastAnalysisTs = Date.now();
 
-        if (result.tier !== "clear") {
-          await this.handleDetectionResult(result, page);
-        }
+        await this.handleDetectionResult(result, page);
       } catch (error: any) {
         this.logger.warn(`Error in full-pass detection: ${error.message}`);
       }
@@ -199,9 +197,7 @@ export class AluviaClient {
         const result = await this.pageLoadDetection.analyzeSpa(page);
         pageState.lastAnalysisTs = Date.now();
 
-        if (result.tier !== "clear") {
-          await this.handleDetectionResult(result, page);
-        }
+        await this.handleDetectionResult(result, page);
       } catch (error: any) {
         this.logger.warn(`Error in SPA detection: ${error.message}`);
       }
@@ -224,9 +220,7 @@ export class AluviaClient {
           this.pageLoadDetection
             .analyzeFull(page, null)
             .then((result: PageLoadDetectionResult) => {
-              if (result.tier !== "clear") {
-                this.handleDetectionResult(result, page);
-              }
+              this.handleDetectionResult(result, page);
             })
             .catch((error: any) => {
               this.logger.warn(
@@ -255,7 +249,7 @@ export class AluviaClient {
   ): Promise<void> {
     if (!this.pageLoadDetection) return;
 
-    // Fire user's onDetection callback
+    // Fire user's onDetection callback for all tiers (including clear)
     const onDetection = this.pageLoadDetection.getOnDetection();
     if (onDetection) {
       try {
@@ -265,7 +259,10 @@ export class AluviaClient {
       }
     }
 
-    // Check if auto-reload should fire
+    // If auto-reload is disabled, stop here (detection-only mode)
+    if (!this.pageLoadDetection.isAutoReload()) return;
+
+    // Check if auto-reload should fire for this tier
     const shouldReload =
       result.tier === "blocked" ||
       (result.tier === "suspected" &&

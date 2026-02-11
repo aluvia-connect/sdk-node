@@ -48,6 +48,7 @@ export type PageLoadDetectionConfig = {
   extraKeywords?: string[];
   extraStatusCodes?: number[];
   networkIdleTimeoutMs?: number;
+  autoReload?: boolean;
   autoReloadOnSuspected?: boolean;
   onDetection?: (
     result: PageLoadDetectionResult,
@@ -107,6 +108,7 @@ export class PageLoadDetection {
     extraKeywords: string[];
     extraStatusCodes: number[];
     networkIdleTimeoutMs: number;
+    autoReload: boolean;
     autoReloadOnSuspected: boolean;
     onDetection?: (
       result: PageLoadDetectionResult,
@@ -128,6 +130,7 @@ export class PageLoadDetection {
       extraKeywords: config.extraKeywords ?? [],
       extraStatusCodes: config.extraStatusCodes ?? [],
       networkIdleTimeoutMs: config.networkIdleTimeoutMs ?? 3000,
+      autoReload: config.autoReload ?? true,
       autoReloadOnSuspected: config.autoReloadOnSuspected ?? false,
       onDetection: config.onDetection,
     };
@@ -148,6 +151,10 @@ export class PageLoadDetection {
       ) => void | Promise<void>)
     | undefined {
     return this.config.onDetection;
+  }
+
+  isAutoReload(): boolean {
+    return this.config.autoReload;
   }
 
   isAutoReloadOnSuspected(): boolean {

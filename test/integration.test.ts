@@ -494,6 +494,149 @@ describe("PageLoadDetection Integration", () => {
     });
     assert.ok(client);
   });
+
+  test("onDetection callback fires for clear tier", async () => {
+    let capturedResult: PageLoadDetectionResult | null = null;
+
+    const client = new AluviaClient({
+      apiKey: "test-api-key",
+      logLevel: "silent",
+      pageLoadDetection: {
+        enabled: true,
+        onDetection: (result) => {
+          capturedResult = result;
+        },
+      },
+    });
+
+    const mockResult: PageLoadDetectionResult = {
+      url: "https://example.com/test",
+      hostname: "example.com",
+      tier: "clear",
+      score: 0,
+      signals: [],
+      pass: "full",
+      persistentBlock: false,
+      redirectChain: [],
+    };
+    const mockPage = {
+      url: () => "https://example.com/test",
+      reload: async () => {},
+    };
+
+    await (client as any).handleDetectionResult(mockResult, mockPage);
+
+    assert.ok(capturedResult);
+    assert.strictEqual(capturedResult!.tier, "clear");
+    assert.strictEqual(capturedResult!.score, 0);
+  });
+
+  test("autoReload: false prevents reload and rule update on blocked tier", async () => {
+    let reloaded = false;
+    let rulesUpdated = false;
+
+    const client = new AluviaClient({
+      apiKey: "test-api-key",
+      logLevel: "silent",
+      pageLoadDetection: {
+        enabled: true,
+        autoReload: false,
+      },
+    });
+
+    (client as any).configManager.getConfig = () => ({ rules: [] });
+    (client as any).configManager.setConfig = async () => {
+      rulesUpdated = true;
+    };
+
+    const mockResult: PageLoadDetectionResult = {
+      url: "https://example.com/test",
+      hostname: "example.com",
+      tier: "blocked",
+      score: 0.85,
+      signals: [],
+      pass: "full",
+      persistentBlock: false,
+      redirectChain: [],
+    };
+    const mockPage = {
+      url: () => "https://example.com/test",
+      reload: async () => {
+        reloaded = true;
+      },
+    };
+
+    await (client as any).handleDetectionResult(mockResult, mockPage);
+    assert.strictEqual(reloaded, false);
+    assert.strictEqual(rulesUpdated, false);
+  });
+
+  test("autoReload: false still fires onDetection callback", async () => {
+    let callbackFired = false;
+
+    const client = new AluviaClient({
+      apiKey: "test-api-key",
+      logLevel: "silent",
+      pageLoadDetection: {
+        enabled: true,
+        autoReload: false,
+        onDetection: (result) => {
+          callbackFired = true;
+        },
+      },
+    });
+
+    const mockResult: PageLoadDetectionResult = {
+      url: "https://example.com/test",
+      hostname: "example.com",
+      tier: "blocked",
+      score: 0.85,
+      signals: [],
+      pass: "full",
+      persistentBlock: false,
+      redirectChain: [],
+    };
+    const mockPage = {
+      url: () => "https://example.com/test",
+      reload: async () => {},
+    };
+
+    await (client as any).handleDetectionResult(mockResult, mockPage);
+    assert.strictEqual(callbackFired, true);
+  });
+
+  test("autoReload defaults to true (backward compatible)", async () => {
+    let reloaded = false;
+
+    const client = new AluviaClient({
+      apiKey: "test-api-key",
+      logLevel: "silent",
+      pageLoadDetection: { enabled: true },
+    });
+
+    (client as any).configManager.getConfig = () => ({ rules: [] });
+    (client as any).configManager.setConfig = async () => {};
+
+    const mockResult: PageLoadDetectionResult = {
+      url: "https://example.com/test",
+      hostname: "example.com",
+      tier: "blocked",
+      score: 0.85,
+      signals: [],
+      pass: "full",
+      persistentBlock: false,
+      redirectChain: [],
+    };
+    const mockPage = {
+      url: () => "https://example.com/test",
+      reload: async () => {
+        reloaded = true;
+      },
+    };
+
+    await (client as any).handleDetectionResult(mockResult, mockPage);
+    assert.strictEqual(reloaded, true);
+  });
 });
 
 describe("AluviaClient updateTargetGeo", () => {

@@ -56,8 +56,8 @@ node --import tsx --test --test-name-pattern="AluviaClient" test/integration.tes
 
 Tests are organized across two files:
 
-- **`test/integration.test.ts`** — Integration tests for AluviaClient, ConfigManager, AluviaApi, routing rules, ProxyServer, Logger, error classes, and Playwright integration.
-- **`test/page-load-detection.test.ts`** — Unit tests for the page load detection system: scoring engine, signal detectors, word-boundary matching, text-to-HTML ratio, two-pass analysis flow, persistent block escalation, and edge cases.
+- **`test/integration.test.ts`** — Integration tests for AluviaClient, ConfigManager, AluviaApi, routing rules, ProxyServer, Logger, error classes, Playwright integration, and page load detection behavior (onDetection callback, autoReload option, persistent block escalation).
+- **`test/page-load-detection.test.ts`** — Unit tests for the page load detection system: scoring engine, signal detectors, word-boundary matching, text-to-HTML ratio, two-pass analysis flow, persistent block escalation, autoReload config, and edge cases.
 
 ### `test/integration.test.ts`
 

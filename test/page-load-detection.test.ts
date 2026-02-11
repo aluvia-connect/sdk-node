@@ -27,14 +27,21 @@ describe("PageLoadDetection", () => {
         extraKeywords: ["custom-block"],
         extraStatusCodes: [418],
         networkIdleTimeoutMs: 5000,
+        autoReload: false,
         autoReloadOnSuspected: true,
       },
       logger,
     );
     assert.ok(detection);
     assert.strictEqual(detection.isEnabled(), false);
+    assert.strictEqual(detection.isAutoReload(), false);
     assert.strictEqual(detection.isAutoReloadOnSuspected(), true);
     assert.strictEqual(detection.getNetworkIdleTimeoutMs(), 5000);
+  });
+
+  test("autoReload defaults to true", () => {
+    const detection = new PageLoadDetection({}, logger);
+    assert.strictEqual(detection.isAutoReload(), true);
   });
 
   describe("Scoring Engine", () => {

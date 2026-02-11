@@ -74,6 +74,23 @@ try {
 }
 ```
 
+Set `autoReload: false` to receive detection scores without automatic rule updates or reloads — useful when your agent needs to decide how to handle blocks:
+
+```ts
+const client = new AluviaClient({
+  apiKey: process.env.ALUVIA_API_KEY!,
+  startPlaywright: true,
+  pageLoadDetection: {
+    enabled: true,
+    autoReload: false,
+    onDetection: (result, page) => {
+      // Fires on every page load, including clear results
+      console.log(`${result.tier} on ${result.hostname} (score: ${result.score})`);
+    },
+  },
+});
+```
+
 The detection system uses a weighted scoring engine with two-pass analysis (fast pass at `domcontentloaded`, full pass after `networkidle`) and handles SPA navigations. See the [Client Technical Guide](../client-technical-guide.md#page-load-detection) for full configuration options and signal details.
 
 ## Node.js: use the SDK API wrapper to fetch gateway proxy credentials

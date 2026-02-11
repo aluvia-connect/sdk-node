@@ -462,7 +462,7 @@ const connection = await client.start();
 
 ## Page Load Detection
 
-The SDK includes automatic page load detection that identifies blocks, CAPTCHAs, and WAF challenges using a weighted scoring system. When enabled, it monitors Playwright pages and automatically adds blocked hostnames to routing rules and reloads the page.
+The SDK includes automatic page load detection that identifies blocks, CAPTCHAs, and WAF challenges using a weighted scoring system. When enabled, it monitors Playwright pages and fires the `onDetection` callback on every page analysis (including clear results). By default, when a block is detected, the SDK automatically adds the hostname to routing rules and reloads the page. Set `autoReload: false` to disable automatic remediation and handle detection results yourself.
 
 ### Configuration
 
@@ -472,8 +472,9 @@ const client = new AluviaClient({
   startPlaywright: true,
   pageLoadDetection: {
     enabled: true,
-    autoReloadOnSuspected: false,       // Also reload on "suspected" tier (default: false)
-    networkIdleTimeoutMs: 3000,         // Max wait for networkidle (default: 3000)
+    autoReload: true,                    // Auto-add rules and reload on block (default: true)
+    autoReloadOnSuspected: false,        // Also reload on "suspected" tier (default: false)
+    networkIdleTimeoutMs: 3000,          // Max wait for networkidle (default: 3000)
     challengeSelectors: ['#my-captcha'], // Additional DOM selectors to check
     extraKeywords: ['custom block msg'], // Additional keywords to detect
     extraStatusCodes: [418],             // Additional HTTP status codes
@@ -494,8 +495,9 @@ const client = new AluviaClient({
 | `extraKeywords` | `string[]` | `[]` | Additional keywords to detect in page content. |
 | `extraStatusCodes` | `number[]` | `[]` | Additional HTTP status codes to treat as blocks. |
 | `networkIdleTimeoutMs` | `number` | `3000` | Max ms to wait for `networkidle` before full-pass analysis. |
-| `autoReloadOnSuspected` | `boolean` | `false` | Reload on `suspected` tier (by default, only `blocked` triggers reload). |
-| `onDetection` | `function` | `undefined` | Callback fired on every non-clear detection result. |
+| `autoReload` | `boolean` | `true` | Automatically add blocked hostnames to routing rules and reload the page. Set to `false` for detection-only mode. |
+| `autoReloadOnSuspected` | `boolean` | `false` | Also reload on `suspected` tier (by default, only `blocked` triggers reload). Requires `autoReload: true`. |
+| `onDetection` | `function` | `undefined` | Callback fired on every detection result, including `clear`. Receives `(result, page)`. |
 
 ### Detection Result
 
@@ -518,11 +520,13 @@ type PageLoadDetectionResult = {
 
 Each signal detector returns a weight (0.0 to 1.0) representing independent probability of blocking. Scores are combined using probabilistic combination: `score = 1 - product(1 - weight)`. This prevents weak signals from stacking to false positives.
 
-| Score Range | Tier | Action |
+| Score Range | Tier | Action (when `autoReload: true`) |
 |-------------|------|--------|
-| >= 0.7 | `blocked` | Auto-reload (add hostname to rules) |
-| >= 0.4 | `suspected` | Auto-reload only if `autoReloadOnSuspected: true` |
+| >= 0.7 | `blocked` | Add hostname to rules and reload page |
+| >= 0.4 | `suspected` | Reload only if `autoReloadOnSuspected: true` |
 | < 0.4 | `clear` | No action |
+
+When `autoReload: false`, no automatic rule updates or page reloads occur for any tier. The `onDetection` callback still fires for every result, allowing agents to inspect scores and take action themselves.
 
 ### Signal Detectors
 
