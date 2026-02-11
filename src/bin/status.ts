@@ -5,12 +5,12 @@ export function handleStatus(sessionName?: string): void {
   if (sessionName) {
     const lock = readLock(sessionName);
     if (!lock) {
-      return output({ status: 'ok', session: sessionName, active: false, message: 'No session found.' });
+      return output({ status: 'ok', 'browser-session': sessionName, active: false, message: 'No session found.' });
     }
     const active = isProcessAlive(lock.pid);
     return output({
       status: 'ok',
-      session: sessionName,
+      'browser-session': sessionName,
       active,
       pid: lock.pid,
       url: lock.url ?? null,
@@ -23,8 +23,8 @@ export function handleStatus(sessionName?: string): void {
   const sessions = listSessions();
   return output({
     status: 'ok',
-    sessions: sessions.map((s) => ({
-      session: s.session,
+    'browser-sessions': sessions.map((s) => ({
+      'browser-session': s.session,
       active: true,
       pid: s.pid,
       url: s.url ?? null,

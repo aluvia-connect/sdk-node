@@ -241,14 +241,14 @@ The SDK includes a CLI that launches browser sessions as background daemons and 
 ```bash
 # Start a browser session (headless by default)
 npx aluvia-sdk open https://example.com
-# {"status":"ok","session":"swift-falcon","url":"https://example.com","cdpUrl":"http://127.0.0.1:38209","connectionId":3449,"pid":12345}
+# {"status":"ok","browser-session":"swift-falcon","url":"https://example.com","cdpUrl":"http://127.0.0.1:38209","connectionId":3449,"pid":12345}
 
 # Start a second session in parallel
 npx aluvia-sdk open https://other-site.com
-# {"status":"ok","session":"bold-tiger","url":"https://other-site.com","cdpUrl":"http://127.0.0.1:42017","connectionId":3450,"pid":12346}
+# {"status":"ok","browser-session":"bold-tiger","url":"https://other-site.com","cdpUrl":"http://127.0.0.1:42017","connectionId":3450,"pid":12346}
 
 # Start with a visible browser window
-npx aluvia-sdk open https://example.com --headed
+npx aluvia-sdk open https://example.com --headful
 
 # Reuse an existing connection
 npx aluvia-sdk open https://example.com --connection-id 3449
@@ -261,7 +261,7 @@ npx aluvia-sdk open https://example.com --browser-session my-scraper
 
 # Check status of all sessions
 npx aluvia-sdk status
-# {"status":"ok","sessions":[{"session":"swift-falcon",...},{"session":"bold-tiger",...}],"count":2}
+# {"status":"ok","browser-sessions":[{"browser-session":"swift-falcon",...},{"browser-session":"bold-tiger",...}],"count":2}
 
 # Check status of a specific session
 npx aluvia-sdk status --browser-session swift-falcon

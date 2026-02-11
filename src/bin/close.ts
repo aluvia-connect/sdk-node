@@ -33,7 +33,7 @@ export async function handleClose(sessionName?: string, closeAll?: boolean): Pro
         {
           status: 'error',
           error: 'Multiple sessions running. Specify --browser-session <name> or --all.',
-          sessions: sessions.map((s) => s.session),
+          'browser-sessions': sessions.map((s) => s.session),
         },
         1,
       );
@@ -43,14 +43,14 @@ export async function handleClose(sessionName?: string, closeAll?: boolean): Pro
 
   const lock = readLock(sessionName);
   if (lock === null) {
-    return output({ status: 'ok', session: sessionName, message: 'No running browser session found.' });
+    return output({ status: 'ok', 'browser-session': sessionName, message: 'No running browser session found.' });
   }
 
   if (!isProcessAlive(lock.pid)) {
     removeLock(sessionName);
     return output({
       status: 'ok',
-      session: sessionName,
+      'browser-session': sessionName,
       message: 'Browser process was not running. Lock file cleaned up.',
     });
   }
@@ -58,7 +58,7 @@ export async function handleClose(sessionName?: string, closeAll?: boolean): Pro
   try {
     process.kill(lock.pid, 'SIGTERM');
   } catch (err: any) {
-    return output({ status: 'error', session: sessionName, error: `Failed to stop process: ${err.message}` }, 1);
+    return output({ status: 'error', 'browser-session': sessionName, error: `Failed to stop process: ${err.message}` }, 1);
   }
 
   // Wait for the process to exit (up to 10 seconds)
@@ -69,7 +69,7 @@ export async function handleClose(sessionName?: string, closeAll?: boolean): Pro
       removeLock(sessionName);
       return output({
         status: 'ok',
-        session: sessionName,
+        'browser-session': sessionName,
         message: 'Browser session closed.',
         url: lock.url ?? null,
         cdpUrl: lock.cdpUrl ?? null,
@@ -88,7 +88,7 @@ export async function handleClose(sessionName?: string, closeAll?: boolean): Pro
   removeLock(sessionName);
   return output({
     status: 'ok',
-    session: sessionName,
+    'browser-session': sessionName,
     message: 'Browser session force-killed.',
     url: lock.url ?? null,
     cdpUrl: lock.cdpUrl ?? null,

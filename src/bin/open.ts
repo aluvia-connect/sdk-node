@@ -27,7 +27,7 @@ export function handleOpen({ url, connectionId, headless, sessionName, autoUnblo
       {
         status: 'error',
         error: `A browser session named '${session}' is already running.`,
-        session,
+        'browser-session': session,
         url: existing.url ?? null,
         cdpUrl: existing.cdpUrl ?? null,
         connectionId: existing.connectionId ?? null,
@@ -57,7 +57,7 @@ export function handleOpen({ url, connectionId, headless, sessionName, autoUnblo
     args.push('--connection-id', String(connectionId));
   }
   if (!headless) {
-    args.push('--headed');
+    args.push('--headful');
   }
   if (autoUnblock) {
     args.push('--auto-unblock');
@@ -82,7 +82,7 @@ export function handleOpen({ url, connectionId, headless, sessionName, autoUnblo
       clearInterval(poll);
       return output({
         status: 'ok',
-        session,
+        'browser-session': session,
         autoUnblock: !!autoUnblock,
         url: lock.url ?? null,
         cdpUrl: lock.cdpUrl ?? null,
@@ -96,7 +96,7 @@ export function handleOpen({ url, connectionId, headless, sessionName, autoUnblo
       return output(
         {
           status: 'error',
-          session,
+          'browser-session': session,
           error: alive ? 'Browser is still initializing (timeout).' : 'Browser process exited unexpectedly.',
           logFile,
         },

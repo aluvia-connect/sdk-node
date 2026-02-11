@@ -38,7 +38,7 @@ function parseArgs(argv: string[]): {
       } else if (args[i] === '--browser-session' && args[i + 1]) {
         sessionName = args[i + 1];
         i++;
-      } else if (args[i] === '--headed') {
+      } else if (args[i] === '--headful') {
         headed = true;
       } else if (args[i] === '--auto-unblock') {
         autoUnblock = true;
@@ -97,7 +97,7 @@ function parseArgs(argv: string[]): {
       } else if (args[i] === '--browser-session' && args[i + 1]) {
         sessionName = args[i + 1];
         i++;
-      } else if (args[i] === '--headed') {
+      } else if (args[i] === '--headful') {
         headed = true;
       } else if (args[i] === '--auto-unblock') {
         autoUnblock = true;
@@ -137,7 +137,7 @@ function printHelp(toStderr = false): void {
   log('  npx aluvia-sdk help                     Show this help\n');
   log('Open options:');
   log('  --connection-id <id>       Use a specific connection ID');
-  log('  --headed                   Run browser in headed mode');
+  log('  --headful                  Run browser in headful mode');
   log('  --browser-session <name>   Name for this session (auto-generated if omitted)');
   log('  --auto-unblock             Auto-detect blocks and reload through Aluvia\n');
   log('Close options:');

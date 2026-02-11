@@ -34,7 +34,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Daemon mode: browser runs as a detached background process that survives terminal close.
 - CDP (Chrome DevTools Protocol) endpoint exposed via `--remote-debugging-port`, enabling external tools to connect with `connectOverCDP()` and share browser contexts/pages.
 - `cdpUrl` field on `AluviaClientConnection` for programmatic CDP access.
-- `headless` option on `AluviaClientOptions` (default: `true`). CLI flag `--headed` to launch a visible browser.
+- `headless` option on `AluviaClientOptions` (default: `true`). CLI flag `--headful` to launch a visible browser.
 - `--connection-id <id>` flag on CLI `open` command to reuse an existing connection.
 - Lock file (`/tmp/aluvia-sdk/cli.lock`) for single-instance enforcement with full session metadata.
 - JSON output by default on all CLI commands for AI agent consumption.
