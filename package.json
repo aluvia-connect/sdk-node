@@ -24,6 +24,10 @@
     },
     "./package.json": "./package.json"
   },
+  "bin": {
+    "aluvia": "./dist/esm/bin/cli.js",
+    "@aluvia/sdk": "./dist/esm/bin/cli.js"
+  },
   "files": [
     "dist/**/*",
     "README.md",
@@ -63,7 +67,7 @@
     "undici": "^6.22.0"
   },
   "peerDependencies": {
-    "playwright": "^1.0.0"
+    "playwright": "^1.58.2"
   },
   "peerDependenciesMeta": {
     "playwright": {

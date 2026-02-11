@@ -105,7 +105,6 @@ export class AluviaClient {
       let browserInstance: any = undefined;
       if (this.options.startPlaywright) {
         try {
-          // @ts-expect-error - playwright is an optional peer dependency
           const pw = await import('playwright');
 
           // We need to launch the browser after we have proxy configuration
@@ -157,9 +156,7 @@ export class AluviaClient {
 
         const getUndiciDispatcher = () => {
           if (!undiciDispatcher) {
-            undiciDispatcher = createUndiciDispatcher(
-              getProxyUrlForHttpClients(),
-            );
+            undiciDispatcher = createUndiciDispatcher(getProxyUrlForHttpClients());
           }
           return undiciDispatcher;
         };
@@ -191,6 +188,8 @@ export class AluviaClient {
 
         // Launch browser if Playwright was requested
         let launchedBrowser: any = undefined;
+        let browserServer: any = undefined;
+        let browserCdpUrl: string | undefined;
         if (browserInstance) {
           const cfg = this.configManager.getConfig();
           if (cfg) {
@@ -200,16 +199,18 @@ export class AluviaClient {
               username,
               password,
             };
-            launchedBrowser = await browserInstance.launch({
+            browserServer = await browserInstance.launchServer({
               proxy: proxySettings,
+              headless: true,
             });
+            browserCdpUrl = browserServer.wsEndpoint();
+            launchedBrowser = await browserInstance.connect(browserCdpUrl);
           }
         }
 
         const stopWithBrowser = async () => {
-          if (launchedBrowser) {
-            await launchedBrowser.close();
-          }
+          if (launchedBrowser) await launchedBrowser.close();
+          if (browserServer) await browserServer.close();
           await stop();
         };
 
@@ -242,7 +243,7 @@ export class AluviaClient {
           },
           asSelenium: () => {
             const cfg = this.configManager.getConfig();
-            if (!cfg) return "";
+            if (!cfg) return '';
             const { protocol, host, port } = cfg.rawProxy;
             return toSeleniumArgs(`${protocol}://${host}:${port}`);
           },
@@ -257,6 +258,7 @@ export class AluviaClient {
             return undiciFetchFn;
           },
           browser: launchedBrowser,
+          cdpUrl: browserCdpUrl,
           stop: stopWithBrowser,
           close: stopWithBrowser,
         };
@@ -270,9 +272,7 @@ export class AluviaClient {
       this.configManager.startPolling();
 
       // localProxy === true
-      const { host, port, url } = await this.proxyServer.start(
-        this.options.localPort,
-      );
+      const { host, port, url } = await this.proxyServer.start(this.options.localPort);
 
       let nodeAgents: ReturnType<typeof createNodeProxyAgents> | null = null;
       let undiciDispatcher: ReturnType<typeof createUndiciDispatcher> | null = null;
@@ -320,17 +320,21 @@ export class AluviaClient {
 
       // Launch browser if Playwright was requested
       let launchedBrowser: any = undefined;
+      let browserServer: any = undefined;
+      let browserCdpUrl: string | undefined;
       if (browserInstance) {
         const proxySettings = toPlaywrightProxySettings(url);
-        launchedBrowser = await browserInstance.launch({
+        browserServer = await browserInstance.launchServer({
           proxy: proxySettings,
+          headless: true,
         });
+        browserCdpUrl = browserServer.wsEndpoint();
+        launchedBrowser = await browserInstance.connect(browserCdpUrl);
       }
 
       const stopWithBrowser = async () => {
-        if (launchedBrowser) {
-          await launchedBrowser.close();
-        }
+        if (launchedBrowser) await launchedBrowser.close();
+        if (browserServer) await browserServer.close();
         await stop();
       };
 
@@ -354,6 +358,7 @@ export class AluviaClient {
           return undiciFetchFn;
         },
         browser: launchedBrowser,
+        cdpUrl: browserCdpUrl,
         stop: stopWithBrowser,
         close: stopWithBrowser,
       };
@@ -430,5 +435,3 @@ export class AluviaClient {
     await this.configManager.setConfig({ target_geo: trimmed.length > 0 ? trimmed : null });
   }
 }
-
-
