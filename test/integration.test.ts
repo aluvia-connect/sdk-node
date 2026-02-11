@@ -15,6 +15,7 @@ import {
 } from "../src/errors.js";
 import { matchPattern, shouldProxy } from "../src/client/rules.js";
 import { Logger } from "../src/client/logger.js";
+import type { PageLoadDetectionResult } from "../src/client/PageLoadDetection.js";
 
 describe("AluviaClient", () => {
   afterEach(() => {
@@ -138,16 +139,21 @@ describe("PageLoadDetection Integration", () => {
     mock.reset();
   });
 
-  test("AluviaClient initializes PageLoadDetection when pageLoadDetection config is provided", () => {
+  test("AluviaClient initializes PageLoadDetection with new config shape", () => {
     const client = new AluviaClient({
       apiKey: "test-api-key",
       logLevel: "silent",
       pageLoadDetection: {
         enabled: true,
-        blockingKeywords: ["captcha"],
+        extraKeywords: ["custom-block"],
+        extraStatusCodes: [418],
+        challengeSelectors: ["#my-challenge"],
+        networkIdleTimeoutMs: 5000,
+        autoReloadOnSuspected: true,
       },
     });
     assert.ok(client);
+    assert.ok((client as any).pageLoadDetection);
   });
 
   test("AluviaClient initializes PageLoadDetection when startPlaywright is true", () => {
@@ -157,19 +163,16 @@ describe("PageLoadDetection Integration", () => {
       startPlaywright: true,
     });
     assert.ok(client);
+    assert.ok((client as any).pageLoadDetection);
   });
 
   test("getBlockedHostnames returns empty array initially", () => {
     const client = new AluviaClient({
       apiKey: "test-api-key",
       logLevel: "silent",
-      pageLoadDetection: {
-        enabled: true,
-      },
+      pageLoadDetection: { enabled: true },
     });
-
-    const blocked = client.getBlockedHostnames();
-    assert.deepStrictEqual(blocked, []);
+    assert.deepStrictEqual(client.getBlockedHostnames(), []);
   });
 
   test("getBlockedHostnames returns empty array when detection is not configured", () => {
@@ -177,9 +180,7 @@ describe("PageLoadDetection Integration", () => {
       apiKey: "test-api-key",
       logLevel: "silent",
     });
-
-    const blocked = client.getBlockedHostnames();
-    assert.deepStrictEqual(blocked, []);
+    assert.deepStrictEqual(client.getBlockedHostnames(), []);
   });
 
   test("clearBlockedHostnames does not throw when detection is not configured", () => {
@@ -187,226 +188,309 @@ describe("PageLoadDetection Integration", () => {
       apiKey: "test-api-key",
       logLevel: "silent",
     });
-
-    // Should not throw
     client.clearBlockedHostnames();
   });
 
-  test("clearBlockedHostnames clears the list when detection is configured", () => {
+  test("clearBlockedHostnames clears persistent tracking", () => {
     const client = new AluviaClient({
       apiKey: "test-api-key",
       logLevel: "silent",
-      pageLoadDetection: {
-        enabled: true,
-      },
+      pageLoadDetection: { enabled: true },
     });
+    const pld = (client as any).pageLoadDetection;
+    pld.persistentHostnames.add("example.com");
+    pld.retriedUrls.add("https://example.com/page");
+    assert.strictEqual(client.getBlockedHostnames().length, 1);
 
     client.clearBlockedHostnames();
     assert.deepStrictEqual(client.getBlockedHostnames(), []);
+    assert.strictEqual(pld.retriedUrls.size, 0);
   });
 
-  test("autoAddRules automatically adds hostname to rules when blocking detected", async () => {
-    const client = new AluviaClient({
-      apiKey: "test-api-key",
-      logLevel: "silent",
-      pageLoadDetection: {
-        enabled: true,
-        autoAddRules: true,
-      },
-    });
-
-    let capturedRules: string[] | null = null;
-    (client as any).configManager.getConfig = () => ({
-      rawProxy: {
-        protocol: "http",
-        host: "gateway.aluvia.io" as const,
-        port: 8080,
-        username: "user",
-        password: "pass",
-      },
-      rules: [],
-      sessionId: null,
-      targetGeo: null,
-      etag: null,
-    });
-    (client as any).configManager.setConfig = async (body: any) => {
-      if (body.rules) {
-        capturedRules = body.rules;
-      }
-    };
-
-    // Simulate blocking detection
-    const pageLoadDetection = (client as any).pageLoadDetection;
-    assert.ok(pageLoadDetection);
-
-    const mockPage = {
-      url: () => "https://example.com/test",
-      content: async () => "<html><body>captcha required</body></html>",
-      title: async () => "Test",
-    };
-    const mockResponse = { status: () => 200 };
-
-    await pageLoadDetection.analyzePage(mockPage, mockResponse);
-
-    // Should have called setConfig with the new rules
-    assert.ok(capturedRules);
-    assert.strictEqual(capturedRules!.length, 1);
-    assert.strictEqual(capturedRules![0], "example.com");
-  });
-
-  test("autoAddRules does not add duplicate hostnames", async () => {
-    const client = new AluviaClient({
-      apiKey: "test-api-key",
-      logLevel: "silent",
-      pageLoadDetection: {
-        enabled: true,
-        autoAddRules: true,
-      },
-    });
-
-    let setConfigCallCount = 0;
-    (client as any).configManager.getConfig = () => ({
-      rawProxy: {
-        protocol: "http",
-        host: "gateway.aluvia.io" as const,
-        port: 8080,
-        username: "user",
-        password: "pass",
-      },
-      rules: ["example.com"], // Already in rules
-      sessionId: null,
-      targetGeo: null,
-      etag: null,
-    });
-    (client as any).configManager.setConfig = async () => {
-      setConfigCallCount += 1;
-    };
-
-    const pageLoadDetection = (client as any).pageLoadDetection;
-    const mockPage = {
-      url: () => "https://example.com/test",
-      content: async () => "<html><body>captcha</body></html>",
-      title: async () => "Test",
-    };
-    const mockResponse = { status: () => 200 };
-
-    await pageLoadDetection.analyzePage(mockPage, mockResponse);
-
-    // Should not call setConfig since hostname is already in rules
-    assert.strictEqual(setConfigCallCount, 0);
-  });
-
-  test("custom onBlockingDetected callback is called", async () => {
-    let callbackCalled = false;
-    let callbackHostname: string | null = null;
+  test("onDetection callback receives result with tier/score", async () => {
+    let capturedResult: PageLoadDetectionResult | null = null;
 
     const client = new AluviaClient({
       apiKey: "test-api-key",
       logLevel: "silent",
       pageLoadDetection: {
         enabled: true,
-        onBlockingDetected: (hostname, reason, page) => {
-          callbackCalled = true;
-          callbackHostname = hostname;
+        onDetection: (result, page) => {
+          capturedResult = result;
         },
       },
     });
 
-    (client as any).configManager.getConfig = () => ({
-      rules: [],
-    });
-
-    const pageLoadDetection = (client as any).pageLoadDetection;
-    const mockPage = {
-      url: () => "https://blocked-site.com/test",
-      content: async () => "<html><body>403 Forbidden</body></html>",
-      title: async () => "Forbidden",
-    };
-    const mockResponse = { status: () => 403 };
-
-    await pageLoadDetection.analyzePage(mockPage, mockResponse);
-
-    assert.strictEqual(callbackCalled, true);
-    assert.strictEqual(callbackHostname, "blocked-site.com");
-  });
-
-  test("onBlockingDetected is called even when autoAddRules is true", async () => {
-    let originalCallbackCalled = false;
-
-    const client = new AluviaClient({
-      apiKey: "test-api-key",
-      logLevel: "silent",
-      pageLoadDetection: {
-        enabled: true,
-        autoAddRules: true,
-        onBlockingDetected: (hostname, reason, page) => {
-          originalCallbackCalled = true;
-        },
-      },
-    });
-
-    (client as any).configManager.getConfig = () => ({
-      rules: [],
-    });
+    (client as any).configManager.getConfig = () => ({ rules: [] });
     (client as any).configManager.setConfig = async () => {};
 
-    const pageLoadDetection = (client as any).pageLoadDetection;
+    const mockResult: PageLoadDetectionResult = {
+      url: "https://example.com/test",
+      hostname: "example.com",
+      tier: "blocked",
+      score: 0.85,
+      signals: [
+        {
+          name: "http_status_403",
+          weight: 0.85,
+          details: "HTTP 403",
+          source: "fast",
+        },
+      ],
+      pass: "fast",
+      persistentBlock: false,
+      redirectChain: [],
+    };
     const mockPage = {
       url: () => "https://example.com/test",
-      content: async () => "<html><body>captcha</body></html>",
-      title: async () => "Test",
+      reload: async () => {},
     };
-    const mockResponse = { status: () => 200 };
 
-    await pageLoadDetection.analyzePage(mockPage, mockResponse);
+    await (client as any).handleDetectionResult(mockResult, mockPage);
 
-    // Both the original callback and auto-add should work
-    assert.strictEqual(originalCallbackCalled, true);
+    assert.ok(capturedResult);
+    assert.strictEqual(capturedResult!.tier, "blocked");
+    assert.strictEqual(capturedResult!.score, 0.85);
+    assert.strictEqual(capturedResult!.signals.length, 1);
   });
 
-  test("custom blockingKeywords are used", () => {
+  test("auto-reload fires for blocked tier", async () => {
+    let reloaded = false;
+
+    const client = new AluviaClient({
+      apiKey: "test-api-key",
+      logLevel: "silent",
+      pageLoadDetection: { enabled: true },
+    });
+
+    (client as any).configManager.getConfig = () => ({ rules: [] });
+    (client as any).configManager.setConfig = async () => {};
+
+    const mockResult: PageLoadDetectionResult = {
+      url: "https://example.com/test",
+      hostname: "example.com",
+      tier: "blocked",
+      score: 0.85,
+      signals: [],
+      pass: "full",
+      persistentBlock: false,
+      redirectChain: [],
+    };
+    const mockPage = {
+      url: () => "https://example.com/test",
+      reload: async () => {
+        reloaded = true;
+      },
+    };
+
+    await (client as any).handleDetectionResult(mockResult, mockPage);
+    assert.strictEqual(reloaded, true);
+  });
+
+  test("no auto-reload for suspected tier by default", async () => {
+    let reloaded = false;
+
+    const client = new AluviaClient({
+      apiKey: "test-api-key",
+      logLevel: "silent",
+      pageLoadDetection: { enabled: true },
+    });
+
+    (client as any).configManager.getConfig = () => ({ rules: [] });
+    (client as any).configManager.setConfig = async () => {};
+
+    const mockResult: PageLoadDetectionResult = {
+      url: "https://example.com/test",
+      hostname: "example.com",
+      tier: "suspected",
+      score: 0.5,
+      signals: [],
+      pass: "full",
+      persistentBlock: false,
+      redirectChain: [],
+    };
+    const mockPage = {
+      url: () => "https://example.com/test",
+      reload: async () => {
+        reloaded = true;
+      },
+    };
+
+    await (client as any).handleDetectionResult(mockResult, mockPage);
+    assert.strictEqual(reloaded, false);
+  });
+
+  test("auto-reload fires for suspected when autoReloadOnSuspected is true", async () => {
+    let reloaded = false;
+
     const client = new AluviaClient({
       apiKey: "test-api-key",
       logLevel: "silent",
       pageLoadDetection: {
         enabled: true,
-        blockingKeywords: ["custom-block", "special-check"],
+        autoReloadOnSuspected: true,
       },
     });
-    assert.ok(client);
+
+    (client as any).configManager.getConfig = () => ({ rules: [] });
+    (client as any).configManager.setConfig = async () => {};
+
+    const mockResult: PageLoadDetectionResult = {
+      url: "https://example.com/test",
+      hostname: "example.com",
+      tier: "suspected",
+      score: 0.5,
+      signals: [],
+      pass: "full",
+      persistentBlock: false,
+      redirectChain: [],
+    };
+    const mockPage = {
+      url: () => "https://example.com/test",
+      reload: async () => {
+        reloaded = true;
+      },
+    };
+
+    await (client as any).handleDetectionResult(mockResult, mockPage);
+    assert.strictEqual(reloaded, true);
   });
 
-  test("custom blockingStatusCodes are used", () => {
+  test("persistent block: first URL retried, second URL on same hostname skipped", async () => {
+    let reloadCount = 0;
+
     const client = new AluviaClient({
       apiKey: "test-api-key",
       logLevel: "silent",
-      pageLoadDetection: {
-        enabled: true,
-        blockingStatusCodes: [401, 418],
+      pageLoadDetection: { enabled: true },
+    });
+
+    (client as any).configManager.getConfig = () => ({ rules: [] });
+    (client as any).configManager.setConfig = async () => {};
+
+    const makeResult = (url: string): PageLoadDetectionResult => ({
+      url,
+      hostname: "example.com",
+      tier: "blocked",
+      score: 0.85,
+      signals: [],
+      pass: "full",
+      persistentBlock: false,
+      redirectChain: [],
+    });
+
+    const makePage = (url: string) => ({
+      url: () => url,
+      reload: async () => {
+        reloadCount++;
       },
     });
-    assert.ok(client);
+
+    // First block on URL1 - should reload
+    const result1 = makeResult("https://example.com/page1");
+    await (client as any).handleDetectionResult(
+      result1,
+      makePage("https://example.com/page1"),
+    );
+    assert.strictEqual(reloadCount, 1);
+
+    // Second block on URL1 - persistent, should NOT reload
+    const result2 = makeResult("https://example.com/page1");
+    await (client as any).handleDetectionResult(
+      result2,
+      makePage("https://example.com/page1"),
+    );
+    assert.strictEqual(reloadCount, 1);
+    assert.strictEqual(result2.persistentBlock, true);
+
+    // Third block on URL2 (same hostname) - hostname is persistent, skip immediately
+    const result3 = makeResult("https://example.com/page2");
+    await (client as any).handleDetectionResult(
+      result3,
+      makePage("https://example.com/page2"),
+    );
+    assert.strictEqual(reloadCount, 1);
+    assert.strictEqual(result3.persistentBlock, true);
   });
 
-  test("custom minContentLength is used", () => {
+  test("handleDetectionResult adds hostname to rules", async () => {
+    let capturedRules: string[] | null = null;
+
     const client = new AluviaClient({
       apiKey: "test-api-key",
       logLevel: "silent",
-      pageLoadDetection: {
-        enabled: true,
-        minContentLength: 500,
-      },
+      pageLoadDetection: { enabled: true },
     });
-    assert.ok(client);
+
+    (client as any).configManager.getConfig = () => ({
+      rules: [],
+    });
+    (client as any).configManager.setConfig = async (body: any) => {
+      if (body.rules) capturedRules = body.rules;
+    };
+
+    const mockResult: PageLoadDetectionResult = {
+      url: "https://blocked-site.com/test",
+      hostname: "blocked-site.com",
+      tier: "blocked",
+      score: 0.85,
+      signals: [],
+      pass: "full",
+      persistentBlock: false,
+      redirectChain: [],
+    };
+    const mockPage = {
+      url: () => "https://blocked-site.com/test",
+      reload: async () => {},
+    };
+
+    await (client as any).handleDetectionResult(mockResult, mockPage);
+
+    assert.ok(capturedRules);
+    assert.strictEqual(capturedRules!.length, 1);
+    assert.strictEqual(capturedRules![0], "blocked-site.com");
+  });
+
+  test("handleDetectionResult does not add duplicate hostname to rules", async () => {
+    let setConfigCalled = false;
+
+    const client = new AluviaClient({
+      apiKey: "test-api-key",
+      logLevel: "silent",
+      pageLoadDetection: { enabled: true },
+    });
+
+    (client as any).configManager.getConfig = () => ({
+      rules: ["example.com"],
+    });
+    (client as any).configManager.setConfig = async () => {
+      setConfigCalled = true;
+    };
+
+    const mockResult: PageLoadDetectionResult = {
+      url: "https://example.com/test",
+      hostname: "example.com",
+      tier: "blocked",
+      score: 0.85,
+      signals: [],
+      pass: "full",
+      persistentBlock: false,
+      redirectChain: [],
+    };
+    const mockPage = {
+      url: () => "https://example.com/test",
+      reload: async () => {},
+    };
+
+    await (client as any).handleDetectionResult(mockResult, mockPage);
+    assert.strictEqual(setConfigCalled, false);
   });
 
   test("pageLoadDetection can be disabled", () => {
     const client = new AluviaClient({
       apiKey: "test-api-key",
       logLevel: "silent",
-      pageLoadDetection: {
-        enabled: false,
-      },
+      pageLoadDetection: { enabled: false },
     });
     assert.ok(client);
   });
@@ -1590,284 +1674,5 @@ describe("Playwright integration", () => {
 
     await connection.close();
     assert.strictEqual(browserClosed, true);
-  });
-});
-
-describe("PageLoadDetection Integration", () => {
-  afterEach(() => {
-    mock.reset();
-  });
-
-  test("AluviaClient initializes PageLoadDetection when pageLoadDetection config is provided", () => {
-    const client = new AluviaClient({
-      apiKey: "test-api-key",
-      logLevel: "silent",
-      pageLoadDetection: {
-        enabled: true,
-        blockingKeywords: ["captcha"],
-      },
-    });
-    assert.ok(client);
-  });
-
-  test("AluviaClient initializes PageLoadDetection when startPlaywright is true", () => {
-    const client = new AluviaClient({
-      apiKey: "test-api-key",
-      logLevel: "silent",
-      startPlaywright: true,
-    });
-    assert.ok(client);
-  });
-
-  test("getBlockedHostnames returns empty array initially", () => {
-    const client = new AluviaClient({
-      apiKey: "test-api-key",
-      logLevel: "silent",
-      pageLoadDetection: {
-        enabled: true,
-      },
-    });
-
-    const blocked = client.getBlockedHostnames();
-    assert.deepStrictEqual(blocked, []);
-  });
-
-  test("getBlockedHostnames returns empty array when detection is not configured", () => {
-    const client = new AluviaClient({
-      apiKey: "test-api-key",
-      logLevel: "silent",
-    });
-
-    const blocked = client.getBlockedHostnames();
-    assert.deepStrictEqual(blocked, []);
-  });
-
-  test("clearBlockedHostnames does not throw when detection is not configured", () => {
-    const client = new AluviaClient({
-      apiKey: "test-api-key",
-      logLevel: "silent",
-    });
-
-    // Should not throw
-    client.clearBlockedHostnames();
-  });
-
-  test("clearBlockedHostnames clears the list when detection is configured", () => {
-    const client = new AluviaClient({
-      apiKey: "test-api-key",
-      logLevel: "silent",
-      pageLoadDetection: {
-        enabled: true,
-      },
-    });
-
-    client.clearBlockedHostnames();
-    assert.deepStrictEqual(client.getBlockedHostnames(), []);
-  });
-
-  test("autoAddRules automatically adds hostname to rules when blocking detected", async () => {
-    const client = new AluviaClient({
-      apiKey: "test-api-key",
-      logLevel: "silent",
-      pageLoadDetection: {
-        enabled: true,
-        autoAddRules: true,
-      },
-    });
-
-    let capturedRules: string[] | null = null;
-    (client as any).configManager.getConfig = () => ({
-      rawProxy: {
-        protocol: "http",
-        host: "gateway.aluvia.io" as const,
-        port: 8080,
-        username: "user",
-        password: "pass",
-      },
-      rules: [],
-      sessionId: null,
-      targetGeo: null,
-      etag: null,
-    });
-    (client as any).configManager.setConfig = async (body: any) => {
-      if (body.rules) {
-        capturedRules = body.rules;
-      }
-    };
-
-    // Simulate blocking detection
-    const pageLoadDetection = (client as any).pageLoadDetection;
-    assert.ok(pageLoadDetection);
-
-    const mockPage = {
-      url: () => "https://example.com/test",
-      content: async () => "<html><body>captcha required</body></html>",
-      title: async () => "Test",
-    };
-    const mockResponse = { status: () => 200 };
-
-    await pageLoadDetection.analyzePage(mockPage, mockResponse);
-
-    // Should have called setConfig with the new rules
-    assert.ok(capturedRules);
-    assert.strictEqual(capturedRules!.length, 1);
-    assert.strictEqual(capturedRules![0], "example.com");
-  });
-
-  test("autoAddRules does not add duplicate hostnames", async () => {
-    const client = new AluviaClient({
-      apiKey: "test-api-key",
-      logLevel: "silent",
-      pageLoadDetection: {
-        enabled: true,
-        autoAddRules: true,
-      },
-    });
-
-    let setConfigCallCount = 0;
-    (client as any).configManager.getConfig = () => ({
-      rawProxy: {
-        protocol: "http",
-        host: "gateway.aluvia.io" as const,
-        port: 8080,
-        username: "user",
-        password: "pass",
-      },
-      rules: ["example.com"], // Already in rules
-      sessionId: null,
-      targetGeo: null,
-      etag: null,
-    });
-    (client as any).configManager.setConfig = async () => {
-      setConfigCallCount += 1;
-    };
-
-    const pageLoadDetection = (client as any).pageLoadDetection;
-    const mockPage = {
-      url: () => "https://example.com/test",
-      content: async () => "<html><body>captcha</body></html>",
-      title: async () => "Test",
-    };
-    const mockResponse = { status: () => 200 };
-
-    await pageLoadDetection.analyzePage(mockPage, mockResponse);
-
-    // Should not call setConfig since hostname is already in rules
-    assert.strictEqual(setConfigCallCount, 0);
-  });
-
-  test("custom onBlockingDetected callback is called", async () => {
-    let callbackCalled = false;
-    let callbackHostname: string | null = null;
-
-    const client = new AluviaClient({
-      apiKey: "test-api-key",
-      logLevel: "silent",
-      pageLoadDetection: {
-        enabled: true,
-        onBlockingDetected: (hostname, reason, page) => {
-          callbackCalled = true;
-          callbackHostname = hostname;
-        },
-      },
-    });
-
-    (client as any).configManager.getConfig = () => ({
-      rules: [],
-    });
-
-    const pageLoadDetection = (client as any).pageLoadDetection;
-    const mockPage = {
-      url: () => "https://blocked-site.com/test",
-      content: async () => "<html><body>403 Forbidden</body></html>",
-      title: async () => "Forbidden",
-    };
-    const mockResponse = { status: () => 403 };
-
-    await pageLoadDetection.analyzePage(mockPage, mockResponse);
-
-    assert.strictEqual(callbackCalled, true);
-    assert.strictEqual(callbackHostname, "blocked-site.com");
-  });
-
-  test("onBlockingDetected is called even when autoAddRules is true", async () => {
-    let originalCallbackCalled = false;
-
-    const client = new AluviaClient({
-      apiKey: "test-api-key",
-      logLevel: "silent",
-      pageLoadDetection: {
-        enabled: true,
-        autoAddRules: true,
-        onBlockingDetected: (hostname, reason, page) => {
-          originalCallbackCalled = true;
-        },
-      },
-    });
-
-    (client as any).configManager.getConfig = () => ({
-      rules: [],
-    });
-    (client as any).configManager.setConfig = async () => {};
-
-    const pageLoadDetection = (client as any).pageLoadDetection;
-    const mockPage = {
-      url: () => "https://example.com/test",
-      content: async () => "<html><body>captcha</body></html>",
-      title: async () => "Test",
-    };
-    const mockResponse = { status: () => 200 };
-
-    await pageLoadDetection.analyzePage(mockPage, mockResponse);
-
-    // Both the original callback and auto-add should work
-    assert.strictEqual(originalCallbackCalled, true);
-  });
-
-  test("custom blockingKeywords are used", () => {
-    const client = new AluviaClient({
-      apiKey: "test-api-key",
-      logLevel: "silent",
-      pageLoadDetection: {
-        enabled: true,
-        blockingKeywords: ["custom-block", "special-check"],
-      },
-    });
-    assert.ok(client);
-  });
-
-  test("custom blockingStatusCodes are used", () => {
-    const client = new AluviaClient({
-      apiKey: "test-api-key",
-      logLevel: "silent",
-      pageLoadDetection: {
-        enabled: true,
-        blockingStatusCodes: [401, 418],
-      },
-    });
-    assert.ok(client);
-  });
-
-  test("custom minContentLength is used", () => {
-    const client = new AluviaClient({
-      apiKey: "test-api-key",
-      logLevel: "silent",
-      pageLoadDetection: {
-        enabled: true,
-        minContentLength: 500,
-      },
-    });
-    assert.ok(client);
-  });
-
-  test("pageLoadDetection can be disabled", () => {
-    const client = new AluviaClient({
-      apiKey: "test-api-key",
-      logLevel: "silent",
-      pageLoadDetection: {
-        enabled: false,
-      },
-    });
-    assert.ok(client);
   });
 });

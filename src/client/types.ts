@@ -2,7 +2,10 @@
 
 import type {
   PageLoadDetectionConfig,
-  BlockingReason,
+  PageLoadDetectionResult,
+  DetectionTier,
+  DetectionSignal,
+  RedirectHop,
 } from "./PageLoadDetection.js";
 
 /**
@@ -119,13 +122,9 @@ export type AluviaClientOptions = {
   /**
    * Optional: configuration for enhanced page load and blocking detection.
    *
-   * When enabled (default), the SDK monitors pages for:
-   * - Blocking keywords (captcha, blocked, access denied, etc.)
-   * - HTTP status codes that indicate blocking (403, 429, 503)
-   * - Failed page loads (minimal content)
-   *
-   * You can configure automatic rule addition and provide a callback
-   * to be notified when blocking is detected.
+   * When enabled (default), the SDK monitors pages using a weighted scoring
+   * system across multiple signal types (HTTP status, WAF headers, DOM
+   * selectors, visible text, redirect chains) with two-pass analysis.
    */
   pageLoadDetection?: PageLoadDetectionConfig;
 };
@@ -246,6 +245,8 @@ export type AluviaClientConnection = {
 // Re-export PageLoadDetection types for public API
 export type {
   PageLoadDetectionConfig,
-  BlockingReason,
   PageLoadDetectionResult,
+  DetectionTier,
+  DetectionSignal,
+  RedirectHop,
 } from "./PageLoadDetection.js";

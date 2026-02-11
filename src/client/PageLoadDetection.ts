@@ -1,278 +1,663 @@
-// PageLoadDetection - Enhanced page load and blocking detection
+// PageLoadDetection - Enhanced page load and blocking detection with weighted scoring
 
 import type { Logger } from "./logger.js";
+
+/**
+ * Detection tier based on scoring
+ */
+export type DetectionTier = "blocked" | "suspected" | "clear";
+
+/**
+ * A single detection signal with weight
+ */
+export type DetectionSignal = {
+  name: string;
+  weight: number;
+  details: string;
+  source: "fast" | "full";
+};
+
+/**
+ * A single hop in a redirect chain
+ */
+export type RedirectHop = {
+  url: string;
+  statusCode: number;
+};
+
+/**
+ * Result of page load detection analysis
+ */
+export type PageLoadDetectionResult = {
+  url: string;
+  hostname: string;
+  tier: DetectionTier;
+  score: number;
+  signals: DetectionSignal[];
+  pass: "fast" | "full";
+  persistentBlock: boolean;
+  redirectChain: RedirectHop[];
+};
 
 /**
  * Configuration for page load detection
  */
 export type PageLoadDetectionConfig = {
-  /**
-   * Enable automatic detection of blocking/captchas
-   * Default: true
-   */
   enabled?: boolean;
-
-  /**
-   * Keywords to search for in page content that indicate blocking
-   * Default: ['captcha', 'blocked', 'access denied', 'forbidden', 'cloudflare', 'please verify', 'recaptcha']
-   */
-  blockingKeywords?: string[];
-
-  /**
-   * HTTP status codes that indicate blocking
-   * Default: [403, 429, 503]
-   */
-  blockingStatusCodes?: number[];
-
-  /**
-   * Minimum content length for a successful page load
-   * Pages with less content may have failed to load
-   * Default: 100
-   */
-  minContentLength?: number;
-
-  /**
-   * Automatically add hostname to rules when blocking is detected
-   * Default: false (user must opt-in)
-   */
-  autoAddRules?: boolean;
-
-  /**
-   * Callback when blocking is detected
-   * Receives the hostname, detection reason, and the page object
-   */
-  onBlockingDetected?: (
-    hostname: string,
-    reason: BlockingReason,
+  challengeSelectors?: string[];
+  extraKeywords?: string[];
+  extraStatusCodes?: number[];
+  networkIdleTimeoutMs?: number;
+  autoReloadOnSuspected?: boolean;
+  onDetection?: (
+    result: PageLoadDetectionResult,
     page: any,
   ) => void | Promise<void>;
 };
 
-/**
- * Reason why blocking was detected
- */
-export type BlockingReason = {
-  type: "status_code" | "keyword" | "content_length" | "error";
-  details: string;
-  statusCode?: number;
-  keyword?: string;
-};
+const DEFAULT_CHALLENGE_SELECTORS = [
+  "#challenge-form",
+  "#challenge-running",
+  ".cf-browser-verification",
+  'iframe[src*="recaptcha"]',
+  ".g-recaptcha",
+  "#px-captcha",
+  'iframe[src*="hcaptcha"]',
+  ".h-captcha",
+];
 
-/**
- * Result of page load detection
- */
-export type PageLoadDetectionResult = {
-  url: string;
-  hostname: string;
-  success: boolean;
-  blocked: boolean;
-  reason?: BlockingReason;
-};
-
-const DEFAULT_BLOCKING_KEYWORDS = [
-  "captcha",
-  "blocked",
+const TITLE_KEYWORDS = [
   "access denied",
+  "blocked",
+  "forbidden",
+  "security check",
+  "attention required",
+  "just a moment",
+];
+
+const STRONG_TEXT_KEYWORDS = [
+  "captcha",
+  "access denied",
+  "verify you are human",
+  "bot detection",
+];
+
+const WEAK_TEXT_KEYWORDS = [
+  "blocked",
   "forbidden",
   "cloudflare",
   "please verify",
-  "recaptcha",
-  "hcaptcha",
-  "bot detection",
-  "automated access",
   "unusual activity",
-  "verify you are human",
-  "security check",
-  "access restricted",
 ];
 
-const DEFAULT_BLOCKING_STATUS_CODES = [403, 429, 503];
-
-const DEFAULT_MIN_CONTENT_LENGTH = 100;
+const CHALLENGE_DOMAIN_PATTERNS = [
+  "/cdn-cgi/challenge-platform/",
+  "challenges.cloudflare.com",
+  "geo.captcha-delivery.com",
+];
 
 /**
  * PageLoadDetection handles enhanced detection of page load failures and blocking
+ * using a weighted scoring system across multiple signal types.
  */
 export class PageLoadDetection {
-  private config: Required<
-    Omit<PageLoadDetectionConfig, "onBlockingDetected">
-  > & {
-    onBlockingDetected?: (
-      hostname: string,
-      reason: BlockingReason,
+  private config: {
+    enabled: boolean;
+    challengeSelectors: string[];
+    extraKeywords: string[];
+    extraStatusCodes: number[];
+    networkIdleTimeoutMs: number;
+    autoReloadOnSuspected: boolean;
+    onDetection?: (
+      result: PageLoadDetectionResult,
       page: any,
     ) => void | Promise<void>;
   };
   private logger: Logger;
-  private blockedHostnames = new Set<string>();
+
+  // Persistent block tracking
+  public retriedUrls = new Set<string>();
+  public persistentHostnames = new Set<string>();
 
   constructor(config: PageLoadDetectionConfig, logger: Logger) {
     this.logger = logger;
     this.config = {
       enabled: config.enabled ?? true,
-      blockingKeywords: config.blockingKeywords ?? DEFAULT_BLOCKING_KEYWORDS,
-      blockingStatusCodes:
-        config.blockingStatusCodes ?? DEFAULT_BLOCKING_STATUS_CODES,
-      minContentLength: config.minContentLength ?? DEFAULT_MIN_CONTENT_LENGTH,
-      autoAddRules: config.autoAddRules ?? false,
-      onBlockingDetected: config.onBlockingDetected,
+      challengeSelectors:
+        config.challengeSelectors ?? DEFAULT_CHALLENGE_SELECTORS,
+      extraKeywords: config.extraKeywords ?? [],
+      extraStatusCodes: config.extraStatusCodes ?? [],
+      networkIdleTimeoutMs: config.networkIdleTimeoutMs ?? 3000,
+      autoReloadOnSuspected: config.autoReloadOnSuspected ?? false,
+      onDetection: config.onDetection,
     };
   }
 
-  /**
-   * Update detection configuration
-   */
-  updateConfig(config: Partial<PageLoadDetectionConfig>): void {
-    if (config.enabled !== undefined) {
-      this.config.enabled = config.enabled;
-    }
-    if (config.blockingKeywords !== undefined) {
-      this.config.blockingKeywords = config.blockingKeywords;
-    }
-    if (config.blockingStatusCodes !== undefined) {
-      this.config.blockingStatusCodes = config.blockingStatusCodes;
-    }
-    if (config.minContentLength !== undefined) {
-      this.config.minContentLength = config.minContentLength;
-    }
-    if (config.autoAddRules !== undefined) {
-      this.config.autoAddRules = config.autoAddRules;
-    }
-    if (config.onBlockingDetected !== undefined) {
-      this.config.onBlockingDetected = config.onBlockingDetected;
-    }
+  getNetworkIdleTimeoutMs(): number {
+    return this.config.networkIdleTimeoutMs;
   }
 
-  /**
-   * Check if a hostname is already marked as blocked
-   */
-  isHostnameBlocked(hostname: string): boolean {
-    return this.blockedHostnames.has(hostname);
+  isEnabled(): boolean {
+    return this.config.enabled;
   }
 
-  /**
-   * Get all blocked hostnames
-   */
-  getBlockedHostnames(): string[] {
-    return Array.from(this.blockedHostnames);
+  getOnDetection():
+    | ((
+        result: PageLoadDetectionResult,
+        page: any,
+      ) => void | Promise<void>)
+    | undefined {
+    return this.config.onDetection;
   }
 
-  /**
-   * Clear blocked hostnames cache
-   */
-  clearBlockedHostnames(): void {
-    this.blockedHostnames.clear();
+  isAutoReloadOnSuspected(): boolean {
+    return this.config.autoReloadOnSuspected;
   }
 
-  /**
-   * Analyze a page load and detect if it was blocked
-   */
-  async analyzePage(
-    page: any,
-    response: any,
-  ): Promise<PageLoadDetectionResult> {
-    if (!this.config.enabled) {
+  // --- Scoring Engine ---
+
+  private computeScore(
+    signals: DetectionSignal[],
+  ): { score: number; tier: DetectionTier } {
+    if (signals.length === 0) return { score: 0, tier: "clear" };
+    const score =
+      1 - signals.reduce((product, s) => product * (1 - s.weight), 1);
+    const tier =
+      score >= 0.7 ? "blocked" : score >= 0.4 ? "suspected" : "clear";
+    return { score, tier };
+  }
+
+  // --- Fast-pass Signal Detectors ---
+
+  private detectHttpStatus(response: any): DetectionSignal | null {
+    const status = response?.status?.() ?? 0;
+    if (status === 0) return null;
+
+    const allCodes = [403, 429, ...this.config.extraStatusCodes];
+    if (allCodes.includes(status)) {
       return {
-        url: page.url(),
-        hostname: this.extractHostname(page.url()),
-        success: true,
-        blocked: false,
+        name: `http_status_${status}`,
+        weight: 0.85,
+        details: `HTTP ${status} response`,
+        source: "fast",
       };
     }
 
-    this.logger.debug("Analyzing page load for URL: " + page.url());
+    if (status === 503) {
+      return {
+        name: "http_status_503",
+        weight: 0.6,
+        details: "HTTP 503 response",
+        source: "fast",
+      };
+    }
 
-    const url = page.url();
-    const hostname = this.extractHostname(url);
+    return null;
+  }
+
+  private detectResponseHeaders(response: any): DetectionSignal[] {
+    const signals: DetectionSignal[] = [];
+    if (!response) return signals;
 
     try {
-      // Check HTTP status code
-      const statusCode = response?.status?.() ?? 0;
+      const headers = response.headers?.() ?? {};
+
+      const cfMitigated = headers["cf-mitigated"];
       if (
-        statusCode > 0 &&
-        this.config.blockingStatusCodes.includes(statusCode)
+        cfMitigated &&
+        cfMitigated.toLowerCase().includes("challenge")
       ) {
-        const reason: BlockingReason = {
-          type: "status_code",
-          details: `HTTP status code ${statusCode} indicates blocking`,
-          statusCode,
-        };
-        await this.handleBlocking(hostname, reason, page);
-        return { url, hostname, success: false, blocked: true, reason };
+        signals.push({
+          name: "waf_header_cf_mitigated",
+          weight: 0.9,
+          details: `cf-mitigated: ${cfMitigated}`,
+          source: "fast",
+        });
       }
 
-      // Get page content
-      const content = await page.content().catch(() => "");
+      const server = headers["server"];
+      if (server && server.toLowerCase().includes("cloudflare")) {
+        signals.push({
+          name: "waf_header_cloudflare",
+          weight: 0.1,
+          details: `server: ${server}`,
+          source: "fast",
+        });
+      }
+    } catch {
+      // Graceful degradation
+    }
 
-      // Check for blocking keywords first (more specific than content length)
-      const contentLower = content.toLowerCase();
-      const title = (await page.title().catch(() => "")).toLowerCase();
-      const combinedText = `${contentLower} ${title}`;
+    return signals;
+  }
 
-      for (const keyword of this.config.blockingKeywords) {
-        if (combinedText.includes(keyword.toLowerCase())) {
-          const reason: BlockingReason = {
-            type: "keyword",
-            details: `Blocking keyword detected: "${keyword}"`,
-            keyword,
+  // --- Full-pass Signal Detectors ---
+
+  private async detectTitleKeywords(
+    page: any,
+  ): Promise<DetectionSignal | null> {
+    try {
+      const title = (await page.title()).toLowerCase();
+      const allKeywords = [...TITLE_KEYWORDS, ...this.config.extraKeywords];
+      for (const keyword of allKeywords) {
+        if (title.includes(keyword.toLowerCase())) {
+          return {
+            name: "title_keyword",
+            weight: 0.8,
+            details: `Title contains "${keyword}"`,
+            source: "full",
           };
-          await this.handleBlocking(hostname, reason, page);
-          return { url, hostname, success: false, blocked: true, reason };
+        }
+      }
+    } catch {
+      // Graceful degradation
+    }
+    return null;
+  }
+
+  private async detectChallengeSelectors(
+    page: any,
+  ): Promise<DetectionSignal | null> {
+    try {
+      const selectors = this.config.challengeSelectors;
+      const found = await page.evaluate((sels: string[]) => {
+        for (const sel of sels) {
+          if (document.querySelector(sel)) return sel;
+        }
+        return null;
+      }, selectors);
+
+      if (found) {
+        return {
+          name: "challenge_selector",
+          weight: 0.8,
+          details: `Challenge selector found: ${found}`,
+          source: "full",
+        };
+      }
+    } catch {
+      // Graceful degradation
+    }
+    return null;
+  }
+
+  private async detectVisibleText(
+    page: any,
+    useInnerText = false,
+  ): Promise<DetectionSignal[]> {
+    const signals: DetectionSignal[] = [];
+    try {
+      const text: string = useInnerText
+        ? await page.evaluate(() => document.body?.innerText ?? "")
+        : await page.evaluate(() => document.body?.textContent ?? "");
+
+      const textLower = text.toLowerCase();
+
+      if (text.length < 50) {
+        signals.push({
+          name: "visible_text_short",
+          weight: 0.2,
+          details: `Visible text very short (${text.length} chars)`,
+          source: "full",
+        });
+      }
+
+      // Strong keywords (substring match, short page < 500 chars)
+      if (text.length < 500) {
+        const allStrong = [
+          ...STRONG_TEXT_KEYWORDS,
+          ...this.config.extraKeywords,
+        ];
+        for (const keyword of allStrong) {
+          if (textLower.includes(keyword.toLowerCase())) {
+            signals.push({
+              name: "visible_text_keyword_strong",
+              weight: 0.6,
+              details: `Strong keyword "${keyword}" on short page`,
+              source: "full",
+            });
+            break;
+          }
         }
       }
 
-      // Check content length (less critical than keywords)
-      if (!content || content.length < this.config.minContentLength) {
-        const reason: BlockingReason = {
-          type: "content_length",
-          details: `Page content too short (${content.length} < ${this.config.minContentLength})`,
-        };
-        this.logger.warn(
-          `Page may have failed to load: ${url} (${reason.details})`,
+      // Weak keywords (word-boundary match)
+      for (const keyword of WEAK_TEXT_KEYWORDS) {
+        const regex = new RegExp(
+          "\\b" + this.escapeRegex(keyword) + "\\b",
+          "i",
         );
-        return { url, hostname, success: false, blocked: false, reason };
+        if (regex.test(text)) {
+          signals.push({
+            name: "visible_text_keyword_weak",
+            weight: 0.15,
+            details: `Weak keyword "${keyword}" found with word boundary`,
+            source: "full",
+          });
+          break;
+        }
       }
-
-      // Page loaded successfully
-      return { url, hostname, success: true, blocked: false };
-    } catch (error: any) {
-      const reason: BlockingReason = {
-        type: "error",
-        details: `Error analyzing page: ${error.message}`,
-      };
-      this.logger.warn(
-        `Error checking page load status for ${url}: ${error.message}`,
-      );
-      return { url, hostname, success: false, blocked: false, reason };
+    } catch {
+      // Graceful degradation
     }
+    return signals;
   }
 
-  /**
-   * Handle detected blocking
-   */
-  private async handleBlocking(
-    hostname: string,
-    reason: BlockingReason,
+  private async detectTextToHtmlRatio(
     page: any,
-  ): Promise<void> {
-    this.blockedHostnames.add(hostname);
-    this.logger.warn(`Blocking detected for ${hostname}: ${reason.details}`);
+  ): Promise<DetectionSignal | null> {
+    try {
+      const result = await page.evaluate(() => {
+        const html = document.documentElement?.outerHTML ?? "";
+        const text = document.body?.textContent ?? "";
+        return { htmlLength: html.length, textLength: text.length };
+      });
 
-    // Trigger callback if provided
-    if (this.config.onBlockingDetected) {
-      try {
-        await this.config.onBlockingDetected(hostname, reason, page);
-      } catch (error: any) {
-        this.logger.warn(
-          `Error in onBlockingDetected callback: ${error.message}`,
-        );
+      if (
+        result.htmlLength >= 1000 &&
+        result.textLength / result.htmlLength < 0.03
+      ) {
+        return {
+          name: "low_text_ratio",
+          weight: 0.2,
+          details: `Low text/HTML ratio: ${result.textLength}/${result.htmlLength}`,
+          source: "full",
+        };
       }
+    } catch {
+      // Graceful degradation
     }
+    return null;
+  }
+
+  private detectRedirectChain(
+    response: any,
+  ): { signals: DetectionSignal[]; chain: RedirectHop[] } {
+    const chain: RedirectHop[] = [];
+    const signals: DetectionSignal[] = [];
+
+    try {
+      if (!response) return { signals, chain };
+
+      // Walk redirect chain backwards
+      let req = response.request?.();
+      const hops: Array<{ url: string; statusCode: number }> = [];
+
+      while (req) {
+        const redirectedFrom = req.redirectedFrom?.();
+        if (!redirectedFrom) break;
+        const redirectResponse = redirectedFrom.response?.();
+        hops.push({
+          url: redirectedFrom.url?.() ?? "",
+          statusCode: redirectResponse?.status?.() ?? 0,
+        });
+        req = redirectedFrom;
+      }
+
+      // Reverse to get chronological order
+      hops.reverse();
+      chain.push(...hops);
+
+      // Check if any hop URL matches challenge domain patterns
+      for (const hop of chain) {
+        for (const pattern of CHALLENGE_DOMAIN_PATTERNS) {
+          if (hop.url.includes(pattern)) {
+            signals.push({
+              name: "redirect_to_challenge",
+              weight: 0.7,
+              details: `Redirect through challenge domain: ${hop.url}`,
+              source: "full",
+            });
+            return { signals, chain };
+          }
+        }
+      }
+
+      // Also check the final response URL
+      const finalUrl = response.url?.() ?? "";
+      for (const pattern of CHALLENGE_DOMAIN_PATTERNS) {
+        if (finalUrl.includes(pattern)) {
+          signals.push({
+            name: "redirect_to_challenge",
+            weight: 0.7,
+            details: `Final URL is challenge domain: ${finalUrl}`,
+            source: "full",
+          });
+          break;
+        }
+      }
+    } catch {
+      // Graceful degradation
+    }
+
+    return { signals, chain };
+  }
+
+  private async detectMetaRefresh(
+    page: any,
+  ): Promise<DetectionSignal | null> {
+    try {
+      const refreshUrl = await page.evaluate(() => {
+        const meta = document.querySelector('meta[http-equiv="refresh"]');
+        if (!meta) return null;
+        const content = meta.getAttribute("content") ?? "";
+        const match = content.match(/url\s*=\s*(.+)/i);
+        return match ? match[1].trim() : null;
+      });
+
+      if (refreshUrl) {
+        for (const pattern of CHALLENGE_DOMAIN_PATTERNS) {
+          if (refreshUrl.includes(pattern)) {
+            return {
+              name: "meta_refresh_challenge",
+              weight: 0.65,
+              details: `Meta refresh to challenge URL: ${refreshUrl}`,
+              source: "full",
+            };
+          }
+        }
+      }
+    } catch {
+      // Graceful degradation
+    }
+    return null;
+  }
+
+  // --- Two-Pass Analysis API ---
+
+  /**
+   * Fast pass - runs at domcontentloaded. Only HTTP status + response headers.
+   * If score >= 0.9, caller should trigger remediation immediately.
+   */
+  async analyzeFast(
+    page: any,
+    response: any,
+  ): Promise<PageLoadDetectionResult> {
+    const url = page.url();
+    const hostname = this.extractHostname(url);
+
+    if (!this.config.enabled) {
+      return this.makeResult(url, hostname, [], "fast", []);
+    }
+
+    const signals: DetectionSignal[] = [];
+
+    const statusSignal = this.detectHttpStatus(response);
+    if (statusSignal) signals.push(statusSignal);
+
+    const headerSignals = this.detectResponseHeaders(response);
+    signals.push(...headerSignals);
+
+    const result = this.makeResult(url, hostname, signals, "fast", []);
+    this.logResult(result);
+    return result;
   }
 
   /**
-   * Extract hostname from URL
+   * Full pass - runs after networkidle. Runs all detectors and merges with fast pass.
    */
+  async analyzeFull(
+    page: any,
+    response: any,
+    fastResult?: PageLoadDetectionResult,
+  ): Promise<PageLoadDetectionResult> {
+    const url = page.url();
+    const hostname = this.extractHostname(url);
+
+    if (!this.config.enabled) {
+      return this.makeResult(url, hostname, [], "full", []);
+    }
+
+    // Start with fast-pass signals
+    const signals: DetectionSignal[] = fastResult
+      ? [...fastResult.signals]
+      : [];
+
+    // If no fast pass was done and we have a response, run fast detectors
+    if (!fastResult && response) {
+      const statusSignal = this.detectHttpStatus(response);
+      if (statusSignal) signals.push(statusSignal);
+
+      const headerSignals = this.detectResponseHeaders(response);
+      signals.push(...headerSignals);
+    }
+
+    // Full-pass detectors
+    const titleSignal = await this.detectTitleKeywords(page);
+    if (titleSignal) signals.push(titleSignal);
+
+    const challengeSignal = await this.detectChallengeSelectors(page);
+    if (challengeSignal) signals.push(challengeSignal);
+
+    const textSignals = await this.detectVisibleText(page, false);
+    signals.push(...textSignals);
+
+    const ratioSignal = await this.detectTextToHtmlRatio(page);
+    if (ratioSignal) signals.push(ratioSignal);
+
+    const { signals: redirectSignals, chain } =
+      this.detectRedirectChain(response);
+    signals.push(...redirectSignals);
+
+    const metaSignal = await this.detectMetaRefresh(page);
+    if (metaSignal) signals.push(metaSignal);
+
+    // Check if in suspected range - re-run text detection with innerText
+    const preliminary = this.computeScore(signals);
+    if (preliminary.score >= 0.4 && preliminary.score < 0.7) {
+      const nonTextSignals = signals.filter(
+        (s) => !s.name.startsWith("visible_text_"),
+      );
+      const innerTextSignals = await this.detectVisibleText(page, true);
+      nonTextSignals.push(...innerTextSignals);
+
+      const result = this.makeResult(
+        url,
+        hostname,
+        nonTextSignals,
+        "full",
+        chain,
+      );
+      this.logResult(result);
+      return result;
+    }
+
+    const result = this.makeResult(url, hostname, signals, "full", chain);
+    this.logResult(result);
+    return result;
+  }
+
+  /**
+   * SPA navigation analysis - content-based detectors only, no HTTP signals.
+   */
+  async analyzeSpa(page: any): Promise<PageLoadDetectionResult> {
+    const url = page.url();
+    const hostname = this.extractHostname(url);
+
+    if (!this.config.enabled) {
+      return this.makeResult(url, hostname, [], "full", []);
+    }
+
+    const signals: DetectionSignal[] = [];
+
+    const titleSignal = await this.detectTitleKeywords(page);
+    if (titleSignal) signals.push(titleSignal);
+
+    const challengeSignal = await this.detectChallengeSelectors(page);
+    if (challengeSignal) signals.push(challengeSignal);
+
+    const textSignals = await this.detectVisibleText(page, false);
+    signals.push(...textSignals);
+
+    const ratioSignal = await this.detectTextToHtmlRatio(page);
+    if (ratioSignal) signals.push(ratioSignal);
+
+    const metaSignal = await this.detectMetaRefresh(page);
+    if (metaSignal) signals.push(metaSignal);
+
+    // Check if in suspected range - re-run text detection with innerText
+    const preliminary = this.computeScore(signals);
+    if (preliminary.score >= 0.4 && preliminary.score < 0.7) {
+      const nonTextSignals = signals.filter(
+        (s) => !s.name.startsWith("visible_text_"),
+      );
+      const innerTextSignals = await this.detectVisibleText(page, true);
+      nonTextSignals.push(...innerTextSignals);
+
+      const result = this.makeResult(
+        url,
+        hostname,
+        nonTextSignals,
+        "full",
+        [],
+      );
+      this.logResult(result);
+      return result;
+    }
+
+    const result = this.makeResult(url, hostname, signals, "full", []);
+    this.logResult(result);
+    return result;
+  }
+
+  // --- Utility Methods ---
+
+  private makeResult(
+    url: string,
+    hostname: string,
+    signals: DetectionSignal[],
+    pass: "fast" | "full",
+    redirectChain: RedirectHop[],
+  ): PageLoadDetectionResult {
+    const { score, tier } = this.computeScore(signals);
+    return {
+      url,
+      hostname,
+      tier,
+      score,
+      signals,
+      pass,
+      persistentBlock: false,
+      redirectChain,
+    };
+  }
+
+  private logResult(result: PageLoadDetectionResult): void {
+    this.logger.debug(
+      `Detection result: ${JSON.stringify({
+        url: result.url,
+        tier: result.tier,
+        score: result.score,
+        signals: result.signals.map((s) => ({
+          name: s.name,
+          weight: s.weight,
+          source: s.source,
+        })),
+        pass: result.pass,
+      })}`,
+    );
+  }
+
   private extractHostname(url: string): string {
     try {
       const parsed = new URL(url);
@@ -280,5 +665,9 @@ export class PageLoadDetection {
     } catch {
       return url;
     }
+  }
+
+  private escapeRegex(str: string): string {
+    return str.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
   }
 }

@@ -21,7 +21,10 @@ import {
 } from "./adapters.js";
 import { Logger } from "./logger.js";
 import { AluviaApi } from "../api/AluviaApi.js";
-import { PageLoadDetection } from "./PageLoadDetection.js";
+import {
+  PageLoadDetection,
+  type PageLoadDetectionResult,
+} from "./PageLoadDetection.js";
 
 /**
  * AluviaClient is the main entry point for the Aluvia Client.
@@ -38,6 +41,15 @@ export class AluviaClient {
   private readonly logger: Logger;
   public readonly api: AluviaApi;
   private pageLoadDetection: PageLoadDetection | null = null;
+  private pageStates = new WeakMap<
+    any,
+    {
+      lastResponse: any;
+      lastAnalysisTs: number;
+      skipFullPass: boolean;
+      fastResult: PageLoadDetectionResult | null;
+    }
+  >();
 
   constructor(options: AluviaClientOptions) {
     const apiKey = String(options.apiKey ?? "").trim();
@@ -84,82 +96,7 @@ export class AluviaClient {
     // Initialize page load detection if configured
     if (options.pageLoadDetection !== undefined || options.startPlaywright) {
       this.logger.debug("Initializing page load detection");
-      // Default to enabled if startPlaywright is true
       const detectionConfig = options.pageLoadDetection ?? { enabled: true };
-
-      // Setup default blocking handler if no custom callback is provided
-      // Default behavior: add hostname to rules and reload the page (once per URL)
-      if (!detectionConfig.onBlockingDetected) {
-        // Track URLs that have already been retried to prevent reload loops
-        const retriedUrls = new Set<string>();
-
-        detectionConfig.onBlockingDetected = async (hostname, reason, page) => {
-          const url = page.url();
-
-          // Check if we've already retried this URL
-          if (retriedUrls.has(url)) {
-            this.logger.warn(
-              `Blocking persists for ${url} after retry, not reloading again`,
-            );
-            return;
-          }
-
-          // Mark this URL as retried
-          retriedUrls.add(url);
-
-          // Automatically add hostname to rules
-          try {
-            const config = this.configManager.getConfig();
-            const currentRules = config?.rules ?? [];
-            if (!currentRules.includes(hostname)) {
-              this.logger.info(
-                `Auto-adding ${hostname} to routing rules due to blocking detection`,
-              );
-              await this.updateRules([...currentRules, hostname]);
-            }
-          } catch (error: any) {
-            this.logger.warn(
-              `Failed to auto-add rule for ${hostname}: ${error.message}`,
-            );
-          }
-
-          // Reload the page to retry with the new rules
-          try {
-            this.logger.info(
-              `Reloading page after adding ${hostname} to rules`,
-            );
-            await page.reload();
-          } catch (error: any) {
-            this.logger.warn(
-              `Failed to reload page for ${hostname}: ${error.message}`,
-            );
-          }
-        };
-      } else if (detectionConfig.autoAddRules) {
-        // User provided a custom callback but also wants autoAddRules
-        const originalCallback = detectionConfig.onBlockingDetected;
-        detectionConfig.onBlockingDetected = async (hostname, reason, page) => {
-          // Call original callback if provided
-          await originalCallback(hostname, reason, page);
-
-          // Automatically add hostname to rules
-          try {
-            const config = this.configManager.getConfig();
-            const currentRules = config?.rules ?? [];
-            if (!currentRules.includes(hostname)) {
-              this.logger.info(
-                `Auto-adding ${hostname} to routing rules due to blocking detection`,
-              );
-              await this.updateRules([...currentRules, hostname]);
-            }
-          } catch (error: any) {
-            this.logger.warn(
-              `Failed to auto-add rule for ${hostname}: ${error.message}`,
-            );
-          }
-        };
-      }
-
       this.pageLoadDetection = new PageLoadDetection(
         detectionConfig,
         this.logger,
@@ -168,55 +105,224 @@ export class AluviaClient {
   }
 
   /**
-   * Attaches a listener to detect when new pages are created in the browser
-   * and monitors their load status.
+   * Attaches per-page listeners for two-pass detection and SPA navigation.
+   */
+  private attachPageListeners(page: any): void {
+    const pageState = {
+      lastResponse: null as any,
+      lastAnalysisTs: 0,
+      skipFullPass: false,
+      fastResult: null as PageLoadDetectionResult | null,
+    };
+    this.pageStates.set(page, pageState);
+
+    // Capture navigation responses on main frame
+    page.on("response", (response: any) => {
+      try {
+        if (
+          response.request().isNavigationRequest() &&
+          response.request().frame() === page.mainFrame()
+        ) {
+          pageState.lastResponse = response;
+          pageState.skipFullPass = false;
+          pageState.fastResult = null;
+        }
+      } catch {
+        // Ignore errors
+      }
+    });
+
+    // Fast pass at domcontentloaded
+    page.on("domcontentloaded", async () => {
+      if (!this.pageLoadDetection) return;
+      try {
+        const result = await this.pageLoadDetection.analyzeFast(
+          page,
+          pageState.lastResponse,
+        );
+        pageState.fastResult = result;
+        pageState.lastAnalysisTs = Date.now();
+
+        if (result.score >= 0.9) {
+          pageState.skipFullPass = true;
+          await this.handleDetectionResult(result, page);
+        }
+      } catch (error: any) {
+        this.logger.warn(`Error in fast-pass detection: ${error.message}`);
+      }
+    });
+
+    // Full pass at load
+    page.on("load", async () => {
+      if (!this.pageLoadDetection || pageState.skipFullPass) return;
+      try {
+        // Wait for networkidle with timeout cap
+        try {
+          await page.waitForLoadState("networkidle", {
+            timeout: this.pageLoadDetection.getNetworkIdleTimeoutMs(),
+          });
+        } catch {
+          // Timeout is ok, proceed anyway
+        }
+
+        const result = await this.pageLoadDetection.analyzeFull(
+          page,
+          pageState.lastResponse,
+          pageState.fastResult ?? undefined,
+        );
+        pageState.lastAnalysisTs = Date.now();
+
+        if (result.tier !== "clear") {
+          await this.handleDetectionResult(result, page);
+        }
+      } catch (error: any) {
+        this.logger.warn(`Error in full-pass detection: ${error.message}`);
+      }
+    });
+
+    // SPA detection via framenavigated
+    page.on("framenavigated", async (frame: any) => {
+      if (!this.pageLoadDetection) return;
+      try {
+        // Only handle main frame
+        if (frame !== page.mainFrame()) return;
+
+        // Debounce per-page
+        const now = Date.now();
+        if (now - pageState.lastAnalysisTs < 200) return;
+
+        // Wait 50ms and check if a new response arrived
+        const responseBefore = pageState.lastResponse;
+        await new Promise((resolve) => setTimeout(resolve, 50));
+        if (pageState.lastResponse !== responseBefore) return; // Not SPA
+
+        const result = await this.pageLoadDetection.analyzeSpa(page);
+        pageState.lastAnalysisTs = Date.now();
+
+        if (result.tier !== "clear") {
+          await this.handleDetectionResult(result, page);
+        }
+      } catch (error: any) {
+        this.logger.warn(`Error in SPA detection: ${error.message}`);
+      }
+    });
+  }
+
+  /**
+   * Attaches page listeners to all existing and future pages in a context.
    */
   private attachPageLoadListener(context: any): void {
     this.logger.debug("Attaching page load listener to context");
-    context.on("page", async (page: any) => {
+
+    // Attach to existing pages
+    try {
+      const existingPages = context.pages();
+      for (const page of existingPages) {
+        this.attachPageListeners(page);
+        // Check if page has already loaded (not about:blank)
+        if (page.url() !== "about:blank" && this.pageLoadDetection) {
+          this.pageLoadDetection
+            .analyzeFull(page, null)
+            .then((result: PageLoadDetectionResult) => {
+              if (result.tier !== "clear") {
+                this.handleDetectionResult(result, page);
+              }
+            })
+            .catch((error: any) => {
+              this.logger.warn(
+                `Error analyzing existing page: ${error.message}`,
+              );
+            });
+        }
+      }
+    } catch {
+      // Ignore errors
+    }
+
+    // Attach to future pages
+    context.on("page", (page: any) => {
       this.logger.debug(`New page detected: ${page.url()}`);
-      // Store response for analysis
-      let pageResponse: any = null;
-
-      page.on("response", (response: any) => {
-        // Capture the main frame response
-        if (response.request().isNavigationRequest()) {
-          pageResponse = response;
-        }
-      });
-
-      page.on("domcontentloaded", async () => {
-        try {
-          // Use enhanced detection if available
-          if (this.pageLoadDetection) {
-            const result = await this.pageLoadDetection.analyzePage(
-              page,
-              pageResponse,
-            );
-
-            if (result.blocked) {
-              this.logger.warn(
-                `Blocking detected on ${result.hostname}: ${result.reason?.details}`,
-              );
-            } else if (!result.success && result.reason) {
-              this.logger.warn(
-                `Page load issue for ${result.url}: ${result.reason.details}`,
-              );
-            }
-          } else {
-            // Fallback to simple detection
-            const url = page.url();
-            const content = await page.content().catch(() => "");
-
-            if (!content || content.length < 100) {
-              this.logger.warn(`Page may have failed to load: ${url}`);
-            }
-          }
-        } catch (error: any) {
-          this.logger.warn(`Error checking page load status: ${error.message}`);
-        }
-      });
+      this.attachPageListeners(page);
     });
+  }
+
+  /**
+   * Handle a detection result: fire callback, check persistent block, reload if needed.
+   */
+  private async handleDetectionResult(
+    result: PageLoadDetectionResult,
+    page: any,
+  ): Promise<void> {
+    if (!this.pageLoadDetection) return;
+
+    // Fire user's onDetection callback
+    const onDetection = this.pageLoadDetection.getOnDetection();
+    if (onDetection) {
+      try {
+        await onDetection(result, page);
+      } catch (error: any) {
+        this.logger.warn(`Error in onDetection callback: ${error.message}`);
+      }
+    }
+
+    // Check if auto-reload should fire
+    const shouldReload =
+      result.tier === "blocked" ||
+      (result.tier === "suspected" &&
+        this.pageLoadDetection.isAutoReloadOnSuspected());
+
+    if (!shouldReload) return;
+
+    const url = result.url;
+    const hostname = result.hostname;
+
+    // Check persistent block escalation
+    if (this.pageLoadDetection.persistentHostnames.has(hostname)) {
+      result.persistentBlock = true;
+      this.logger.warn(
+        `Persistent block on ${hostname}, skipping reload`,
+      );
+      return;
+    }
+
+    if (this.pageLoadDetection.retriedUrls.has(url)) {
+      // Second block for this URL - mark hostname as persistent
+      result.persistentBlock = true;
+      this.pageLoadDetection.persistentHostnames.add(hostname);
+      this.logger.warn(
+        `Persistent block detected for ${hostname} after retry of ${url}`,
+      );
+      return;
+    }
+
+    // First block for this URL
+    this.pageLoadDetection.retriedUrls.add(url);
+
+    // Add hostname to proxy routing rules
+    try {
+      const config = this.configManager.getConfig();
+      const currentRules = config?.rules ?? [];
+      if (!currentRules.includes(hostname)) {
+        this.logger.info(
+          `Auto-adding ${hostname} to routing rules due to detection (tier: ${result.tier})`,
+        );
+        await this.updateRules([...currentRules, hostname]);
+      }
+    } catch (error: any) {
+      this.logger.warn(
+        `Failed to auto-add rule for ${hostname}: ${error.message}`,
+      );
+    }
+
+    // Reload page
+    try {
+      this.logger.info(`Reloading page after adding ${hostname} to rules`);
+      await page.reload();
+    } catch (error: any) {
+      this.logger.warn(
+        `Failed to reload page for ${hostname}: ${error.message}`,
+      );
+    }
   }
 
   /**
@@ -441,17 +547,18 @@ export class AluviaClient {
     if (!this.pageLoadDetection) {
       return [];
     }
-    return this.pageLoadDetection.getBlockedHostnames();
+    return Array.from(this.pageLoadDetection.persistentHostnames);
   }
 
   /**
-   * Clear the list of blocked hostnames.
+   * Clear the list of blocked hostnames and retried URLs.
    *
    * Only available when page load detection is enabled.
    */
   clearBlockedHostnames(): void {
     if (this.pageLoadDetection) {
-      this.pageLoadDetection.clearBlockedHostnames();
+      this.pageLoadDetection.persistentHostnames.clear();
+      this.pageLoadDetection.retriedUrls.clear();
     }
   }
 }

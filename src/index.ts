@@ -21,8 +21,10 @@ export type {
   AluviaClientConnection,
   PlaywrightProxySettings,
   PageLoadDetectionConfig,
-  BlockingReason,
   PageLoadDetectionResult,
+  DetectionTier,
+  DetectionSignal,
+  RedirectHop,
 } from "./client/types.js";
 
 export type {
