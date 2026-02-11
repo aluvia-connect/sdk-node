@@ -106,6 +106,7 @@ export class AluviaClient {
       let browserInstance: any = undefined;
       if (this.options.startPlaywright) {
         try {
+          // @ts-expect-error -- 'playwright' is an optional peer dependency and may not be installed at typecheck time
           const pw = await import('playwright');
 
           // We need to launch the browser after we have proxy configuration
