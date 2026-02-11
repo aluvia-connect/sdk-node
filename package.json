@@ -26,7 +26,7 @@
   },
   "bin": {
     "aluvia": "./dist/esm/bin/cli.js",
-    "@aluvia/sdk": "./dist/esm/bin/cli.js"
+    "aluvia-sdk": "./dist/esm/bin/cli.js"
   },
   "files": [
     "dist/**/*",
