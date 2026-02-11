@@ -2,10 +2,13 @@
 //
 // When called without --daemon, spawns a detached child process with --daemon
 // so the browser survives terminal close. The parent prints session info and exits.
+//
+// All user-facing output is JSON via the output() helper.
+// The daemon process logs to a file (not stdout) for diagnostics.
 
 import { AluviaClient } from '../client/AluviaClient.js';
-import { Logger } from '../client/logger.js';
 import { writeLock, readLock, removeLock, isProcessAlive, getLogFilePath } from './lock.js';
+import { output } from './cli.js';
 import { spawn } from 'node:child_process';
 import * as fs from 'node:fs';
 
@@ -13,15 +16,21 @@ import * as fs from 'node:fs';
  * Called from cli.ts when running `open <url>`.
  * Spawns the actual browser in a detached child and returns immediately.
  */
-export function handleOpen(url: string, connectionId: number | undefined, logger: Logger): void {
+export function handleOpen(url: string, connectionId: number | undefined): void {
   // Check for existing instance
   const existing = readLock();
   if (existing !== null && isProcessAlive(existing.pid)) {
-    logger.error(`A browser session is already running (PID ${existing.pid}).`);
-    if (existing.url) logger.error(`  URL: ${existing.url}`);
-    if (existing.connectionId) logger.error(`  Connection ID: ${existing.connectionId}`);
-    logger.error("Run 'npx @aluvia/sdk close' first.");
-    process.exit(1);
+    output(
+      {
+        status: 'error',
+        error: 'A browser session is already running.',
+        url: existing.url ?? null,
+        cdpUrl: existing.cdpUrl ?? null,
+        connectionId: existing.connectionId ?? null,
+        pid: existing.pid,
+      },
+      1,
+    );
   }
 
   // Clean up stale lock if process is dead
@@ -32,11 +41,8 @@ export function handleOpen(url: string, connectionId: number | undefined, logger
   // Require API key
   const apiKey = process.env.ALUVIA_API_KEY;
   if (!apiKey) {
-    logger.error('ALUVIA_API_KEY environment variable is required.');
-    process.exit(1);
+    output({ status: 'error', error: 'ALUVIA_API_KEY environment variable is required.' }, 1);
   }
-
-  logger.info('Starting Aluvia proxy and browser...');
 
   // Spawn a detached child process that runs the daemon
   const logFile = getLogFilePath();
@@ -64,24 +70,25 @@ export function handleOpen(url: string, connectionId: number | undefined, logger
     const lock = readLock();
     if (lock && lock.ready) {
       clearInterval(poll);
-      logger.info('Browser session started successfully!');
-      logger.info(`  PID:           ${lock.pid}`);
-      if (lock.connectionId) logger.info(`  Connection ID: ${lock.connectionId}`);
-      if (lock.cdpUrl) logger.info(`  CDP URL:       ${lock.cdpUrl}`);
-      if (lock.url) logger.info(`  URL:           ${lock.url}`);
-      logger.info('');
-      logger.info("Run 'npx @aluvia/sdk close' to stop the browser.");
-      process.exit(0);
+      output({
+        status: 'ok',
+        url: lock.url ?? null,
+        cdpUrl: lock.cdpUrl ?? null,
+        connectionId: lock.connectionId ?? null,
+        pid: lock.pid,
+      });
     }
     if (attempts >= maxAttempts) {
       clearInterval(poll);
-      // Check if child is still alive
-      if (child.pid && isProcessAlive(child.pid)) {
-        logger.info('Browser is starting (still initializing). Check log: ' + logFile);
-      } else {
-        logger.error('Browser process exited unexpectedly. Check log: ' + logFile);
-      }
-      process.exit(1);
+      const alive = child.pid ? isProcessAlive(child.pid) : false;
+      output(
+        {
+          status: 'error',
+          error: alive ? 'Browser is still initializing (timeout).' : 'Browser process exited unexpectedly.',
+          logFile,
+        },
+        1,
+      );
     }
   }, 250);
 }
@@ -89,12 +96,9 @@ export function handleOpen(url: string, connectionId: number | undefined, logger
 /**
  * Daemon entry point — runs in the detached child process.
  * Starts the proxy + browser, writes lock, and stays alive.
+ * Logs go to the daemon log file (stdout is redirected), not to the user.
  */
-export async function handleOpenDaemon(
-  url: string,
-  connectionId: number | undefined,
-  logger: Logger,
-): Promise<void> {
+export async function handleOpenDaemon(url: string, connectionId: number | undefined): Promise<void> {
   const apiKey = process.env.ALUVIA_API_KEY!;
 
   const client = new AluviaClient({
@@ -109,11 +113,10 @@ export async function handleOpenDaemon(
   // Write early lock so parent knows daemon is alive
   writeLock({ pid: process.pid, url });
 
-  logger.info('Browser initialized');
-  logger.info(`  Proxy:         ${connection.url}`);
-  if (connection.cdpUrl) logger.info(`  CDP URL:       ${connection.cdpUrl}`);
-  if (connectionId) logger.info(`  Connection ID: ${connectionId}`);
-  logger.info(`Opening ${url} ...`);
+  console.log(`[daemon] Browser initialized — proxy: ${connection.url}`);
+  if (connection.cdpUrl) console.log(`[daemon] CDP URL: ${connection.cdpUrl}`);
+  if (connectionId) console.log(`[daemon] Connection ID: ${connectionId}`);
+  console.log(`[daemon] Opening ${url}`);
 
   // Navigate to URL in the browser
   const page = await connection.browser.newPage();
@@ -146,24 +149,24 @@ export async function handleOpenDaemon(
     ready: true,
   });
 
-  logger.info('Browser session is running.');
-  if (pageTitle) logger.info(`  Page title:    ${pageTitle}`);
-  if (connId) logger.info(`  Connection ID: ${connId}`);
-  if (cdpUrl) logger.info(`  CDP URL:       ${cdpUrl}`);
+  console.log(
+    `[daemon] Session ready — url: ${url}, cdpUrl: ${cdpUrl}, connectionId: ${connId ?? 'unknown'}, pid: ${process.pid}`,
+  );
+  if (pageTitle) console.log(`[daemon] Page title: ${pageTitle}`);
 
   // Graceful shutdown handler
   let stopping = false;
   const shutdown = async () => {
     if (stopping) return;
     stopping = true;
-    logger.info('Shutting down...');
+    console.log('[daemon] Shutting down...');
     try {
       await connection.close();
     } catch {
       // ignore
     }
     removeLock();
-    logger.info('Stopped.');
+    console.log('[daemon] Stopped.');
     process.exit(0);
   };
 
@@ -174,7 +177,7 @@ export async function handleOpenDaemon(
   if (connection.browser) {
     connection.browser.on('disconnected', () => {
       if (!stopping) {
-        logger.info('Browser closed by user.');
+        console.log('[daemon] Browser closed by user.');
         removeLock();
         client
           .stop()

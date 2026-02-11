@@ -1,48 +1,56 @@
 // CLI close command — stop a running browser instance
+// All user-facing output is JSON via the output() helper.
 
-import { Logger } from '../client/logger.js';
 import { readLock, removeLock, isProcessAlive } from './lock.js';
+import { output } from './cli.js';
 
-export async function handleClose(logger: Logger): Promise<void> {
+export async function handleClose(): Promise<void> {
   const lock = readLock();
   if (lock === null) {
-    logger.info('No running browser session found.');
-    return;
+    output({ status: 'ok', message: 'No running browser session found.' });
   }
 
-  if (!isProcessAlive(lock.pid)) {
-    logger.info('Browser process is no longer running. Cleaning up lock file.');
+  if (!isProcessAlive(lock!.pid)) {
     removeLock();
-    return;
+    output({ status: 'ok', message: 'Browser process was not running. Lock file cleaned up.' });
   }
-
-  logger.info(`Stopping browser session (PID ${lock.pid})...`);
 
   try {
-    process.kill(lock.pid, 'SIGTERM');
+    process.kill(lock!.pid, 'SIGTERM');
   } catch (err: any) {
-    logger.error(`Failed to stop process: ${err.message}`);
-    process.exit(1);
+    output({ status: 'error', error: `Failed to stop process: ${err.message}` }, 1);
   }
 
   // Wait for the process to exit (up to 10 seconds)
   const maxWait = 40;
   for (let i = 0; i < maxWait; i++) {
     await new Promise((r) => setTimeout(r, 250));
-    if (!isProcessAlive(lock.pid)) {
+    if (!isProcessAlive(lock!.pid)) {
       removeLock();
-      logger.info('Browser session closed successfully.');
-      return;
+      output({
+        status: 'ok',
+        message: 'Browser session closed.',
+        url: lock!.url ?? null,
+        cdpUrl: lock!.cdpUrl ?? null,
+        connectionId: lock!.connectionId ?? null,
+        pid: lock!.pid,
+      });
     }
   }
 
   // Force kill if still alive
-  logger.warn('Process did not exit gracefully. Force killing...');
   try {
-    process.kill(lock.pid, 'SIGKILL');
+    process.kill(lock!.pid, 'SIGKILL');
   } catch {
     // ignore
   }
   removeLock();
-  logger.info('Browser session closed.');
+  output({
+    status: 'ok',
+    message: 'Browser session force-killed.',
+    url: lock!.url ?? null,
+    cdpUrl: lock!.cdpUrl ?? null,
+    connectionId: lock!.connectionId ?? null,
+    pid: lock!.pid,
+  });
 }
