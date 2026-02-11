@@ -28,6 +28,12 @@ This runs:
 node --import tsx --test test/integration.test.ts
 ```
 
+### Run Page Load Detection Tests
+
+```bash
+node --import tsx --test test/page-load-detection.test.ts
+```
+
 ### Run Specific Test File
 
 ```bash
@@ -48,7 +54,14 @@ node --import tsx --test --test-name-pattern="AluviaClient" test/integration.tes
 
 ## Test Structure
 
-Tests are located in `test/integration.test.ts` and organized by module:
+Tests are organized across two files:
+
+- **`test/integration.test.ts`** — Integration tests for AluviaClient, ConfigManager, AluviaApi, routing rules, ProxyServer, Logger, error classes, and Playwright integration.
+- **`test/page-load-detection.test.ts`** — Unit tests for the page load detection system: scoring engine, signal detectors, word-boundary matching, text-to-HTML ratio, two-pass analysis flow, persistent block escalation, and edge cases.
+
+### `test/integration.test.ts`
+
+Organized by module:
 
 ```ts
 describe('AluviaClient', () => {
@@ -71,6 +84,47 @@ describe('matchPattern', () => {
 
 describe('shouldProxy', () => {
   // ...
+});
+
+describe('PageLoadDetection Integration', () => {
+  // ...
+});
+```
+
+### `test/page-load-detection.test.ts`
+
+```ts
+describe('Scoring Engine', () => {
+  // Probabilistic combination, tier boundaries
+});
+
+describe('Signal Detectors', () => {
+  // HTTP status, response headers, title keywords,
+  // challenge selectors, visible text
+});
+
+describe('Word Boundary Matching', () => {
+  // "blocked" matches "you are blocked" but not "blockchain"
+});
+
+describe('Text-to-HTML Ratio', () => {
+  // Fires when html >= 1000 bytes, skips small pages
+});
+
+describe('Two-Pass Flow', () => {
+  // Fast pass, full pass merging, SPA analysis
+});
+
+describe('Persistent Block Escalation', () => {
+  // retriedUrls and persistentHostnames tracking
+});
+
+describe('Edge Cases', () => {
+  // Null response, evaluate failures, disabled detection
+});
+
+describe('Structured Debug Logging', () => {
+  // JSON output format verification
 });
 ```
 

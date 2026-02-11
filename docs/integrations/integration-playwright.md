@@ -44,6 +44,38 @@ try {
 }
 ```
 
+## Auto-launch with page load detection
+
+Use `startPlaywright: true` with `pageLoadDetection` to let the SDK launch a Chromium browser and automatically detect and recover from blocks:
+
+```ts
+import { AluviaClient } from '@aluvia/sdk';
+
+const client = new AluviaClient({
+  apiKey: process.env.ALUVIA_API_KEY!,
+  startPlaywright: true,
+  pageLoadDetection: {
+    enabled: true,
+    onDetection: (result, page) => {
+      console.log(`${result.tier} on ${result.hostname} (score: ${result.score})`);
+    },
+  },
+});
+
+const connection = await client.start();
+
+try {
+  const page = await connection.browserContext.newPage();
+  // If the page is blocked, the SDK automatically adds the hostname
+  // to routing rules and reloads through Aluvia's mobile IPs
+  await page.goto('https://example.com');
+} finally {
+  await connection.close();
+}
+```
+
+The detection system uses a weighted scoring engine with two-pass analysis (fast pass at `domcontentloaded`, full pass after `networkidle`) and handles SPA navigations. See the [Client Technical Guide](../client-technical-guide.md#page-load-detection) for full configuration options and signal details.
+
 ## Node.js: use the SDK API wrapper to fetch gateway proxy credentials
 
 If you don’t want to start the SDK’s local proxy process, you can call the Aluvia API directly via the SDK’s API wrapper (`AluviaApi`) to fetch the **proxy username/password** for an account connection, then configure Playwright with those credentials.

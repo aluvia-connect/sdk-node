@@ -11,6 +11,7 @@
 - [Routing Rules](#routing-rules)
 - [Runtime Updates](#runtime-updates)
 - [Error Handling](#error-handling)
+- [Page Load Detection](#page-load-detection)
 - [Security](#security)
 - [Internal Behavior](#internal-behavior)
 
@@ -82,6 +83,8 @@ new AluviaClient(options: AluviaClientOptions)
 | `gatewayPort` | `number` | `8080` (http) / `8443` (https) | Gateway port. |
 | `localPort` | `number` | OS-assigned | Local proxy port (client proxy mode only). |
 | `logLevel` | `"silent" \| "info" \| "debug"` | `"info"` | Logging verbosity. |
+| `startPlaywright` | `boolean` | `false` | Auto-launch Chromium with proxy configured. Requires `playwright` installed. |
+| `pageLoadDetection` | `PageLoadDetectionConfig` | `undefined` | Configure automatic page load detection. See [Page Load Detection](#page-load-detection). |
 
 ### Methods
 
@@ -454,6 +457,115 @@ const connection = await client.start();
 ```
 
 **Warning:** With `strict: false`, if `init()` fails, the local proxy starts but routes **all traffic direct**. Polling won't self-heal because there's no initial config or connection ID.
+
+---
+
+## Page Load Detection
+
+The SDK includes automatic page load detection that identifies blocks, CAPTCHAs, and WAF challenges using a weighted scoring system. When enabled, it monitors Playwright pages and automatically adds blocked hostnames to routing rules and reloads the page.
+
+### Configuration
+
+```ts
+const client = new AluviaClient({
+  apiKey: process.env.ALUVIA_API_KEY!,
+  startPlaywright: true,
+  pageLoadDetection: {
+    enabled: true,
+    autoReloadOnSuspected: false,       // Also reload on "suspected" tier (default: false)
+    networkIdleTimeoutMs: 3000,         // Max wait for networkidle (default: 3000)
+    challengeSelectors: ['#my-captcha'], // Additional DOM selectors to check
+    extraKeywords: ['custom block msg'], // Additional keywords to detect
+    extraStatusCodes: [418],             // Additional HTTP status codes
+    onDetection: (result, page) => {
+      console.log(`${result.tier} on ${result.hostname} — score: ${result.score}`);
+      console.log('Signals:', result.signals.map(s => s.name));
+    },
+  },
+});
+```
+
+### `PageLoadDetectionConfig`
+
+| Option | Type | Default | Description |
+|--------|------|---------|-------------|
+| `enabled` | `boolean` | `true` | Enable/disable detection. |
+| `challengeSelectors` | `string[]` | `[]` | Additional DOM selectors to check for WAF/challenge elements. |
+| `extraKeywords` | `string[]` | `[]` | Additional keywords to detect in page content. |
+| `extraStatusCodes` | `number[]` | `[]` | Additional HTTP status codes to treat as blocks. |
+| `networkIdleTimeoutMs` | `number` | `3000` | Max ms to wait for `networkidle` before full-pass analysis. |
+| `autoReloadOnSuspected` | `boolean` | `false` | Reload on `suspected` tier (by default, only `blocked` triggers reload). |
+| `onDetection` | `function` | `undefined` | Callback fired on every non-clear detection result. |
+
+### Detection Result
+
+The `onDetection` callback receives a `PageLoadDetectionResult`:
+
+```ts
+type PageLoadDetectionResult = {
+  url: string;               // Page URL
+  hostname: string;          // Extracted hostname
+  tier: DetectionTier;       // "blocked" | "suspected" | "clear"
+  score: number;             // 0.0 to 1.0
+  signals: DetectionSignal[];// Fired signals with names and weights
+  pass: "fast" | "full";    // Which analysis pass produced this result
+  persistentBlock: boolean;  // True if hostname is persistently blocked
+  redirectChain: RedirectHop[];
+};
+```
+
+### How Scoring Works
+
+Each signal detector returns a weight (0.0 to 1.0) representing independent probability of blocking. Scores are combined using probabilistic combination: `score = 1 - product(1 - weight)`. This prevents weak signals from stacking to false positives.
+
+| Score Range | Tier | Action |
+|-------------|------|--------|
+| >= 0.7 | `blocked` | Auto-reload (add hostname to rules) |
+| >= 0.4 | `suspected` | Auto-reload only if `autoReloadOnSuspected: true` |
+| < 0.4 | `clear` | No action |
+
+### Signal Detectors
+
+| Signal | Weight | Description |
+|--------|--------|-------------|
+| `http_status_403` | 0.85 | HTTP 403 Forbidden |
+| `http_status_429` | 0.85 | HTTP 429 Too Many Requests |
+| `http_status_503` | 0.6 | HTTP 503 Service Unavailable |
+| `waf_header_cf_mitigated` | 0.9 | `cf-mitigated: challenge` header |
+| `waf_header_cloudflare` | 0.1 | `server: cloudflare` header alone |
+| `title_keyword` | 0.8 | Block keywords in page title |
+| `challenge_selector` | 0.8 | WAF/CAPTCHA DOM elements detected |
+| `visible_text_keyword_strong` | 0.6 | High-confidence keywords on short pages |
+| `visible_text_keyword_weak` | 0.15 | Low-confidence keywords with word-boundary matching |
+| `visible_text_short` | 0.2 | Page has < 50 chars of visible text |
+| `low_text_ratio` | 0.2 | Text-to-HTML ratio < 3% (on pages >= 1000 bytes) |
+| `redirect_to_challenge` | 0.7 | Redirect chain includes challenge domain |
+| `meta_refresh_challenge` | 0.65 | `<meta http-equiv="refresh">` pointing to challenge URL |
+
+### Two-Pass Analysis
+
+1. **Fast pass** (at `domcontentloaded`): Checks HTTP status and response headers only. If score >= 0.9, triggers immediate remediation without waiting for full page load.
+2. **Full pass** (after `networkidle` with timeout cap): Runs all detectors including DOM inspection and page content analysis. If score falls in suspected range (0.4-0.7), re-runs text detection with layout-aware `innerText` for better accuracy.
+
+SPA navigations (URL changes without new HTTP responses) are also detected via `framenavigated` events with per-page debouncing.
+
+### Persistent Block Escalation
+
+The SDK tracks retried URLs and blocked hostnames to prevent infinite retry loops:
+
+1. First block on a URL: add to routing rules and reload.
+2. Second block on same URL: mark hostname as persistently blocked, skip reload.
+3. Any subsequent URL on a persistently blocked hostname: skip reload immediately.
+
+Use `client.getBlockedHostnames()` to see persistently blocked hostnames and `client.clearBlockedHostnames()` to reset tracking.
+
+### Structured Debug Logging
+
+Set `logLevel: 'debug'` to get JSON-formatted detection results for every analysis pass, useful for calibrating signal weights:
+
+```
+Detection result: {"url":"...","tier":"clear","score":0.10,"signals":[{"name":"waf_header_cloudflare","weight":0.10,"source":"fast"}],"pass":"full"}
+```
 
 ---
 

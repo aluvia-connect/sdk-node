@@ -238,9 +238,34 @@ await client.updateRules([]); // Route all traffic direct
 
 Most proxy solutions require you to decide upfront which sites to proxy. If a site blocks you later, you're stuck—restart your workers, redeploy your fleet, or lose the workflow.
 
-**With Aluvia, your agent can unblock itself.** When a request fails with a 403 or 429, your agent adds that hostname to its routing rules and retries. The update takes effect immediately—no restart, no redeployment, no lost state.
+**With Aluvia, your agent can unblock itself.** The SDK includes automatic page load detection that identifies blocks, CAPTCHAs, and WAF challenges using a weighted scoring system across multiple signals (HTTP status codes, WAF headers, challenge selectors, page content, redirect chains, and more). When a block is detected, the SDK automatically adds the hostname to routing rules and reloads the page — no manual checking needed.
 
-This turns blocking from a workflow-ending failure into a minor speed bump.
+### Automatic detection (recommended)
+
+Enable page load detection to let the SDK handle blocks automatically:
+
+```ts
+const client = new AluviaClient({
+  apiKey: process.env.ALUVIA_API_KEY!,
+  startPlaywright: true,
+  pageLoadDetection: {
+    enabled: true,
+    onDetection: (result, page) => {
+      console.log(`Detected ${result.tier} on ${result.hostname} (score: ${result.score})`);
+    },
+  },
+});
+
+const connection = await client.start();
+const page = await connection.browserContext.newPage();
+await page.goto("https://example.com"); // Auto-reloads through Aluvia if blocked
+```
+
+Detection runs in two passes: a fast pass at `domcontentloaded` for high-confidence HTTP signals, and a full pass after `networkidle` that checks page content, challenge selectors, and redirect chains. The SDK also detects SPA navigations and persistent blocks (hostname-level escalation prevents infinite retry loops).
+
+### Manual detection
+
+You can also check responses manually and update rules on the fly:
 
 ```ts
 const response = await page.goto(url);
