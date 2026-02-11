@@ -234,6 +234,44 @@ await client.updateRules([]); // Route all traffic direct
 
 ---
 
+## CLI for AI agents
+
+The SDK includes a CLI that launches a browser session as a background daemon and outputs JSON for easy integration with AI agent frameworks. External tools can connect to the browser via CDP (Chrome DevTools Protocol) and share the same pages and contexts.
+
+```bash
+# Start a browser session (headless by default)
+npx aluvia-sdk open https://example.com
+
+# Output (JSON):
+# {"status":"ok","url":"https://example.com","cdpUrl":"http://127.0.0.1:38209","connectionId":3449,"pid":12345}
+
+# Start with a visible browser window
+npx aluvia-sdk open https://example.com --headed
+
+# Reuse an existing connection
+npx aluvia-sdk open https://example.com --connection-id 3449
+
+# Stop the running session
+npx aluvia-sdk close
+```
+
+Connect to the running browser from your agent code using the CDP URL:
+
+```ts
+import { chromium } from "playwright";
+
+// Use the cdpUrl from the CLI output
+const browser = await chromium.connectOverCDP("http://127.0.0.1:38209");
+
+// Access the existing page opened by the CLI
+const page = browser.contexts()[0].pages()[0];
+console.log("URL:", page.url());
+
+// Or open new pages in the same browser
+const newPage = await browser.newPage();
+await newPage.goto("https://another-site.com");
+```
+
 ## Dynamic unblocking
 
 Most proxy solutions require you to decide upfront which sites to proxy. If a site blocks you later, you're stuck—restart your workers, redeploy your fleet, or lose the workflow.
@@ -310,6 +348,7 @@ Every tool has its own way of configuring proxies—Playwright wants { server, u
 | ------------ | ---------------------------- | ----------------------------------------------------------- |
 | Playwright   | `connection.asPlaywright()`  | `{ server, username?, password? }`                          |
 | Playwright   | `connection.browser`         | Auto-launched Chromium browser (if `startPlaywright: true`) |
+| Playwright   | `connection.cdpUrl`          | CDP endpoint for `connectOverCDP()` (if `startPlaywright: true`)  |
 | Puppeteer    | `connection.asPuppeteer()`   | `['--proxy-server=...']`                                    |
 | Selenium     | `connection.asSelenium()`    | `'--proxy-server=...'`                                      |
 | Axios        | `connection.asAxiosConfig()` | `{ proxy: false, httpAgent, httpsAgent }`                   |

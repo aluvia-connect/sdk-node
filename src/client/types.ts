@@ -127,6 +127,16 @@ export type AluviaClientOptions = {
    * selectors, visible text, redirect chains) with two-pass analysis.
    */
   pageLoadDetection?: PageLoadDetectionConfig;
+
+  /**
+   * Optional: run the Playwright browser in headless or headed mode.
+   *
+   * If true (default): the browser runs without a visible window.
+   * If false: the browser opens a visible window.
+   *
+   * Only applies when `startPlaywright` is true.
+   */
+  headless?: boolean;
 };
 
 /**
@@ -227,6 +237,17 @@ export type AluviaClientConnection = {
   browser?: any;
 
   browserContext?: any;
+
+  /**
+   * Chrome DevTools Protocol HTTP endpoint URL (for example: http://127.0.0.1:<port>).
+   *
+   * Only available if `startPlaywright: true` was passed to AluviaClientOptions.
+   * Intended for use by external tools that connect to the browser via CDP.
+   * Tools that require a WebSocket debugger URL should derive it from this HTTP
+   * endpoint (for example, by fetching `${cdpUrl}/json/version` and using the
+   * `webSocketDebuggerUrl` field from the response).
+   */
+  cdpUrl?: string;
 
   /**
    * Stop this proxy instance:

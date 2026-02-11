@@ -25,6 +25,7 @@ import {
   PageLoadDetection,
   type PageLoadDetectionResult,
 } from "./PageLoadDetection.js";
+import * as net from "node:net";
 
 /**
  * AluviaClient is the main entry point for the Aluvia Client.
@@ -418,12 +419,16 @@ export class AluviaClient {
       // Launch browser if Playwright was requested
       let launchedBrowser: any = undefined;
       let launchedBrowserContext: any = undefined;
+      let browserCdpUrl: string | undefined;
       if (browserInstance) {
         const proxySettings = toPlaywrightProxySettings(url);
+        const cdpPort = await AluviaClient.findFreePort();
         launchedBrowser = await browserInstance.launch({
           proxy: proxySettings,
-          headless: false,
+          headless: this.options.headless !== false,
+          args: [`--remote-debugging-port=${cdpPort}`],
         });
+        browserCdpUrl = `http://127.0.0.1:${cdpPort}`;
 
         launchedBrowserContext = await launchedBrowser.newContext();
 
@@ -432,9 +437,7 @@ export class AluviaClient {
       }
 
       const stopWithBrowser = async () => {
-        if (launchedBrowser) {
-          await launchedBrowser.close();
-        }
+        if (launchedBrowser) await launchedBrowser.close();
         await stop();
       };
 
@@ -459,6 +462,7 @@ export class AluviaClient {
         },
         browser: launchedBrowser,
         browserContext: launchedBrowserContext,
+        cdpUrl: browserCdpUrl,
         stop: stopWithBrowser,
         close: stopWithBrowser,
       };
@@ -557,5 +561,20 @@ export class AluviaClient {
       this.pageLoadDetection.persistentHostnames.clear();
       this.pageLoadDetection.retriedUrls.clear();
     }
+  }
+
+  /**
+   * Find a free TCP port by briefly binding to port 0.
+   */
+  private static findFreePort(): Promise<number> {
+    return new Promise((resolve, reject) => {
+      const server = net.createServer();
+      server.listen(0, '127.0.0.1', () => {
+        const addr = server.address();
+        const port = typeof addr === 'object' && addr ? addr.port : 0;
+        server.close(() => resolve(port));
+      });
+      server.on('error', reject);
+    });
   }
 }

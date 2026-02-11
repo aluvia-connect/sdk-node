@@ -1502,7 +1502,9 @@ describe("Playwright integration", () => {
     await connection.close();
   });
 
-  test("throws ApiError when Playwright is not installed but startPlaywright is true", async () => {
+  // Skipped: Playwright is installed as a peerDependency, so the dynamic import() cannot fail.
+  // The global.import mock never worked (import() is a language keyword, not a global).
+  test.skip("throws ApiError when Playwright is not installed but startPlaywright is true", async () => {
     const client = new AluviaClient({
       apiKey: "test-api-key",
       logLevel: "silent",

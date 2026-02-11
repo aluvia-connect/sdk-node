@@ -19,6 +19,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 - Auto reload a page on block detection. See [docs](https://docs.aluvia.io/aluvia-client/auto-unblock) for details.
+- CLI for managing browser sessions: `npx @aluvia/sdk open <url>` and `npx @aluvia/sdk close`.
+- Daemon mode: browser runs as a detached background process that survives terminal close.
+- CDP (Chrome DevTools Protocol) endpoint exposed via `--remote-debugging-port`, enabling external tools to connect with `connectOverCDP()` and share browser contexts/pages.
+- `cdpUrl` field on `AluviaClientConnection` for programmatic CDP access.
+- `headless` option on `AluviaClientOptions` (default: `true`). CLI flag `--headed` to launch a visible browser.
+- `--connection-id <id>` flag on CLI `open` command to reuse an existing connection.
+- Lock file (`/tmp/aluvia-sdk/cli.lock`) for single-instance enforcement with full session metadata.
+- JSON output by default on all CLI commands for AI agent consumption.
+- `help` command with plain-text output.
+
+### Changed
+- Playwright browser launch uses `chromium.launch()` with `--remote-debugging-port` instead of `chromium.launchServer()` + `connect()`, enabling shared browser state across CDP connections.
 
 
 ## [1.1.0] - 2026-01-26
