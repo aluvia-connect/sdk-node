@@ -1,17 +1,9 @@
 #!/usr/bin/env node
 
-// Aluvia SDK CLI
-// Usage:
-//   npx @aluvia/sdk open <url> [--connection-id <id>]
-//   npx @aluvia/sdk close
-//
-// All output is JSON for machine consumption.
-
 import { handleOpen, handleOpenDaemon } from './open.js';
 import { handleClose } from './close.js';
 import { removeLock } from './lock.js';
 
-/** Helper to print a JSON result and exit. */
 export function output(data: Record<string, unknown>, exitCode = 0): never {
   console.log(JSON.stringify(data));
   process.exit(exitCode);

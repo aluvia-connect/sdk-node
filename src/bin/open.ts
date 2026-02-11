@@ -1,11 +1,3 @@
-// CLI open command — start proxy + browser and navigate to URL
-//
-// When called without --daemon, spawns a detached child process with --daemon
-// so the browser survives terminal close. The parent prints session info and exits.
-//
-// All user-facing output is JSON via the output() helper.
-// The daemon process logs to a file (not stdout) for diagnostics.
-
 import { AluviaClient } from '../client/AluviaClient.js';
 import { writeLock, readLock, removeLock, isProcessAlive, getLogFilePath } from './lock.js';
 import { output } from './cli.js';

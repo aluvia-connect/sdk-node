@@ -1,6 +1,3 @@
-// CLI close command — stop a running browser instance
-// All user-facing output is JSON via the output() helper.
-
 import { readLock, removeLock, isProcessAlive } from './lock.js';
 import { output } from './cli.js';
 
