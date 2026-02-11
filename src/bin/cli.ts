@@ -29,9 +29,9 @@ function parseOpenArgs(args: string[], startIndex: number): OpenArgs {
 
   for (let i = startIndex; i < args.length; i++) {
     if (args[i] === '--connection-id' && args[i + 1]) {
-      const parsed = parseInt(args[i + 1], 10);
-      if (Number.isNaN(parsed)) {
-        output({ error: `Invalid --connection-id: '${args[i + 1]}' must be a valid number.` }, 1);
+      const parsed = Number(args[i + 1]);
+      if (!Number.isInteger(parsed) || parsed < 1) {
+        output({ error: `Invalid --connection-id: '${args[i + 1]}' must be a positive integer.` }, 1);
       }
       connectionId = parsed;
       i++;

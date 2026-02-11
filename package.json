@@ -63,12 +63,11 @@
   "dependencies": {
     "http-proxy-agent": "^7.0.2",
     "https-proxy-agent": "^7.0.6",
-    "playwright": "^1.58.1",
     "proxy-chain": "^2.6.1",
     "undici": "^6.22.0"
   },
   "peerDependencies": {
-    "playwright": "^1.58.2"
+    "playwright": "^1.58.1"
   },
   "peerDependenciesMeta": {
     "playwright": {

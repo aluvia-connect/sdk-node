@@ -1,5 +1,5 @@
 import { ApiError, InvalidApiKeyError } from '../errors.js';
-import type { ErrorEnvelope } from './types.js';
+import type { ErrorEnvelope, SuccessEnvelope } from './types.js';
 
 export type ApiRequestArgs = {
   method: 'GET' | 'POST' | 'PATCH' | 'DELETE';
@@ -21,7 +21,7 @@ export type ApiContext = {
 };
 
 export function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === 'object' && value !== null;
+  return typeof value === 'object' && value !== null && !Array.isArray(value);
 }
 
 export function asErrorEnvelope(value: unknown): ErrorEnvelope | null {
@@ -66,4 +66,44 @@ export function throwForNon2xx(result: ApiRequestResult): never {
   }
 
   throw new ApiError(`API request failed (HTTP ${status})`, status);
+}
+
+export type AluviaApiRequestArgs = Omit<ApiRequestArgs, 'etag'>;
+
+export function throwIfAuthError(status: number): void {
+  if (status === 401 || status === 403) {
+    throw new InvalidApiKeyError(`Authentication failed with status ${status}`);
+  }
+}
+
+export function unwrapSuccess<T>(value: unknown): T | null {
+  if (!isRecord(value)) return null;
+
+  if (value['success'] === true && 'data' in value) {
+    return (value as SuccessEnvelope<T>).data;
+  }
+
+  if ('data' in value) {
+    return (value as { data: T }).data;
+  }
+
+  return null;
+}
+
+export async function requestAndUnwrap<T>(
+  ctx: ApiContext,
+  args: ApiRequestArgs,
+): Promise<{ data: T; etag: string | null }> {
+  const result = await ctx.request(args);
+
+  if (result.status < 200 || result.status >= 300) {
+    throwForNon2xx(result);
+  }
+
+  const data = unwrapSuccess<T>(result.body);
+  if (data == null) {
+    throw new ApiError('API response missing expected success envelope data', result.status);
+  }
+
+  return { data, etag: result.etag };
 }

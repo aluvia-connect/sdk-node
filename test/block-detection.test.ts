@@ -381,30 +381,24 @@ describe("BlockDetection", () => {
     });
 
     describe("Word Boundary Matching", () => {
+      const escapeRegex = (str: string) => str.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+
       test("'blocked' matches 'you are blocked'", () => {
-        const detection = new BlockDetection({}, logger);
-        const escapeRegex = (detection as any).escapeRegex.bind(detection);
         const regex = new RegExp("\\b" + escapeRegex("blocked") + "\\b", "i");
         assert.strictEqual(regex.test("you are blocked"), true);
       });
 
       test("'blocked' does not match 'blockchain'", () => {
-        const detection = new BlockDetection({}, logger);
-        const escapeRegex = (detection as any).escapeRegex.bind(detection);
         const regex = new RegExp("\\b" + escapeRegex("blocked") + "\\b", "i");
         assert.strictEqual(regex.test("blockchain technology"), false);
       });
 
       test("'blocked' does not match 'ad-blocking'", () => {
-        const detection = new BlockDetection({}, logger);
-        const escapeRegex = (detection as any).escapeRegex.bind(detection);
         const regex = new RegExp("\\b" + escapeRegex("blocked") + "\\b", "i");
         assert.strictEqual(regex.test("ad-blocking extension"), false);
       });
 
       test("'forbidden' does not match 'forbiddenly' or 'unforbidden'", () => {
-        const detection = new BlockDetection({}, logger);
-        const escapeRegex = (detection as any).escapeRegex.bind(detection);
         const regex = new RegExp(
           "\\b" + escapeRegex("forbidden") + "\\b",
           "i",
@@ -414,8 +408,6 @@ describe("BlockDetection", () => {
       });
 
       test("'cloudflare' matches 'Powered by Cloudflare'", () => {
-        const detection = new BlockDetection({}, logger);
-        const escapeRegex = (detection as any).escapeRegex.bind(detection);
         const regex = new RegExp(
           "\\b" + escapeRegex("cloudflare") + "\\b",
           "i",

@@ -878,7 +878,7 @@ describe("ConfigManager polling", () => {
       strict: true,
     });
 
-    (mgr as any).accountConnectionId = "123";
+    (mgr as any).accountConnectionId = 123;
 
     await assert.rejects(
       () => mgr.setConfig({ rules: ["*"] }),
@@ -908,7 +908,7 @@ describe("ConfigManager polling", () => {
       strict: true,
     });
 
-    (mgr as any).accountConnectionId = "123";
+    (mgr as any).accountConnectionId = 123;
 
     await assert.rejects(
       () => mgr.setConfig({ rules: ["*"] }),
@@ -952,7 +952,7 @@ describe("ConfigManager polling", () => {
     };
 
     (mgr as any).config = existingConfig;
-    (mgr as any).accountConnectionId = "123";
+    (mgr as any).accountConnectionId = 123;
 
     await (mgr as any).pollOnce();
 

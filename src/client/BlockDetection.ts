@@ -91,6 +91,16 @@ const WEAK_TEXT_KEYWORDS = [
   "unusual activity",
 ];
 
+function escapeRegex(str: string): string {
+  return str.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+const WEAK_TEXT_REGEXES: Array<{ keyword: string; regex: RegExp }> =
+  WEAK_TEXT_KEYWORDS.map((keyword) => ({
+    keyword,
+    regex: new RegExp("\\b" + escapeRegex(keyword) + "\\b", "i"),
+  }));
+
 const CHALLENGE_DOMAIN_PATTERNS = [
   "/cdn-cgi/challenge-platform/",
   "challenges.cloudflare.com",
@@ -328,12 +338,8 @@ export class BlockDetection {
         }
       }
 
-      // Weak keywords (word-boundary match)
-      for (const keyword of WEAK_TEXT_KEYWORDS) {
-        const regex = new RegExp(
-          "\\b" + this.escapeRegex(keyword) + "\\b",
-          "i",
-        );
+      // Weak keywords (word-boundary match, pre-compiled regexes)
+      for (const { keyword, regex } of WEAK_TEXT_REGEXES) {
         if (regex.test(text)) {
           signals.push({
             name: "visible_text_keyword_weak",
@@ -529,49 +535,28 @@ export class BlockDetection {
       signals.push(...headerSignals);
     }
 
-    // Full-pass detectors
-    const titleSignal = await this.detectTitleKeywords(page);
+    // Full-pass detectors (parallelized — all are independent page reads)
+    const [titleSignal, challengeSignal, textSignals, ratioSignal, metaSignal] =
+      await Promise.all([
+        this.detectTitleKeywords(page),
+        this.detectChallengeSelectors(page),
+        this.detectVisibleText(page, false),
+        this.detectTextToHtmlRatio(page),
+        this.detectMetaRefresh(page),
+      ]);
+
     if (titleSignal) signals.push(titleSignal);
-
-    const challengeSignal = await this.detectChallengeSelectors(page);
     if (challengeSignal) signals.push(challengeSignal);
-
-    const textSignals = await this.detectVisibleText(page, false);
     signals.push(...textSignals);
-
-    const ratioSignal = await this.detectTextToHtmlRatio(page);
     if (ratioSignal) signals.push(ratioSignal);
 
     const { signals: redirectSignals, chain } =
       this.detectRedirectChain(response);
     signals.push(...redirectSignals);
 
-    const metaSignal = await this.detectMetaRefresh(page);
     if (metaSignal) signals.push(metaSignal);
 
-    // Check if in suspected range - re-run text detection with innerText
-    const preliminary = this.computeScore(signals);
-    if (preliminary.score >= 0.4 && preliminary.score < 0.7) {
-      const nonTextSignals = signals.filter(
-        (s) => !s.name.startsWith("visible_text_"),
-      );
-      const innerTextSignals = await this.detectVisibleText(page, true);
-      nonTextSignals.push(...innerTextSignals);
-
-      const result = this.makeResult(
-        url,
-        hostname,
-        nonTextSignals,
-        "full",
-        chain,
-      );
-      this.logResult(result);
-      return result;
-    }
-
-    const result = this.makeResult(url, hostname, signals, "full", chain);
-    this.logResult(result);
-    return result;
+    return this.reEvaluateIfSuspected(page, url, hostname, signals, chain);
   }
 
   /**
@@ -585,24 +570,33 @@ export class BlockDetection {
       return this.makeResult(url, hostname, [], "full", []);
     }
 
+    // Content-based detectors (parallelized — all are independent page reads)
+    const [titleSignal, challengeSignal, textSignals, ratioSignal, metaSignal] =
+      await Promise.all([
+        this.detectTitleKeywords(page),
+        this.detectChallengeSelectors(page),
+        this.detectVisibleText(page, false),
+        this.detectTextToHtmlRatio(page),
+        this.detectMetaRefresh(page),
+      ]);
+
     const signals: DetectionSignal[] = [];
-
-    const titleSignal = await this.detectTitleKeywords(page);
     if (titleSignal) signals.push(titleSignal);
-
-    const challengeSignal = await this.detectChallengeSelectors(page);
     if (challengeSignal) signals.push(challengeSignal);
-
-    const textSignals = await this.detectVisibleText(page, false);
     signals.push(...textSignals);
-
-    const ratioSignal = await this.detectTextToHtmlRatio(page);
     if (ratioSignal) signals.push(ratioSignal);
-
-    const metaSignal = await this.detectMetaRefresh(page);
     if (metaSignal) signals.push(metaSignal);
 
-    // Check if in suspected range - re-run text detection with innerText
+    return this.reEvaluateIfSuspected(page, url, hostname, signals, []);
+  }
+
+  private async reEvaluateIfSuspected(
+    page: any,
+    url: string,
+    hostname: string,
+    signals: DetectionSignal[],
+    redirectChain: RedirectHop[],
+  ): Promise<BlockDetectionResult> {
     const preliminary = this.computeScore(signals);
     if (preliminary.score >= 0.4 && preliminary.score < 0.7) {
       const nonTextSignals = signals.filter(
@@ -611,18 +605,12 @@ export class BlockDetection {
       const innerTextSignals = await this.detectVisibleText(page, true);
       nonTextSignals.push(...innerTextSignals);
 
-      const result = this.makeResult(
-        url,
-        hostname,
-        nonTextSignals,
-        "full",
-        [],
-      );
+      const result = this.makeResult(url, hostname, nonTextSignals, "full", redirectChain);
       this.logResult(result);
       return result;
     }
 
-    const result = this.makeResult(url, hostname, signals, "full", []);
+    const result = this.makeResult(url, hostname, signals, "full", redirectChain);
     this.logResult(result);
     return result;
   }
@@ -674,7 +662,4 @@ export class BlockDetection {
     }
   }
 
-  private escapeRegex(str: string): string {
-    return str.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-  }
 }

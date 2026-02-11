@@ -5,44 +5,9 @@ import type {
   AccountConnectionDeleteResult,
   AccountPayment,
   AccountUsage,
-  SuccessEnvelope,
 } from './types.js';
-import { isRecord, throwForNon2xx } from './apiUtils.js';
-import type { ApiContext, ApiRequestArgs } from './apiUtils.js';
-
-export type { ApiRequestArgs, ApiRequestResult, ApiContext } from './apiUtils.js';
-
-function unwrapSuccess<T>(value: unknown): T | null {
-  if (!isRecord(value)) return null;
-
-  if (value['success'] === true && 'data' in value) {
-    return (value as SuccessEnvelope<T>).data;
-  }
-
-  if ('data' in value) {
-    return (value as { data: T }).data;
-  }
-
-  return null;
-}
-
-async function requestAndUnwrap<T>(
-  ctx: ApiContext,
-  args: ApiRequestArgs,
-): Promise<{ data: T; etag: string | null }> {
-  const result = await ctx.request(args);
-
-  if (result.status < 200 || result.status >= 300) {
-    throwForNon2xx(result);
-  }
-
-  const data = unwrapSuccess<T>(result.body);
-  if (data == null) {
-    throw new ApiError('API response missing expected success envelope data', result.status);
-  }
-
-  return { data, etag: result.etag };
-}
+import { throwForNon2xx, unwrapSuccess, requestAndUnwrap } from './apiUtils.js';
+import type { ApiContext } from './apiUtils.js';
 
 export function createAccountApi(ctx: ApiContext) {
   return {

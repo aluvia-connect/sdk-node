@@ -51,6 +51,8 @@ export class AluviaClient {
       fastResult: BlockDetectionResult | null;
     }
   >();
+  /** Promise-based mutex to serialize handleDetectionResult's critical section. */
+  private _detectionMutex: Promise<void> = Promise.resolve();
 
   constructor(options: AluviaClientOptions) {
     const apiKey = String(options.apiKey ?? "").trim();
@@ -62,9 +64,12 @@ export class AluviaClient {
     this.options = { ...options, apiKey, strict };
 
     const connectionId = options.connectionId != null ? Number(options.connectionId) : undefined;
+    if (connectionId !== undefined && !Number.isFinite(connectionId)) {
+      throw new Error('connectionId must be a finite number');
+    }
 
     const apiBaseUrl = options.apiBaseUrl ?? "https://api.aluvia.io/v1";
-    const pollIntervalMs = options.pollIntervalMs ?? 5000;
+    const pollIntervalMs = Math.max(options.pollIntervalMs ?? 5000, 1000);
     const timeoutMs = options.timeoutMs;
     const gatewayProtocol: GatewayProtocol = options.gatewayProtocol ?? "http";
     const gatewayPort =
@@ -243,6 +248,10 @@ export class AluviaClient {
 
   /**
    * Handle a detection result: fire callback, check persistent block, reload if needed.
+   *
+   * The auto-unblock critical section (persistent-block checks, rule updates, page reload)
+   * is serialized via a promise-based mutex to prevent concurrent calls from reading stale
+   * state and producing duplicate rule additions or missed persistent-block escalation.
    */
   private async handleDetectionResult(
     result: BlockDetectionResult,
@@ -250,11 +259,16 @@ export class AluviaClient {
   ): Promise<void> {
     if (!this.blockDetection) return;
 
-    // Fire user's onDetection callback for all tiers (including clear)
+    // Fire user's onDetection callback for all tiers (including clear).
+    // Pass a shallow clone so later internal mutations (e.g. persistentBlock)
+    // don't affect the object the user received.
+    // This runs outside the mutex so user code can execute concurrently
+    // without risk of deadlock if it triggers navigation.
     const onDetection = this.blockDetection.getOnDetection();
     if (onDetection) {
       try {
-        await onDetection(result, page);
+        const snapshot = { ...result, signals: [...result.signals] };
+        await onDetection(snapshot, page);
       } catch (error: any) {
         this.logger.warn(`Error in onDetection callback: ${error.message}`);
       }
@@ -271,11 +285,33 @@ export class AluviaClient {
 
     if (!shouldReload) return;
 
+    // Serialize the critical section: persistent-block state, rule updates, reload.
+    // This prevents concurrent handlers from reading stale retriedUrls/persistentHostnames.
+    let release!: () => void;
+    const gate = new Promise<void>((resolve) => { release = resolve; });
+    const acquired = this._detectionMutex;
+    this._detectionMutex = this._detectionMutex.then(() => gate);
+
+    await acquired;
+    try {
+      await this._handleAutoUnblock(result, page);
+    } finally {
+      release();
+    }
+  }
+
+  /**
+   * Auto-unblock critical section. Must only be called under _detectionMutex.
+   */
+  private async _handleAutoUnblock(
+    result: BlockDetectionResult,
+    page: any,
+  ): Promise<void> {
     const url = result.url;
     const hostname = result.hostname;
 
     // Check persistent block escalation
-    if (this.blockDetection.persistentHostnames.has(hostname)) {
+    if (this.blockDetection!.persistentHostnames.has(hostname)) {
       result.persistentBlock = true;
       this.logger.warn(
         `Persistent block on ${hostname}, skipping reload`,
@@ -283,10 +319,10 @@ export class AluviaClient {
       return;
     }
 
-    if (this.blockDetection.retriedUrls.has(url)) {
+    if (this.blockDetection!.retriedUrls.has(url)) {
       // Second block for this URL - mark hostname as persistent
       result.persistentBlock = true;
-      this.blockDetection.persistentHostnames.add(hostname);
+      this.blockDetection!.persistentHostnames.add(hostname);
       this.logger.warn(
         `Persistent block detected for ${hostname} after retry of ${url}`,
       );
@@ -294,7 +330,7 @@ export class AluviaClient {
     }
 
     // First block for this URL
-    this.blockDetection.retriedUrls.add(url);
+    this.blockDetection!.retriedUrls.add(url);
 
     // Add hostname to proxy routing rules
     try {

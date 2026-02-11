@@ -68,20 +68,38 @@ export function handleOpen({ url, connectionId, headless, sessionName, autoUnblo
     args.push('--disable-block-detection');
   }
 
-  const child = spawn(process.execPath, [process.argv[1], ...args], {
-    detached: true,
-    stdio: ['ignore', out, out],
-    env: { ...process.env, ALUVIA_API_KEY: apiKey },
-  });
-
-  child.unref();
-  fs.closeSync(out);
+  let child;
+  try {
+    child = spawn(process.execPath, [process.argv[1], ...args], {
+      detached: true,
+      stdio: ['ignore', out, out],
+      env: { ...process.env, ALUVIA_API_KEY: apiKey },
+    });
+    child.unref();
+  } finally {
+    fs.closeSync(out);
+  }
 
   // Wait for the daemon to be fully ready (lock file with ready: true)
   let attempts = 0;
   const maxAttempts = 240; // 60 seconds max
   const poll = setInterval(() => {
     attempts++;
+
+    // Early exit if daemon process died
+    if (child.pid && !isProcessAlive(child.pid)) {
+      clearInterval(poll);
+      removeLock(session);
+      return output(
+        {
+          'browser-session': session,
+          error: 'Browser process exited unexpectedly.',
+          logFile,
+        },
+        1,
+      );
+    }
+
     const lock = readLock(session);
     if (lock && lock.ready) {
       clearInterval(poll);

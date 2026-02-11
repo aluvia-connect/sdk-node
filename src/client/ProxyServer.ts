@@ -6,7 +6,7 @@ import type { ConfigManager } from './ConfigManager.js';
 import type { LogLevel } from './types.js';
 import { Logger } from './logger.js';
 import { ProxyStartError } from '../errors.js';
-import { shouldProxy } from './rules.js';
+import { shouldProxy, shouldProxyNormalized } from './rules.js';
 
 /**
  * Result of starting the proxy server.
@@ -133,8 +133,10 @@ export class ProxyServer {
       return undefined;
     }
 
-    // Check if we should proxy this hostname
-    const useProxy = shouldProxy(hostname, config.rules);
+    // Check if we should proxy this hostname (use pre-normalized rules if available)
+    const useProxy = config.normalizedRules
+      ? shouldProxyNormalized(hostname, config.normalizedRules)
+      : shouldProxy(hostname, config.rules);
 
     if (!useProxy) {
       this.logger.debug(`Hostname ${hostname} bypassing proxy (direct)`);

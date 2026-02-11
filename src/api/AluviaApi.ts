@@ -2,20 +2,15 @@ import { requestCore } from './request.js';
 import { createAccountApi } from './account.js';
 import { createGeosApi } from './geos.js';
 import { MissingApiKeyError } from '../errors.js';
+import type { AluviaApiRequestArgs } from './apiUtils.js';
+
+export type { AluviaApiRequestArgs };
 
 export type AluviaApiOptions = {
   apiKey: string;
   apiBaseUrl?: string;
   timeoutMs?: number;
   fetch?: typeof fetch;
-};
-
-export type AluviaApiRequestArgs = {
-  method: 'GET' | 'POST' | 'PATCH' | 'DELETE';
-  path: string;
-  query?: Record<string, string | number | boolean | null | undefined>;
-  body?: unknown;
-  headers?: Record<string, string>;
 };
 
 export class AluviaApi {

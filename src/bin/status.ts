@@ -1,4 +1,4 @@
-import { readLock, listSessions } from './lock.js';
+import { readLock, removeLock, isProcessAlive, listSessions } from './lock.js';
 import { output } from './cli.js';
 
 export function handleStatus(sessionName?: string): void {
@@ -7,9 +7,14 @@ export function handleStatus(sessionName?: string): void {
     if (!lock) {
       return output({ 'browser-session': sessionName, message: 'No session found.' });
     }
+    const alive = isProcessAlive(lock.pid);
+    if (!alive) {
+      removeLock(sessionName);
+    }
     return output({
       'browser-session': sessionName,
       pid: lock.pid,
+      alive,
       startUrl: lock.url ?? null,
       cdpUrl: lock.cdpUrl ?? null,
       connectionId: lock.connectionId ?? null,
