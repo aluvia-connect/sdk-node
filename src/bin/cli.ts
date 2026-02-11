@@ -14,6 +14,7 @@ function parseArgs(argv: string[]): {
   url?: string;
   connectionId?: number;
   daemon?: boolean;
+  headed?: boolean;
 } {
   const args = argv.slice(2);
   const command = args[0] ?? '';
@@ -22,17 +23,20 @@ function parseArgs(argv: string[]): {
   if (command === '--daemon') {
     let url: string | undefined;
     let connectionId: number | undefined;
+    let headed = false;
 
     for (let i = 1; i < args.length; i++) {
       if (args[i] === '--connection-id' && args[i + 1]) {
         connectionId = parseInt(args[i + 1], 10);
         i++;
+      } else if (args[i] === '--headed') {
+        headed = true;
       } else if (!url && !args[i].startsWith('--')) {
         url = args[i];
       }
     }
 
-    return { command: 'open', url, connectionId, daemon: true };
+    return { command: 'open', url, connectionId, daemon: true, headed };
   }
 
   if (command === 'close') {
@@ -46,11 +50,14 @@ function parseArgs(argv: string[]): {
   if (command === 'open') {
     let url: string | undefined;
     let connectionId: number | undefined;
+    let headed = false;
 
     for (let i = 1; i < args.length; i++) {
       if (args[i] === '--connection-id' && args[i + 1]) {
         connectionId = parseInt(args[i + 1], 10);
         i++;
+      } else if (args[i] === '--headed') {
+        headed = true;
       } else if (!url && !args[i].startsWith('--')) {
         url = args[i];
       }
@@ -66,7 +73,7 @@ function parseArgs(argv: string[]): {
       );
     }
 
-    return { command: 'open', url, connectionId };
+    return { command: 'open', url, connectionId, headed };
   }
 
   // Unknown command — show help to stderr
@@ -81,7 +88,7 @@ function printHelp(toStderr = false): void {
   const log = toStderr ? console.error : console.log;
   log('Aluvia SDK CLI\n');
   log('Usage:');
-  log('  npx @aluvia/sdk open <url> [--connection-id <id>]   Start a browser session');
+  log('  npx @aluvia/sdk open <url> [--connection-id <id>] [--headed]   Start a browser session');
   log('  npx @aluvia/sdk close                               Stop the running browser session');
   log('  npx @aluvia/sdk help                                Show this help\n');
   log('Environment:');
@@ -91,16 +98,16 @@ function printHelp(toStderr = false): void {
 }
 
 async function main(): Promise<void> {
-  const { command, url, connectionId, daemon } = parseArgs(process.argv);
+  const { command, url, connectionId, daemon, headed } = parseArgs(process.argv);
 
   if (command === 'help') {
     printHelp();
     process.exit(0);
   } else if (command === 'open') {
     if (daemon) {
-      await handleOpenDaemon(url!, connectionId);
+      await handleOpenDaemon({ url: url!, connectionId, headless: !headed });
     } else {
-      handleOpen(url!, connectionId);
+      handleOpen({ url: url!, connectionId, headless: !headed });
     }
   } else if (command === 'close') {
     await handleClose();

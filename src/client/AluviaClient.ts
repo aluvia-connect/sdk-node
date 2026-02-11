@@ -16,6 +16,7 @@ import {
 } from './adapters.js';
 import { Logger } from './logger.js';
 import { AluviaApi } from '../api/AluviaApi.js';
+import * as net from 'node:net';
 
 /**
  * AluviaClient is the main entry point for the Aluvia Client.
@@ -188,7 +189,6 @@ export class AluviaClient {
 
         // Launch browser if Playwright was requested
         let launchedBrowser: any = undefined;
-        let browserServer: any = undefined;
         let browserCdpUrl: string | undefined;
         if (browserInstance) {
           const cfg = this.configManager.getConfig();
@@ -199,18 +199,18 @@ export class AluviaClient {
               username,
               password,
             };
-            browserServer = await browserInstance.launchServer({
+            const cdpPort = await AluviaClient.findFreePort();
+            launchedBrowser = await browserInstance.launch({
               proxy: proxySettings,
-              headless: true,
+              headless: this.options.headless !== false,
+              args: [`--remote-debugging-port=${cdpPort}`],
             });
-            browserCdpUrl = browserServer.wsEndpoint();
-            launchedBrowser = await browserInstance.connect(browserCdpUrl);
+            browserCdpUrl = `http://127.0.0.1:${cdpPort}`;
           }
         }
 
         const stopWithBrowser = async () => {
           if (launchedBrowser) await launchedBrowser.close();
-          if (browserServer) await browserServer.close();
           await stop();
         };
 
@@ -320,21 +320,20 @@ export class AluviaClient {
 
       // Launch browser if Playwright was requested
       let launchedBrowser: any = undefined;
-      let browserServer: any = undefined;
       let browserCdpUrl: string | undefined;
       if (browserInstance) {
         const proxySettings = toPlaywrightProxySettings(url);
-        browserServer = await browserInstance.launchServer({
+        const cdpPort = await AluviaClient.findFreePort();
+        launchedBrowser = await browserInstance.launch({
           proxy: proxySettings,
-          headless: true,
+          headless: this.options.headless !== false,
+          args: [`--remote-debugging-port=${cdpPort}`],
         });
-        browserCdpUrl = browserServer.wsEndpoint();
-        launchedBrowser = await browserInstance.connect(browserCdpUrl);
+        browserCdpUrl = `http://127.0.0.1:${cdpPort}`;
       }
 
       const stopWithBrowser = async () => {
         if (launchedBrowser) await launchedBrowser.close();
-        if (browserServer) await browserServer.close();
         await stop();
       };
 
@@ -433,5 +432,20 @@ export class AluviaClient {
 
     const trimmed = targetGeo.trim();
     await this.configManager.setConfig({ target_geo: trimmed.length > 0 ? trimmed : null });
+  }
+
+  /**
+   * Find a free TCP port by briefly binding to port 0.
+   */
+  private static findFreePort(): Promise<number> {
+    return new Promise((resolve, reject) => {
+      const server = net.createServer();
+      server.listen(0, '127.0.0.1', () => {
+        const addr = server.address();
+        const port = typeof addr === 'object' && addr ? addr.port : 0;
+        server.close(() => resolve(port));
+      });
+      server.on('error', reject);
+    });
   }
 }

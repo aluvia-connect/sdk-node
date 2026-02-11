@@ -4,11 +4,17 @@ import { output } from './cli.js';
 import { spawn } from 'node:child_process';
 import * as fs from 'node:fs';
 
+export type OpenOptions = {
+  url: string;
+  connectionId?: number;
+  headless?: boolean;
+};
+
 /**
  * Called from cli.ts when running `open <url>`.
  * Spawns the actual browser in a detached child and returns immediately.
  */
-export function handleOpen(url: string, connectionId: number | undefined): void {
+export function handleOpen({ url, connectionId, headless }: OpenOptions): void {
   // Check for existing instance
   const existing = readLock();
   if (existing !== null && isProcessAlive(existing.pid)) {
@@ -43,6 +49,9 @@ export function handleOpen(url: string, connectionId: number | undefined): void 
   const args = ['--daemon', url];
   if (connectionId != null) {
     args.push('--connection-id', String(connectionId));
+  }
+  if (!headless) {
+    args.push('--headed');
   }
 
   const child = spawn(process.execPath, [process.argv[1], ...args], {
@@ -90,7 +99,7 @@ export function handleOpen(url: string, connectionId: number | undefined): void 
  * Starts the proxy + browser, writes lock, and stays alive.
  * Logs go to the daemon log file (stdout is redirected), not to the user.
  */
-export async function handleOpenDaemon(url: string, connectionId: number | undefined): Promise<void> {
+export async function handleOpenDaemon({ url, connectionId, headless }: OpenOptions): Promise<void> {
   const apiKey = process.env.ALUVIA_API_KEY!;
 
   const client = new AluviaClient({
@@ -98,6 +107,7 @@ export async function handleOpenDaemon(url: string, connectionId: number | undef
     startPlaywright: true,
     localProxy: true,
     ...(connectionId != null ? { connectionId } : {}),
+    headless: headless ?? true,
   });
 
   const connection = await client.start();

@@ -119,6 +119,16 @@ export type AluviaClientOptions = {
    * Note: Playwright must be installed as a dependency for this option to work.
    */
   startPlaywright?: boolean;
+
+  /**
+   * Optional: run the Playwright browser in headless or headed mode.
+   *
+   * If true (default): the browser runs without a visible window.
+   * If false: the browser opens a visible window.
+   *
+   * Only applies when `startPlaywright` is true.
+   */
+  headless?: boolean;
 };
 
 /**
