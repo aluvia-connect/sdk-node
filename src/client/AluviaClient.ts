@@ -387,16 +387,26 @@ export class AluviaClient {
       if (this.options.startPlaywright) {
         try {
           const pw = await import("playwright");
-
-          // We need to launch the browser after we have proxy configuration
-          // Store the chromium module for now, will launch after proxy is ready
           // @ts-ignore
           browserInstance = pw.chromium;
-        } catch (error: any) {
-          throw new ApiError(
-            `Failed to load Playwright. Make sure 'playwright' is installed: ${error.message}`,
-            500,
-          );
+        } catch {
+          // Playwright not installed — attempt auto-install
+          this.logger.info("Playwright not found. Installing playwright...");
+          const { execSync } = await import("node:child_process");
+          try {
+            execSync("npm install playwright", {
+              stdio: "inherit",
+              cwd: process.cwd(),
+            });
+            const pw = await import("playwright");
+            // @ts-ignore
+            browserInstance = pw.chromium;
+          } catch (installError: any) {
+            throw new ApiError(
+              `Failed to auto-install Playwright. Install it manually: npm install playwright\n${installError.message}`,
+              500,
+            );
+          }
         }
       }
 
