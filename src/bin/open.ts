@@ -145,7 +145,7 @@ export async function handleOpenDaemon({ url, connectionId, headless, sessionNam
   const connection = await client.start();
 
   // Write early lock so parent knows daemon is alive
-  writeLock({ pid: process.pid, session: sessionName, url }, sessionName);
+  writeLock({ pid: process.pid, session: sessionName, url, blockDetection: true, autoUnblock: !!autoUnblock }, sessionName);
 
   if (autoUnblock) console.log('[daemon] Auto-unblock enabled');
   console.log(`[daemon] Browser initialized — proxy: ${connection.url}`);
@@ -185,6 +185,8 @@ export async function handleOpenDaemon({ url, connectionId, headless, sessionNam
       cdpUrl,
       url,
       ready: true,
+      blockDetection: true,
+      autoUnblock: !!autoUnblock,
     },
     sessionName,
   );

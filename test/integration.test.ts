@@ -623,11 +623,20 @@ describe("BlockDetection Integration", () => {
 
     try {
       writeLock(
-        { pid: process.pid, session: testSession, ready: true, lastDetection: detection },
+        {
+          pid: process.pid,
+          session: testSession,
+          ready: true,
+          blockDetection: true,
+          autoUnblock: true,
+          lastDetection: detection,
+        },
         testSession,
       );
       const lock = readLock(testSession);
       assert.ok(lock);
+      assert.strictEqual(lock!.blockDetection, true);
+      assert.strictEqual(lock!.autoUnblock, true);
       assert.ok(lock!.lastDetection);
       assert.strictEqual(lock!.lastDetection!.hostname, "example.com");
       assert.strictEqual(lock!.lastDetection!.tier, "blocked");

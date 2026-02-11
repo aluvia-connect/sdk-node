@@ -40,6 +40,8 @@ export type LockData = {
   cdpUrl?: string;
   url?: string;
   ready?: boolean;
+  blockDetection?: boolean;
+  autoUnblock?: boolean;
   lastDetection?: LockDetection;
 };
 
@@ -119,6 +121,8 @@ export type SessionInfo = {
   cdpUrl?: string;
   url?: string;
   ready?: boolean;
+  blockDetection?: boolean;
+  autoUnblock?: boolean;
   lastDetection?: LockDetection;
 };
 
@@ -149,6 +153,8 @@ export function listSessions(): SessionInfo[] {
       cdpUrl: lock.cdpUrl,
       url: lock.url,
       ready: lock.ready,
+      blockDetection: lock.blockDetection,
+      autoUnblock: lock.autoUnblock,
       lastDetection: lock.lastDetection,
     });
   }
