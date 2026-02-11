@@ -150,37 +150,6 @@ The client is split into two independent **planes**:
 
 ---
 
-## Operating modes
-
-The Aluvia client has two operating modes: **Client Proxy Mode** (default) and **Gateway Mode**.
-
-### Client Proxy Mode
-
-**How it works:** The SDK runs a local proxy on `127.0.0.1`. For each request, it checks your routing rules and sends traffic either direct or through Aluvia.
-
-**Why use it:**
-
-- Selective routing reduces cost and latency (only proxy what you need)
-- Credentials stay inside the SDK (nothing secret in your config)
-- Rule changes apply immediately (no restarts)
-
-**Best for:** Using per-hostname routing rules.
-
-### Gateway Mode
-
-Set `localProxy: false` to enable.
-
-**How it works:** No local proxy. Your tools connect directly to `gateway.aluvia.io` and **ALL** traffic goes through Aluvia.
-
-**Why use it:**
-
-- No local process to manage
-- Simpler setup for tools with native proxy auth support
-
-**Best for:** When you want all traffic proxied without selective routing.
-
----
-
 ## Using Aluvia client
 
 ### 1. Create a client
@@ -189,7 +158,6 @@ Set `localProxy: false` to enable.
 const client = new AluviaClient({
   apiKey: process.env.ALUVIA_API_KEY!,
   connectionId: 123, // Optional: reuse an existing connection
-  localProxy: true, // Optional: default true (recommended)
   startPlaywright: true, // Optional: auto-launch Chromium browser
 });
 ```

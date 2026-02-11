@@ -5,6 +5,11 @@ All notable changes to `@aluvia/sdk` are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Removed
+- Remove gateway mode (`localProxy: false`). The SDK now always runs a local proxy on `127.0.0.1`. The `localProxy` option has been removed from `AluviaClientOptions`.
+
 ## [1.2.0] - 2026-02-11
 
 ### Added

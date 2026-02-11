@@ -92,23 +92,14 @@ export type AluviaClientOptions = {
   connectionId?: number;
 
   /**
-   * Optional: enable local proxy mode (client proxy mode).
-   *
-   * If true (default): start the local proxy (127.0.0.1:<port>) and route traffic dynamically.
-   * If false: do NOT start a local proxy; adapters return gateway proxy settings
-   * from the account connection API response for direct use by Playwright/Axios/etc.
-   */
-  localProxy?: boolean;
-
-  /**
    * Optional: strict startup behavior.
    *
    * If true (default): `client.start()` throws if the SDK cannot load/create
    * an account connection config (proxy credentials + rules). This prevents
    * "silent direct routing" where the local proxy starts but bypasses Aluvia.
    *
-   * If false: in client proxy mode, the SDK may still start a local proxy and
-   * route traffic directly when config is unavailable.
+   * If false: the SDK may still start a local proxy and route traffic directly
+   * when config is unavailable.
    */
   strict?: boolean;
 
@@ -144,37 +135,22 @@ export type AluviaClientOptions = {
  */
 export type AluviaClientConnection = {
   /**
-   * Proxy host to configure in your client.
-   *
-   * - In client proxy mode (localProxy: true): this is the local proxy host ('127.0.0.1').
-   * - In gateway mode: this is the Aluvia gateway host (typically 'gateway.aluvia.io').
+   * Proxy host: `'127.0.0.1'` (the local proxy).
    */
   host: string;
 
   /**
-   * Proxy port to configure in your client.
-   *
-   * - In client proxy mode (localProxy: true): this is the local proxy port.
-   * - In gateway mode: this is the Aluvia gateway port (typically 8080 or 8443).
+   * The local proxy port.
    */
   port: number;
 
   /**
-   * Convenience URL for the proxy server endpoint (without embedding credentials).
-   *
-   * - In client proxy mode (localProxy: true): 'http://127.0.0.1:<port>'
-   * - In gateway mode: '<protocol>://gateway.aluvia.io:<port>'
-   *
-   * (The local proxy itself is always HTTP; it may tunnel to an HTTP or HTTPS
-   * gateway upstream based on gatewayProtocol/gatewayPort.)
+   * Proxy URL: `'http://127.0.0.1:<port>'`.
    */
   url: string;
 
   /**
-   * Returns a credential-embedded proxy URL intended for clients that require auth in the URL.
-   *
-   * Note: This value contains secrets (proxy username/password). Avoid logging it or putting it
-   * in places that may be exposed (e.g., process args).
+   * Returns the proxy URL (same as `url`).
    */
   getUrl(): string;
 

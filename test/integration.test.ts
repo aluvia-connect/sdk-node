@@ -52,7 +52,6 @@ describe("AluviaClient", () => {
     const client = new AluviaClient({
       apiKey: "test-api-key",
       logLevel: "silent",
-      localProxy: true,
     });
 
     const url = "http://127.0.0.1:54321";
@@ -107,96 +106,7 @@ describe("AluviaClient", () => {
     assert.strictEqual((client as any).started, false);
   });
 
-  test("connection adapters use REMOTE proxy when localProxy is false", async () => {
-    const client = new AluviaClient({
-      apiKey: "test-api-key",
-      logLevel: "silent",
-      localProxy: false,
-    });
-
-    (client as any).configManager.init = async () => {};
-    (client as any).configManager.startPolling = () => {
-      throw new Error(
-        "configManager.startPolling should not be called in gateway mode",
-      );
-    };
-    (client as any).configManager.stopPolling = () => {};
-    // Ensure local proxy never starts
-    (client as any).proxyServer.start = async () => {
-      throw new Error("proxyServer.start should not be called");
-    };
-
-    // Provide remote config via getConfig()
-    (client as any).configManager.getConfig = () => ({
-      rawProxy: {
-        protocol: "http",
-        host: "gateway.aluvia.io",
-        port: 8080,
-        username: "user",
-        password: "pass",
-      },
-      rules: ["*"],
-      sessionId: null,
-      targetGeo: null,
-      etag: '"e"',
-    });
-
-    const connection = await client.start();
-
-    assert.strictEqual(connection.url, "http://gateway.aluvia.io:8080");
-    assert.deepStrictEqual(connection.asPlaywright(), {
-      server: "http://gateway.aluvia.io:8080",
-      username: "user",
-      password: "pass",
-    });
-    assert.deepStrictEqual(connection.asPuppeteer(), [
-      "--proxy-server=http://gateway.aluvia.io:8080",
-    ]);
-    assert.strictEqual(typeof connection.getUrl(), "string");
-    assert.ok(connection.getUrl().includes("gateway.aluvia.io:8080"));
-
-    const agents = connection.asNodeAgents();
-    assert.ok(agents.http);
-    assert.ok(agents.https);
-
-    const axiosCfg = connection.asAxiosConfig();
-    assert.strictEqual(axiosCfg.proxy, false);
-    assert.strictEqual(axiosCfg.httpAgent, agents.http);
-    assert.strictEqual(axiosCfg.httpsAgent, agents.https);
-
-    const gotOpts = connection.asGotOptions();
-    assert.strictEqual(gotOpts.agent.http, agents.http);
-    assert.strictEqual(gotOpts.agent.https, agents.https);
-
-    const dispatcher = connection.asUndiciDispatcher();
-    assert.ok(dispatcher);
-
-    const fetchFn = connection.asUndiciFetch();
-    assert.strictEqual(typeof fetchFn, "function");
-
-    await connection.close();
-    assert.strictEqual((client as any).started, false);
-  });
-
-  test("gateway mode start throws when account connection config is missing", async () => {
-    const client = new AluviaClient({
-      apiKey: "test-api-key",
-      logLevel: "silent",
-      localProxy: false,
-    });
-
-    (client as any).configManager.init = async () => {};
-    (client as any).configManager.getConfig = () => null;
-    (client as any).configManager.startPolling = () => {};
-    (client as any).configManager.stopPolling = () => {};
-    (client as any).proxyServer.start = async () => {
-      throw new Error("proxyServer.start should not be called");
-    };
-
-    await assert.rejects(() => client.start(), ApiError);
-  });
-
-  test("connection adapters use LOCAL proxy by default (localProxy default true)", async () => {
+  test("connection adapters use LOCAL proxy by default", async () => {
     const client = new AluviaClient({
       apiKey: "test-api-key",
       logLevel: "silent",
@@ -1320,7 +1230,6 @@ describe("Playwright integration", () => {
     const client = new AluviaClient({
       apiKey: "test-api-key",
       logLevel: "silent",
-      localProxy: true,
       startPlaywright: false,
     });
 
@@ -1346,7 +1255,6 @@ describe("Playwright integration", () => {
     const client = new AluviaClient({
       apiKey: "test-api-key",
       logLevel: "silent",
-      localProxy: true,
     });
 
     const url = "http://127.0.0.1:54321";
@@ -1371,7 +1279,6 @@ describe("Playwright integration", () => {
     const client = new AluviaClient({
       apiKey: "test-api-key",
       logLevel: "silent",
-      localProxy: true,
       startPlaywright: true,
     });
 
@@ -1411,11 +1318,10 @@ describe("Playwright integration", () => {
     }
   });
 
-  test("launches browser in local proxy mode when startPlaywright is true", async () => {
+  test("launches browser when startPlaywright is true", async () => {
     const client = new AluviaClient({
       apiKey: "test-api-key",
       logLevel: "silent",
-      localProxy: true,
       startPlaywright: true,
     });
 
@@ -1567,156 +1473,10 @@ describe("Playwright integration", () => {
     await connection.close();
   });
 
-  test("launches browser in gateway mode when startPlaywright is true", async () => {
-    const client = new AluviaClient({
-      apiKey: "test-api-key",
-      logLevel: "silent",
-      localProxy: false,
-      startPlaywright: true,
-    });
-
-    let browserLaunched = false;
-    let launchProxySettings: any = null;
-
-    const mockBrowser = {
-      close: async () => {},
-    };
-
-    (client as any).configManager.init = async () => {};
-    (client as any).configManager.stopPolling = () => {};
-    (client as any).configManager.getConfig = () => ({
-      rawProxy: {
-        protocol: "http",
-        host: "gateway.aluvia.io",
-        port: 8080,
-        username: "user",
-        password: "pass",
-      },
-      rules: ["*"],
-      sessionId: null,
-      targetGeo: null,
-      etag: '"e"',
-    });
-
-    // Similar mocking approach as local proxy mode
-    const startMethod = (client as any).start.bind(client);
-    (client as any).start = async function () {
-      const configManager = (this as any).configManager;
-      const options = (this as any).options;
-
-      if ((this as any).started && (this as any).connection) {
-        return (this as any).connection;
-      }
-
-      if ((this as any).startPromise) {
-        return (this as any).startPromise;
-      }
-
-      (this as any).startPromise = (async () => {
-        await configManager.init();
-
-        let browserInstance: any = undefined;
-        if (options.startPlaywright) {
-          const pw = {
-            chromium: {
-              launch: async (opts: any) => {
-                browserLaunched = true;
-                launchProxySettings = opts?.proxy;
-                return mockBrowser;
-              },
-            },
-          };
-          browserInstance = pw.chromium;
-        }
-
-        const cfg = configManager.getConfig();
-
-        let launchedBrowser: any = undefined;
-        if (browserInstance && cfg) {
-          const { protocol, host, port, username, password } = cfg.rawProxy;
-          const proxySettings = {
-            server: `${protocol}://${host}:${port}`,
-            username,
-            password,
-          };
-          launchedBrowser = await browserInstance.launch({
-            proxy: proxySettings,
-          });
-        }
-
-        const stop = async () => {
-          configManager.stopPolling();
-          (this as any).connection = null;
-          (this as any).started = false;
-        };
-
-        const stopWithBrowser = async () => {
-          if (launchedBrowser) {
-            await launchedBrowser.close();
-          }
-          await stop();
-        };
-
-        const connection = {
-          host: cfg?.rawProxy.host ?? "127.0.0.1",
-          port: cfg?.rawProxy.port ?? 0,
-          url: `${cfg?.rawProxy.protocol}://${cfg?.rawProxy.host}:${cfg?.rawProxy.port}`,
-          getUrl: () => "",
-          asPlaywright: () => ({
-            server: "",
-            username: "user",
-            password: "pass",
-          }),
-          asPuppeteer: () => [],
-          asSelenium: () => "",
-          asNodeAgents: () => ({ http: null as any, https: null as any }),
-          asAxiosConfig: () => ({
-            proxy: false,
-            httpAgent: null as any,
-            httpsAgent: null as any,
-          }),
-          asGotOptions: () => ({
-            agent: { http: null as any, https: null as any },
-          }),
-          asUndiciDispatcher: () => null as any,
-          asUndiciFetch: () => (() => {}) as any,
-          browser: launchedBrowser,
-          stop: stopWithBrowser,
-          close: stopWithBrowser,
-        };
-
-        (this as any).connection = connection;
-        (this as any).started = true;
-        return connection;
-      })();
-
-      try {
-        return await (this as any).startPromise;
-      } finally {
-        (this as any).startPromise = null;
-      }
-    };
-
-    const connection = await client.start();
-
-    assert.strictEqual(browserLaunched, true);
-    assert.ok(launchProxySettings);
-    assert.strictEqual(
-      launchProxySettings.server,
-      "http://gateway.aluvia.io:8080",
-    );
-    assert.strictEqual(launchProxySettings.username, "user");
-    assert.strictEqual(launchProxySettings.password, "pass");
-    assert.strictEqual(connection.browser, mockBrowser);
-
-    await connection.close();
-  });
-
   test("browser is closed when connection.close() is called", async () => {
     const client = new AluviaClient({
       apiKey: "test-api-key",
       logLevel: "silent",
-      localProxy: true,
       startPlaywright: true,
     });
 

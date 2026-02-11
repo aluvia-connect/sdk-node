@@ -45,9 +45,8 @@ export class AluviaClient {
       throw new MissingApiKeyError("Aluvia apiKey is required");
     }
 
-    const localProxy = options.localProxy ?? true;
     const strict = options.strict ?? true;
-    this.options = { ...options, apiKey, localProxy, strict };
+    this.options = { ...options, apiKey, strict };
 
     const connectionId = Number(options.connectionId) ?? null;
 
@@ -224,8 +223,7 @@ export class AluviaClient {
    * Start the Aluvia Client connection:
    * - Fetch initial account connection config from Aluvia.
    * - Start polling for config updates.
-   * - If localProxy is enabled (default): start a local HTTP proxy on 127.0.0.1:<localPort or free port>.
-   * - If localProxy is disabled: do NOT start a local proxy; adapters use gateway proxy settings.
+   * - Start a local HTTP proxy on 127.0.0.1:<localPort or free port>.
    *
    * Returns the active connection with host/port/url and a stop() method.
    */
@@ -241,8 +239,6 @@ export class AluviaClient {
     }
 
     this.startPromise = (async () => {
-      const localProxyEnabled = this.options.localProxy === true;
-
       // Fetch initial configuration (may throw InvalidApiKeyError or ApiError)
       await this.configManager.init();
 
@@ -264,166 +260,9 @@ export class AluviaClient {
         }
       }
 
-      // Gateway mode cannot function without proxy credentials/config, so fail fast.
-      if (!localProxyEnabled && !this.configManager.getConfig()) {
-        throw new ApiError(
-          "Failed to load account connection config; cannot start in gateway mode without proxy credentials",
-          500,
-        );
-      }
-
-      if (!localProxyEnabled) {
-        this.logger.debug("localProxy disabled — local proxy will not start");
-
-        let nodeAgents: ReturnType<typeof createNodeProxyAgents> | null = null;
-        let undiciDispatcher: ReturnType<typeof createUndiciDispatcher> | null =
-          null;
-        let undiciFetchFn: ReturnType<typeof createUndiciFetch> | null = null;
-
-        const cfgAtStart = this.configManager.getConfig();
-        const serverUrlAtStart = (() => {
-          if (!cfgAtStart) return "";
-          const { protocol, host, port } = cfgAtStart.rawProxy;
-          return `${protocol}://${host}:${port}`;
-        })();
-
-        const getProxyUrlForHttpClients = () => {
-          const cfg = this.configManager.getConfig();
-          if (!cfg) return "http://127.0.0.1";
-          const { protocol, host, port, username, password } = cfg.rawProxy;
-          return `${protocol}://${encodeURIComponent(username)}:${encodeURIComponent(password)}@${host}:${port}`;
-        };
-
-        const getNodeAgents = () => {
-          if (!nodeAgents) {
-            nodeAgents = createNodeProxyAgents(getProxyUrlForHttpClients());
-          }
-          return nodeAgents;
-        };
-
-        const getUndiciDispatcher = () => {
-          if (!undiciDispatcher) {
-            undiciDispatcher = createUndiciDispatcher(
-              getProxyUrlForHttpClients(),
-            );
-          }
-          return undiciDispatcher;
-        };
-
-        const closeUndiciDispatcher = async () => {
-          const d: any = undiciDispatcher as any;
-          if (!d) return;
-          try {
-            if (typeof d.close === "function") {
-              await d.close();
-            } else if (typeof d.destroy === "function") {
-              d.destroy();
-            }
-          } finally {
-            undiciDispatcher = null;
-          }
-        };
-
-        const stop = async () => {
-          this.configManager.stopPolling();
-          nodeAgents?.http?.destroy?.();
-          nodeAgents?.https?.destroy?.();
-          nodeAgents = null;
-          await closeUndiciDispatcher();
-          undiciFetchFn = null;
-          this.connection = null;
-          this.started = false;
-        };
-
-        // Launch browser if Playwright was requested
-        let launchedBrowser: any = undefined;
-        let launchedBrowserContext: any = undefined;
-        if (browserInstance) {
-          const cfg = this.configManager.getConfig();
-          if (cfg) {
-            const { protocol, host, port, username, password } = cfg.rawProxy;
-            const proxySettings = {
-              ...toPlaywrightProxySettings(`${protocol}://${host}:${port}`),
-              username,
-              password,
-            };
-            launchedBrowser = await browserInstance.launch({
-              proxy: proxySettings,
-              headless: false,
-            });
-
-            launchedBrowserContext = await launchedBrowser.newContext();
-
-            // Attach page load detection
-            this.attachPageLoadListener(launchedBrowserContext);
-          }
-        }
-
-        const stopWithBrowser = async () => {
-          if (launchedBrowser) {
-            await launchedBrowser.close();
-          }
-          await stop();
-        };
-
-        // Build connection object
-        const connection: AluviaClientConnection = {
-          host: cfgAtStart?.rawProxy.host ?? "127.0.0.1",
-          port: cfgAtStart?.rawProxy.port ?? 0,
-          url: serverUrlAtStart,
-          getUrl: () => {
-            const cfg = this.configManager.getConfig();
-            if (!cfg) return "";
-            const { protocol, host, port, username, password } = cfg.rawProxy;
-            return `${protocol}://${encodeURIComponent(username)}:${encodeURIComponent(password)}@${host}:${port}`;
-          },
-          asPlaywright: () => {
-            const cfg = this.configManager.getConfig();
-            if (!cfg) return { server: "" };
-            const { protocol, host, port, username, password } = cfg.rawProxy;
-            return {
-              ...toPlaywrightProxySettings(`${protocol}://${host}:${port}`),
-              username,
-              password,
-            };
-          },
-          asPuppeteer: () => {
-            const cfg = this.configManager.getConfig();
-            if (!cfg) return [];
-            const { protocol, host, port } = cfg.rawProxy;
-            return toPuppeteerArgs(`${protocol}://${host}:${port}`);
-          },
-          asSelenium: () => {
-            const cfg = this.configManager.getConfig();
-            if (!cfg) return "";
-            const { protocol, host, port } = cfg.rawProxy;
-            return toSeleniumArgs(`${protocol}://${host}:${port}`);
-          },
-          asNodeAgents: () => getNodeAgents(),
-          asAxiosConfig: () => toAxiosConfig(getNodeAgents()),
-          asGotOptions: () => toGotOptions(getNodeAgents()),
-          asUndiciDispatcher: () => getUndiciDispatcher(),
-          asUndiciFetch: () => {
-            if (!undiciFetchFn) {
-              undiciFetchFn = createUndiciFetch(getUndiciDispatcher());
-            }
-            return undiciFetchFn;
-          },
-          browser: launchedBrowser,
-          browserContext: launchedBrowserContext,
-          stop: stopWithBrowser,
-          close: stopWithBrowser,
-        };
-
-        this.connection = connection;
-        this.started = true;
-        return connection;
-      }
-
-      // In client proxy mode, keep config fresh so routing decisions update without restarting.
+      // Keep config fresh so routing decisions update without restarting.
       this.configManager.startPolling();
 
-      // localProxy === true
       const { host, port, url } = await this.proxyServer.start(
         this.options.localPort,
       );
@@ -553,10 +392,7 @@ export class AluviaClient {
       return;
     }
 
-    // Only stop proxy if it was potentially started.
-    if (this.options.localProxy) {
-      await this.proxyServer.stop();
-    }
+    await this.proxyServer.stop();
     this.configManager.stopPolling();
     this.connection = null;
     this.started = false;

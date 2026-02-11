@@ -141,7 +141,6 @@ await api.geos.list();
 
 | Option | Default | Notes |
 |--------|---------|-------|
-| `localProxy` | `true` | Start local proxy |
 | `strict` | `true` | Fail fast on config errors |
 | `apiBaseUrl` | `https://api.aluvia.io/v1` | API endpoint |
 | `pollIntervalMs` | `5000` | Config polling interval |
@@ -150,33 +149,6 @@ await api.geos.list();
 | `gatewayPort` | `8080` (http) / `8443` (https) | Gateway port |
 | `localPort` | OS-assigned | Local proxy port |
 | `logLevel` | `info` | Logging verbosity |
-
-## Operating Modes
-
-### Client Proxy Mode (default)
-
-```ts
-const client = new AluviaClient({ apiKey: '...', localProxy: true });
-const connection = await client.start();
-// connection.url = "http://127.0.0.1:<port>"
-```
-
-- Local proxy handles routing decisions
-- No credentials exposed to tooling
-- Config polling enabled
-
-### Gateway Mode
-
-```ts
-const client = new AluviaClient({ apiKey: '...', localProxy: false });
-const connection = await client.start();
-// connection.url = "http://gateway.aluvia.io:8080"
-// connection.getUrl() contains credentials (secret!)
-```
-
-- No local proxy
-- Credentials passed to tooling
-- No config polling
 
 ## Error Classes
 

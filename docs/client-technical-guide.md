@@ -5,7 +5,6 @@
 ## Table of Contents
 
 - [Architecture](#architecture)
-- [Operating Modes](#operating-modes)
 - [AluviaClient API](#aluviaclient-api)
 - [Connection Object](#connection-object)
 - [Tool Adapters](#tool-adapters)
@@ -61,72 +60,6 @@ The client is split into two independent **planes**:
 
 ---
 
-## Operating Modes
-
-The client supports two modes controlled by the `localProxy` option:
-
-### Client Proxy Mode (Default)
-
-**`localProxy: true`** (default)
-
-```ts
-const client = new AluviaClient({
-  apiKey: process.env.ALUVIA_API_KEY!,
-  localProxy: true, // default
-});
-```
-
-**Behavior:**
-- Starts a local proxy on `http://127.0.0.1:<port>`
-- Your tools point at the local proxy (no credentials exposed)
-- SDK makes per-request routing decisions (direct vs gateway)
-- Polls for config updates—rules apply without restart
-
-**Connection URLs:**
-- `connection.url` → `"http://127.0.0.1:54321"` (no creds)
-- `connection.getUrl()` → same as `connection.url` (safe)
-
-**Best for:**
-- Chromium-based tools (Puppeteer/Selenium) where proxy auth is cumbersome
-- Selective per-hostname routing
-- Keeping credentials completely out of your tool configuration
-
-### Gateway Mode
-
-**`localProxy: false`**
-
-```ts
-const client = new AluviaClient({
-  apiKey: process.env.ALUVIA_API_KEY!,
-  localProxy: false,
-});
-```
-
-**Behavior:**
-- **No local proxy** is started
-- Connection returns gateway proxy settings directly
-- Your tools must handle proxy authentication
-- No continuous polling (config is snapshot at start)
-
-**Connection URLs:**
-- `connection.url` → `"http://gateway.aluvia.io:8080"` (no creds)
-- `connection.getUrl()` → `"http://user:pass@gateway.aluvia.io:8080"` (**contains secrets**)
-
-**Best for:**
-- When you don't want a local listener process
-- Tools that handle proxy auth cleanly (Playwright has built-in support)
-- Pure HTTP client usage (Axios/got/undici)
-
-### Mode Comparison
-
-| Aspect | Client Proxy Mode | Gateway Mode |
-|--------|-------------------|--------------|
-| Local proxy | ✅ Starts on `127.0.0.1` | ❌ None |
-| Per-request routing | ✅ Based on rules | ❌ All traffic goes through gateway |
-| Credentials in config | ❌ Hidden internally | ⚠️ In `getUrl()` / adapters |
-| Polling | ✅ Continuous ETag polling | ❌ Snapshot at start |
-| Config required | ⚠️ Optional with `strict: false` | ✅ Required (fails without) |
-
 ---
 
 ## AluviaClient API
@@ -141,7 +74,6 @@ new AluviaClient(options: AluviaClientOptions)
 |--------|------|---------|-------------|
 | `apiKey` | `string` | **required** | Account API key (used as `Bearer` token). |
 | `connectionId` | `string` | `undefined` | Existing connection ID. If omitted, creates a new connection. |
-| `localProxy` | `boolean` | `true` | Enable client proxy mode (local proxy). |
 | `strict` | `boolean` | `true` | Fail fast if config can't be loaded/created. |
 | `apiBaseUrl` | `string` | `"https://api.aluvia.io/v1"` | Aluvia API base URL. |
 | `pollIntervalMs` | `number` | `5000` | Config polling interval (ms). |
@@ -162,9 +94,9 @@ Starts the client and returns a connection object.
 2. Initializes configuration via `ConfigManager.init()`:
    - If `connectionId` provided: `GET /account/connections/:id`
    - If omitted: `POST /account/connections` to create one
-3. Then, based on mode:
-   - **Client proxy mode**: starts polling, starts local proxy, returns connection
-   - **Gateway mode**: returns connection with gateway settings (no proxy, no polling)
+3. Starts polling for config updates
+4. Starts the local proxy on `127.0.0.1`
+5. Returns the connection object
 
 **Idempotency:** Calling `start()` multiple times returns the same connection. Concurrent calls share the same startup promise.
 
@@ -219,15 +151,15 @@ The `connection` object returned by `start()` contains proxy details and adapter
 
 | Property | Type | Description |
 |----------|------|-------------|
-| `host` | `string` | Proxy host (`"127.0.0.1"` in client proxy mode). |
-| `port` | `number` | Proxy port. |
-| `url` | `string` | Proxy URL without credentials. |
+| `host` | `string` | Proxy host (`"127.0.0.1"`). |
+| `port` | `number` | Local proxy port. |
+| `url` | `string` | Proxy URL (`"http://127.0.0.1:<port>"`). |
 
 ### Methods
 
 | Method | Description |
 |--------|-------------|
-| `getUrl()` | Proxy URL with embedded credentials. **Contains secrets in gateway mode.** |
+| `getUrl()` | Proxy URL (same as `url`). |
 | `asPlaywright()` | Returns `{ server, username?, password? }` for Playwright. |
 | `asPuppeteer()` | Returns `['--proxy-server=<url>']` for Puppeteer launch args. |
 | `asSelenium()` | Returns `'--proxy-server=<url>'` for Selenium. |
@@ -252,7 +184,7 @@ try {
 
 This:
 - Stops config polling
-- Stops the local proxy (client proxy mode)
+- Stops the local proxy
 - Destroys cached Node agents and undici dispatchers
 
 ---
@@ -269,10 +201,7 @@ const browser = await chromium.launch({
 });
 ```
 
-**Returns:** `{ server: string, username?: string, password?: string }`
-
-- Client proxy mode: `{ server: "http://127.0.0.1:54321" }` (no creds)
-- Gateway mode: includes `username` and `password`
+**Returns:** `{ server: string }` — e.g., `{ server: "http://127.0.0.1:54321" }`
 
 ### Puppeteer
 
@@ -285,8 +214,6 @@ const browser = await puppeteer.launch({
 ```
 
 **Returns:** `['--proxy-server=http://127.0.0.1:54321']`
-
-**Note:** Puppeteer/Chromium requires separate proxy auth handling in gateway mode. Use client proxy mode (default) to avoid this.
 
 ### Selenium
 
@@ -538,29 +465,12 @@ The following values are **secrets**—do not log or expose them:
 
 1. **`apiKey`** — Your account API key
 2. **Proxy credentials** — `proxy_username` and `proxy_password` from the API
-3. **`connection.getUrl()`** — Contains credentials in gateway mode
 
-### Client Proxy Mode Security
+### Proxy Security
 
 - Local proxy binds to **`127.0.0.1` only** (not `0.0.0.0`)
 - `connection.url` and `connection.getUrl()` return the same safe URL
 - Credentials never leave the SDK's internal state
-
-### Gateway Mode Security
-
-- `connection.getUrl()` contains embedded credentials
-- Adapters like `asPlaywright()` include `username`/`password`
-- **Never log** `connection.getUrl()` or pass it to process args
-
-### Best Practice
-
-```ts
-// ✅ Safe to log
-console.log('Proxy URL:', connection.url);
-
-// ❌ Never log in gateway mode
-console.log('Full URL:', connection.getUrl()); // Contains secrets!
-```
 
 ---
 
@@ -588,17 +498,11 @@ client.start()
     │               • sessionId, targetGeo
     │               • etag
     │
-    ├─► localProxy: true?
-    │       │
-    │       ├─► Yes (Client Proxy Mode):
-    │       │       • Start polling (setInterval)
-    │       │       • Start ProxyServer on 127.0.0.1
-    │       │       • Return connection (local proxy URL)
-    │       │
-    │       └─► No (Gateway Mode):
-    │               • Return connection (gateway URL + creds)
+    ├─► Start polling (setInterval)
     │
-    └─► Return AluviaClientConnection
+    ├─► Start ProxyServer on 127.0.0.1
+    │
+    └─► Return AluviaClientConnection (local proxy URL)
 ```
 
 ### Per-Request Routing (Client Proxy Mode)
