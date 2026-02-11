@@ -28,10 +28,9 @@ export function handleOpen({ url, connectionId, headless, sessionName, autoUnblo
   if (existing !== null && isProcessAlive(existing.pid)) {
     return output(
       {
-        status: 'error',
         error: `A browser session named '${session}' is already running.`,
         'browser-session': session,
-        url: existing.url ?? null,
+        pageUrl: existing.url ?? null,
         cdpUrl: existing.cdpUrl ?? null,
         connectionId: existing.connectionId ?? null,
         pid: existing.pid,
@@ -48,7 +47,7 @@ export function handleOpen({ url, connectionId, headless, sessionName, autoUnblo
   // Require API key
   const apiKey = process.env.ALUVIA_API_KEY;
   if (!apiKey) {
-    return output({ status: 'error', error: 'ALUVIA_API_KEY environment variable is required.' }, 1);
+    return output({ error: 'ALUVIA_API_KEY environment variable is required.' }, 1);
   }
 
   // Spawn a detached child process that runs the daemon
@@ -87,10 +86,9 @@ export function handleOpen({ url, connectionId, headless, sessionName, autoUnblo
     if (lock && lock.ready) {
       clearInterval(poll);
       return output({
-        status: 'ok',
         'browser-session': session,
         autoUnblock: !!autoUnblock,
-        url: lock.url ?? null,
+        pageUrl: lock.url ?? null,
         cdpUrl: lock.cdpUrl ?? null,
         connectionId: lock.connectionId ?? null,
         pid: lock.pid,
@@ -101,7 +99,6 @@ export function handleOpen({ url, connectionId, headless, sessionName, autoUnblo
       const alive = child.pid ? isProcessAlive(child.pid) : false;
       return output(
         {
-          status: 'error',
           'browser-session': session,
           error: alive ? 'Browser is still initializing (timeout).' : 'Browser process exited unexpectedly.',
           logFile,
@@ -128,11 +125,9 @@ export async function handleOpenDaemon({ url, connectionId, headless, sessionNam
     const lastDetection: LockDetection = {
       hostname: result.hostname,
       url: result.url,
-      tier: result.tier,
+      blockStatus: result.tier,
       score: result.score,
       signals: result.signals.map((s) => s.name),
-      pass: result.pass,
-      persistentBlock: result.persistentBlock,
       timestamp: Date.now(),
     };
     writeLock({ ...lock, lastDetection }, sessionName);

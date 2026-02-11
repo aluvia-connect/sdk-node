@@ -5,7 +5,7 @@ export async function handleClose(sessionName?: string, closeAll?: boolean): Pro
   if (closeAll) {
     const sessions = listSessions();
     if (sessions.length === 0) {
-      return output({ status: 'ok', message: 'No running browser sessions found.', closed: [], count: 0 });
+      return output({ message: 'No running browser sessions found.', closed: [], count: 0 });
     }
     const closed: string[] = [];
     for (const s of sessions) {
@@ -19,19 +19,18 @@ export async function handleClose(sessionName?: string, closeAll?: boolean): Pro
     }
     // Wait briefly for processes to exit
     await new Promise((r) => setTimeout(r, 500));
-    return output({ status: 'ok', message: 'All browser sessions closed.', closed, count: closed.length });
+    return output({ message: 'All browser sessions closed.', closed, count: closed.length });
   }
 
   // If no session name specified, figure out what to close
   if (!sessionName) {
     const sessions = listSessions();
     if (sessions.length === 0) {
-      return output({ status: 'ok', message: 'No running browser session found.' });
+      return output({ message: 'No running browser session found.' });
     }
     if (sessions.length > 1) {
       return output(
         {
-          status: 'error',
           error: 'Multiple sessions running. Specify --browser-session <name> or --all.',
           'browser-sessions': sessions.map((s) => s.session),
         },
@@ -43,13 +42,12 @@ export async function handleClose(sessionName?: string, closeAll?: boolean): Pro
 
   const lock = readLock(sessionName);
   if (lock === null) {
-    return output({ status: 'ok', 'browser-session': sessionName, message: 'No running browser session found.' });
+    return output({ 'browser-session': sessionName, message: 'No running browser session found.' });
   }
 
   if (!isProcessAlive(lock.pid)) {
     removeLock(sessionName);
     return output({
-      status: 'ok',
       'browser-session': sessionName,
       message: 'Browser process was not running. Lock file cleaned up.',
     });
@@ -58,7 +56,7 @@ export async function handleClose(sessionName?: string, closeAll?: boolean): Pro
   try {
     process.kill(lock.pid, 'SIGTERM');
   } catch (err: any) {
-    return output({ status: 'error', 'browser-session': sessionName, error: `Failed to stop process: ${err.message}` }, 1);
+    return output({ 'browser-session': sessionName, error: `Failed to stop process: ${err.message}` }, 1);
   }
 
   // Wait for the process to exit (up to 10 seconds)
@@ -68,10 +66,9 @@ export async function handleClose(sessionName?: string, closeAll?: boolean): Pro
     if (!isProcessAlive(lock.pid)) {
       removeLock(sessionName);
       return output({
-        status: 'ok',
         'browser-session': sessionName,
         message: 'Browser session closed.',
-        url: lock.url ?? null,
+        pageUrl: lock.url ?? null,
         cdpUrl: lock.cdpUrl ?? null,
         connectionId: lock.connectionId ?? null,
         pid: lock.pid,
@@ -87,10 +84,9 @@ export async function handleClose(sessionName?: string, closeAll?: boolean): Pro
   }
   removeLock(sessionName);
   return output({
-    status: 'ok',
     'browser-session': sessionName,
     message: 'Browser session force-killed.',
-    url: lock.url ?? null,
+    pageUrl: lock.url ?? null,
     cdpUrl: lock.cdpUrl ?? null,
     connectionId: lock.connectionId ?? null,
     pid: lock.pid,

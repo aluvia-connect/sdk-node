@@ -116,7 +116,6 @@ function parseArgs(argv: string[]): {
     if (!url) {
       output(
         {
-          status: 'error',
           error: 'URL is required. Usage: npx aluvia-sdk open <url> [--connection-id <id>] [--browser-session <name>]',
         },
         1,
@@ -165,7 +164,7 @@ async function main(): Promise<void> {
   // Validate session name if provided
   if (sessionName && !validateSessionName(sessionName)) {
     output(
-      { status: 'error', error: 'Invalid session name. Use only letters, numbers, hyphens, and underscores.' },
+      { error: 'Invalid session name. Use only letters, numbers, hyphens, and underscores.' },
       1,
     );
   }
@@ -187,5 +186,5 @@ async function main(): Promise<void> {
 }
 
 main().catch((err) => {
-  output({ status: 'error', error: err.message }, 1);
+  output({ error: err.message }, 1);
 });

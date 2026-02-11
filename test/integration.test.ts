@@ -613,11 +613,9 @@ describe("BlockDetection Integration", () => {
     const detection: LockDetection = {
       hostname: "example.com",
       url: "https://example.com/test",
-      tier: "blocked",
+      blockStatus: "blocked",
       score: 0.85,
       signals: ["http_status_403", "waf_header"],
-      pass: "fast",
-      persistentBlock: false,
       timestamp: Date.now(),
     };
 
@@ -639,11 +637,9 @@ describe("BlockDetection Integration", () => {
       assert.strictEqual(lock!.autoUnblock, true);
       assert.ok(lock!.lastDetection);
       assert.strictEqual(lock!.lastDetection!.hostname, "example.com");
-      assert.strictEqual(lock!.lastDetection!.tier, "blocked");
+      assert.strictEqual(lock!.lastDetection!.blockStatus, "blocked");
       assert.strictEqual(lock!.lastDetection!.score, 0.85);
       assert.deepStrictEqual(lock!.lastDetection!.signals, ["http_status_403", "waf_header"]);
-      assert.strictEqual(lock!.lastDetection!.pass, "fast");
-      assert.strictEqual(lock!.lastDetection!.persistentBlock, false);
       assert.strictEqual(typeof lock!.lastDetection!.timestamp, "number");
     } finally {
       removeLock(testSession);

@@ -25,11 +25,9 @@ function logFileName(sessionName?: string): string {
 export type LockDetection = {
   hostname: string;
   url: string;
-  tier: string;
+  blockStatus: string;
   score: number;
   signals: string[];
-  pass: string;
-  persistentBlock: boolean;
   timestamp: number;
 };
 
