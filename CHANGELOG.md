@@ -8,6 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- `--auto-unblock` CLI flag to enable automatic block detection and page reload through Aluvia proxy.
 - Multi-session CLI support. Multiple browser sessions can now run in parallel, each with an auto-generated name (e.g. `swift-falcon`, `calm-river`). Use `--browser-session <name>` to specify a custom name.
 - `status` CLI command to list all active sessions or inspect a specific session.
 - `--all` flag on `close` command to stop all sessions at once.

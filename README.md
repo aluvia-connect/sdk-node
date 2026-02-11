@@ -253,6 +253,9 @@ npx aluvia-sdk open https://example.com --headed
 # Reuse an existing connection
 npx aluvia-sdk open https://example.com --connection-id 3449
 
+# Enable automatic unblocking (detect blocks, add to proxy rules, reload)
+npx aluvia-sdk open https://example.com --auto-unblock
+
 # Name a session explicitly
 npx aluvia-sdk open https://example.com --browser-session my-scraper
 

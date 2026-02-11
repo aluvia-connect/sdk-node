@@ -9,13 +9,14 @@ export type OpenOptions = {
   connectionId?: number;
   headless?: boolean;
   sessionName?: string;
+  autoUnblock?: boolean;
 };
 
 /**
  * Called from cli.ts when running `open <url>`.
  * Spawns the actual browser in a detached child and returns immediately.
  */
-export function handleOpen({ url, connectionId, headless, sessionName }: OpenOptions): void {
+export function handleOpen({ url, connectionId, headless, sessionName, autoUnblock }: OpenOptions): void {
   // Generate session name if not provided
   const session = sessionName ?? generateSessionName();
 
@@ -58,6 +59,9 @@ export function handleOpen({ url, connectionId, headless, sessionName }: OpenOpt
   if (!headless) {
     args.push('--headed');
   }
+  if (autoUnblock) {
+    args.push('--auto-unblock');
+  }
 
   const child = spawn(process.execPath, [process.argv[1], ...args], {
     detached: true,
@@ -79,6 +83,7 @@ export function handleOpen({ url, connectionId, headless, sessionName }: OpenOpt
       return output({
         status: 'ok',
         session,
+        autoUnblock: !!autoUnblock,
         url: lock.url ?? null,
         cdpUrl: lock.cdpUrl ?? null,
         connectionId: lock.connectionId ?? null,
@@ -106,7 +111,7 @@ export function handleOpen({ url, connectionId, headless, sessionName }: OpenOpt
  * Starts the proxy + browser, writes lock, and stays alive.
  * Logs go to the daemon log file (stdout is redirected), not to the user.
  */
-export async function handleOpenDaemon({ url, connectionId, headless, sessionName }: OpenOptions): Promise<void> {
+export async function handleOpenDaemon({ url, connectionId, headless, sessionName, autoUnblock }: OpenOptions): Promise<void> {
   const apiKey = process.env.ALUVIA_API_KEY!;
 
   const client = new AluviaClient({
@@ -114,6 +119,9 @@ export async function handleOpenDaemon({ url, connectionId, headless, sessionNam
     startPlaywright: true,
     ...(connectionId != null ? { connectionId } : {}),
     headless: headless ?? true,
+    pageLoadDetection: autoUnblock
+      ? { enabled: true, autoReload: true }
+      : { enabled: false },
   });
 
   const connection = await client.start();
@@ -121,6 +129,7 @@ export async function handleOpenDaemon({ url, connectionId, headless, sessionNam
   // Write early lock so parent knows daemon is alive
   writeLock({ pid: process.pid, session: sessionName, url }, sessionName);
 
+  if (autoUnblock) console.log('[daemon] Auto-unblock enabled');
   console.log(`[daemon] Browser initialized — proxy: ${connection.url}`);
   if (connection.cdpUrl) console.log(`[daemon] CDP URL: ${connection.cdpUrl}`);
   if (connectionId) console.log(`[daemon] Connection ID: ${connectionId}`);
