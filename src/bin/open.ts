@@ -1,5 +1,5 @@
 import { AluviaClient } from '../client/AluviaClient.js';
-import { writeLock, readLock, removeLock, isProcessAlive, getLogFilePath } from './lock.js';
+import { writeLock, readLock, removeLock, isProcessAlive, getLogFilePath, generateSessionName } from './lock.js';
 import { output } from './cli.js';
 import { spawn } from 'node:child_process';
 import * as fs from 'node:fs';
@@ -8,20 +8,25 @@ export type OpenOptions = {
   url: string;
   connectionId?: number;
   headless?: boolean;
+  sessionName?: string;
 };
 
 /**
  * Called from cli.ts when running `open <url>`.
  * Spawns the actual browser in a detached child and returns immediately.
  */
-export function handleOpen({ url, connectionId, headless }: OpenOptions): void {
-  // Check for existing instance
-  const existing = readLock();
+export function handleOpen({ url, connectionId, headless, sessionName }: OpenOptions): void {
+  // Generate session name if not provided
+  const session = sessionName ?? generateSessionName();
+
+  // Check for existing instance with this session name
+  const existing = readLock(session);
   if (existing !== null && isProcessAlive(existing.pid)) {
-    output(
+    return output(
       {
         status: 'error',
-        error: 'A browser session is already running.',
+        error: `A browser session named '${session}' is already running.`,
+        session,
         url: existing.url ?? null,
         cdpUrl: existing.cdpUrl ?? null,
         connectionId: existing.connectionId ?? null,
@@ -33,20 +38,20 @@ export function handleOpen({ url, connectionId, headless }: OpenOptions): void {
 
   // Clean up stale lock if process is dead
   if (existing !== null) {
-    removeLock();
+    removeLock(session);
   }
 
   // Require API key
   const apiKey = process.env.ALUVIA_API_KEY;
   if (!apiKey) {
-    output({ status: 'error', error: 'ALUVIA_API_KEY environment variable is required.' }, 1);
+    return output({ status: 'error', error: 'ALUVIA_API_KEY environment variable is required.' }, 1);
   }
 
   // Spawn a detached child process that runs the daemon
-  const logFile = getLogFilePath();
+  const logFile = getLogFilePath(session);
   const out = fs.openSync(logFile, 'a');
 
-  const args = ['--daemon', url];
+  const args = ['--daemon', url, '--browser-session', session];
   if (connectionId != null) {
     args.push('--connection-id', String(connectionId));
   }
@@ -68,11 +73,12 @@ export function handleOpen({ url, connectionId, headless }: OpenOptions): void {
   const maxAttempts = 240; // 60 seconds max
   const poll = setInterval(() => {
     attempts++;
-    const lock = readLock();
+    const lock = readLock(session);
     if (lock && lock.ready) {
       clearInterval(poll);
-      output({
+      return output({
         status: 'ok',
+        session,
         url: lock.url ?? null,
         cdpUrl: lock.cdpUrl ?? null,
         connectionId: lock.connectionId ?? null,
@@ -82,9 +88,10 @@ export function handleOpen({ url, connectionId, headless }: OpenOptions): void {
     if (attempts >= maxAttempts) {
       clearInterval(poll);
       const alive = child.pid ? isProcessAlive(child.pid) : false;
-      output(
+      return output(
         {
           status: 'error',
+          session,
           error: alive ? 'Browser is still initializing (timeout).' : 'Browser process exited unexpectedly.',
           logFile,
         },
@@ -99,7 +106,7 @@ export function handleOpen({ url, connectionId, headless }: OpenOptions): void {
  * Starts the proxy + browser, writes lock, and stays alive.
  * Logs go to the daemon log file (stdout is redirected), not to the user.
  */
-export async function handleOpenDaemon({ url, connectionId, headless }: OpenOptions): Promise<void> {
+export async function handleOpenDaemon({ url, connectionId, headless, sessionName }: OpenOptions): Promise<void> {
   const apiKey = process.env.ALUVIA_API_KEY!;
 
   const client = new AluviaClient({
@@ -112,11 +119,12 @@ export async function handleOpenDaemon({ url, connectionId, headless }: OpenOpti
   const connection = await client.start();
 
   // Write early lock so parent knows daemon is alive
-  writeLock({ pid: process.pid, url });
+  writeLock({ pid: process.pid, session: sessionName, url }, sessionName);
 
   console.log(`[daemon] Browser initialized — proxy: ${connection.url}`);
   if (connection.cdpUrl) console.log(`[daemon] CDP URL: ${connection.cdpUrl}`);
   if (connectionId) console.log(`[daemon] Connection ID: ${connectionId}`);
+  if (sessionName) console.log(`[daemon] Session: ${sessionName}`);
   console.log(`[daemon] Opening ${url}`);
 
   // Navigate to URL in the browser
@@ -142,16 +150,20 @@ export async function handleOpenDaemon({ url, connectionId, headless }: OpenOpti
   }
 
   // Write lock file with full session metadata (marks session as ready)
-  writeLock({
-    pid: process.pid,
-    connectionId: connId,
-    cdpUrl,
-    url,
-    ready: true,
-  });
+  writeLock(
+    {
+      pid: process.pid,
+      session: sessionName,
+      connectionId: connId,
+      cdpUrl,
+      url,
+      ready: true,
+    },
+    sessionName,
+  );
 
   console.log(
-    `[daemon] Session ready — url: ${url}, cdpUrl: ${cdpUrl}, connectionId: ${connId ?? 'unknown'}, pid: ${process.pid}`,
+    `[daemon] Session ready — session: ${sessionName ?? 'default'}, url: ${url}, cdpUrl: ${cdpUrl}, connectionId: ${connId ?? 'unknown'}, pid: ${process.pid}`,
   );
   if (pageTitle) console.log(`[daemon] Page title: ${pageTitle}`);
 
@@ -166,7 +178,7 @@ export async function handleOpenDaemon({ url, connectionId, headless }: OpenOpti
     } catch {
       // ignore
     }
-    removeLock();
+    removeLock(sessionName);
     console.log('[daemon] Stopped.');
     process.exit(0);
   };
@@ -179,7 +191,7 @@ export async function handleOpenDaemon({ url, connectionId, headless }: OpenOpti
     connection.browser.on('disconnected', () => {
       if (!stopping) {
         console.log('[daemon] Browser closed by user.');
-        removeLock();
+        removeLock(sessionName);
         client
           .stop()
           .catch(() => {})

@@ -2,7 +2,8 @@
 
 import { handleOpen, handleOpenDaemon } from './open.js';
 import { handleClose } from './close.js';
-import { removeLock } from './lock.js';
+import { handleStatus } from './status.js';
+import { validateSessionName } from './lock.js';
 
 export function output(data: Record<string, unknown>, exitCode = 0): never {
   console.log(JSON.stringify(data));
@@ -15,6 +16,8 @@ function parseArgs(argv: string[]): {
   connectionId?: number;
   daemon?: boolean;
   headed?: boolean;
+  sessionName?: string;
+  all?: boolean;
 } {
   const args = argv.slice(2);
   const command = args[0] ?? '';
@@ -24,10 +27,14 @@ function parseArgs(argv: string[]): {
     let url: string | undefined;
     let connectionId: number | undefined;
     let headed = false;
+    let sessionName: string | undefined;
 
     for (let i = 1; i < args.length; i++) {
       if (args[i] === '--connection-id' && args[i + 1]) {
         connectionId = parseInt(args[i + 1], 10);
+        i++;
+      } else if (args[i] === '--browser-session' && args[i + 1]) {
+        sessionName = args[i + 1];
         i++;
       } else if (args[i] === '--headed') {
         headed = true;
@@ -36,11 +43,36 @@ function parseArgs(argv: string[]): {
       }
     }
 
-    return { command: 'open', url, connectionId, daemon: true, headed };
+    return { command: 'open', url, connectionId, daemon: true, headed, sessionName };
   }
 
   if (command === 'close') {
-    return { command: 'close' };
+    let sessionName: string | undefined;
+    let all = false;
+
+    for (let i = 1; i < args.length; i++) {
+      if (args[i] === '--browser-session' && args[i + 1]) {
+        sessionName = args[i + 1];
+        i++;
+      } else if (args[i] === '--all') {
+        all = true;
+      }
+    }
+
+    return { command: 'close', sessionName, all };
+  }
+
+  if (command === 'status') {
+    let sessionName: string | undefined;
+
+    for (let i = 1; i < args.length; i++) {
+      if (args[i] === '--browser-session' && args[i + 1]) {
+        sessionName = args[i + 1];
+        i++;
+      }
+    }
+
+    return { command: 'status', sessionName };
   }
 
   if (command === 'help' || command === '--help' || command === '-h' || command === '') {
@@ -51,10 +83,14 @@ function parseArgs(argv: string[]): {
     let url: string | undefined;
     let connectionId: number | undefined;
     let headed = false;
+    let sessionName: string | undefined;
 
     for (let i = 1; i < args.length; i++) {
       if (args[i] === '--connection-id' && args[i + 1]) {
         connectionId = parseInt(args[i + 1], 10);
+        i++;
+      } else if (args[i] === '--browser-session' && args[i + 1]) {
+        sessionName = args[i + 1];
         i++;
       } else if (args[i] === '--headed') {
         headed = true;
@@ -67,13 +103,13 @@ function parseArgs(argv: string[]): {
       output(
         {
           status: 'error',
-          error: 'URL is required. Usage: npx aluvia-sdk open <url> [--connection-id <id>]',
+          error: 'URL is required. Usage: npx aluvia-sdk open <url> [--connection-id <id>] [--browser-session <name>]',
         },
         1,
       );
     }
 
-    return { command: 'open', url, connectionId, headed };
+    return { command: 'open', url, connectionId, headed, sessionName };
   }
 
   // Unknown command — show help to stderr
@@ -88,9 +124,19 @@ function printHelp(toStderr = false): void {
   const log = toStderr ? console.error : console.log;
   log('Aluvia SDK CLI\n');
   log('Usage:');
-  log('  npx aluvia-sdk open <url> [--connection-id <id>] [--headed]   Start a browser session');
-  log('  npx aluvia-sdk close                               Stop the running browser session');
-  log('  npx aluvia-sdk help                                Show this help\n');
+  log('  npx aluvia-sdk open <url> [options]    Start a browser session');
+  log('  npx aluvia-sdk close [options]          Stop a browser session');
+  log('  npx aluvia-sdk status [options]         Show browser session status');
+  log('  npx aluvia-sdk help                     Show this help\n');
+  log('Open options:');
+  log('  --connection-id <id>       Use a specific connection ID');
+  log('  --headed                   Run browser in headed mode');
+  log('  --browser-session <name>   Name for this session (auto-generated if omitted)\n');
+  log('Close options:');
+  log('  --browser-session <name>   Close a specific session');
+  log('  --all                      Close all sessions\n');
+  log('Status options:');
+  log('  --browser-session <name>   Show status for a specific session\n');
   log('Environment:');
   log('  ALUVIA_API_KEY   Required. Your Aluvia API key.\n');
   log('Output:');
@@ -98,23 +144,32 @@ function printHelp(toStderr = false): void {
 }
 
 async function main(): Promise<void> {
-  const { command, url, connectionId, daemon, headed } = parseArgs(process.argv);
+  const { command, url, connectionId, daemon, headed, sessionName, all } = parseArgs(process.argv);
+
+  // Validate session name if provided
+  if (sessionName && !validateSessionName(sessionName)) {
+    output(
+      { status: 'error', error: 'Invalid session name. Use only letters, numbers, hyphens, and underscores.' },
+      1,
+    );
+  }
 
   if (command === 'help') {
     printHelp();
     process.exit(0);
   } else if (command === 'open') {
     if (daemon) {
-      await handleOpenDaemon({ url: url!, connectionId, headless: !headed });
+      await handleOpenDaemon({ url: url!, connectionId, headless: !headed, sessionName });
     } else {
-      handleOpen({ url: url!, connectionId, headless: !headed });
+      handleOpen({ url: url!, connectionId, headless: !headed, sessionName });
     }
   } else if (command === 'close') {
-    await handleClose();
+    await handleClose(sessionName, all);
+  } else if (command === 'status') {
+    handleStatus(sessionName);
   }
 }
 
 main().catch((err) => {
   output({ status: 'error', error: err.message }, 1);
-  removeLock();
 });
