@@ -61,7 +61,7 @@ export class AluviaClient {
     const strict = options.strict ?? true;
     this.options = { ...options, apiKey, strict };
 
-    const connectionId = Number(options.connectionId) ?? null;
+    const connectionId = options.connectionId != null ? Number(options.connectionId) : undefined;
 
     const apiBaseUrl = options.apiBaseUrl ?? "https://api.aluvia.io/v1";
     const pollIntervalMs = options.pollIntervalMs ?? 5000;
@@ -499,10 +499,15 @@ export class AluviaClient {
       return;
     }
 
-    await this.proxyServer.stop();
-    this.configManager.stopPolling();
-    this.connection = null;
-    this.started = false;
+    if (this.connection) {
+      await this.connection.stop();
+      // connection.stop() sets this.connection = null and this.started = false
+    } else {
+      await this.proxyServer.stop();
+      this.configManager.stopPolling();
+      this.connection = null;
+      this.started = false;
+    }
   }
 
   /**

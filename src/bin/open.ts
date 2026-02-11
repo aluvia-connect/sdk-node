@@ -153,12 +153,12 @@ export async function handleOpenDaemon({ url, connectionId, headless, sessionNam
   if (autoUnblock) console.log('[daemon] Auto-unblock enabled');
   console.log(`[daemon] Browser initialized — proxy: ${connection.url}`);
   if (connection.cdpUrl) console.log(`[daemon] CDP URL: ${connection.cdpUrl}`);
-  if (connectionId) console.log(`[daemon] Connection ID: ${connectionId}`);
+  if (connectionId != null) console.log(`[daemon] Connection ID: ${connectionId}`);
   if (sessionName) console.log(`[daemon] Session: ${sessionName}`);
   console.log(`[daemon] Opening ${url}`);
 
   // Navigate to URL in the browser
-  const page = await connection.browser.newPage();
+  const page = await connection.browserContext.newPage();
   await page.goto(url, { waitUntil: 'domcontentloaded' });
 
   // Gather session info

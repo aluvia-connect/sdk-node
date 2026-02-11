@@ -145,7 +145,7 @@ export class ConfigManager {
    */
   async init(): Promise<void> {
     if (this.options.connectionId) {
-      this.accountConnectionId = this.options.connectionId ?? null;
+      this.accountConnectionId = this.options.connectionId;
       this.logger.info(`Using account connection API (connection id: ${this.accountConnectionId})`);
       let result: Awaited<ReturnType<typeof requestCore>>;
       try {
@@ -278,7 +278,11 @@ export class ConfigManager {
     return this.config;
   }
 
-  async setConfig(body: Object): Promise<ConnectionNetworkConfig | null> {
+  async setConfig(body: Record<string, unknown>): Promise<ConnectionNetworkConfig | null> {
+    if (this.accountConnectionId == null) {
+      throw new ApiError('Cannot update config: no account connection ID. Ensure init() succeeds first.');
+    }
+
     this.logger.debug(`Setting config: ${JSON.stringify(body)}`);
 
     let result: Awaited<ReturnType<typeof requestCore>>;

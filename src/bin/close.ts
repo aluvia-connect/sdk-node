@@ -1,4 +1,5 @@
-import { readLock, removeLock, isProcessAlive, listSessions } from './lock.js';
+import { removeLock, isProcessAlive, listSessions } from './lock.js';
+import type { LockData } from './lock.js';
 import { output } from './cli.js';
 
 export async function handleClose(sessionName?: string, closeAll?: boolean): Promise<void> {
@@ -7,18 +8,44 @@ export async function handleClose(sessionName?: string, closeAll?: boolean): Pro
     if (sessions.length === 0) {
       return output({ message: 'No running browser sessions found.', closed: [], count: 0 });
     }
-    const closed: string[] = [];
+
+    // Send SIGTERM to all sessions
     for (const s of sessions) {
       try {
         process.kill(s.pid, 'SIGTERM');
       } catch {
         // ignore
       }
+    }
+
+    // Wait up to 10 seconds for all processes to exit
+    const maxWait = 40;
+    const alive = new Set(sessions.map((s) => s.pid));
+    for (let i = 0; i < maxWait && alive.size > 0; i++) {
+      await new Promise((r) => setTimeout(r, 250));
+      for (const pid of alive) {
+        if (!isProcessAlive(pid)) {
+          alive.delete(pid);
+        }
+      }
+    }
+
+    // Force-kill any survivors
+    for (const pid of alive) {
+      try {
+        process.kill(pid, 'SIGKILL');
+      } catch {
+        // ignore
+      }
+    }
+
+    // Now remove all locks
+    const closed: string[] = [];
+    for (const s of sessions) {
       removeLock(s.session);
       closed.push(s.session);
     }
-    // Wait briefly for processes to exit
-    await new Promise((r) => setTimeout(r, 500));
+
     return output({ message: 'All browser sessions closed.', closed, count: closed.length });
   }
 
@@ -37,14 +64,49 @@ export async function handleClose(sessionName?: string, closeAll?: boolean): Pro
         1,
       );
     }
-    sessionName = sessions[0].session;
+    // Single session — use its data directly instead of re-reading the lock file
+    const session = sessions[0];
+    sessionName = session.session;
+
+    const lock: LockData = {
+      pid: session.pid,
+      session: session.session,
+      connectionId: session.connectionId,
+      cdpUrl: session.cdpUrl,
+      url: session.url,
+      ready: session.ready,
+      blockDetection: session.blockDetection,
+      autoUnblock: session.autoUnblock,
+      lastDetection: session.lastDetection,
+    };
+
+    return closeSession(sessionName, lock);
   }
 
-  const lock = readLock(sessionName);
-  if (lock === null) {
+  // Session name provided — need to verify it's alive
+  const sessions = listSessions();
+  const match = sessions.find((s) => s.session === sessionName);
+
+  if (!match) {
     return output({ 'browser-session': sessionName, message: 'No running browser session found.' });
   }
 
+  const lock: LockData = {
+    pid: match.pid,
+    session: match.session,
+    connectionId: match.connectionId,
+    cdpUrl: match.cdpUrl,
+    url: match.url,
+    ready: match.ready,
+    blockDetection: match.blockDetection,
+    autoUnblock: match.autoUnblock,
+    lastDetection: match.lastDetection,
+  };
+
+  return closeSession(sessionName, lock);
+}
+
+async function closeSession(sessionName: string, lock: LockData): Promise<void> {
   if (!isProcessAlive(lock.pid)) {
     removeLock(sessionName);
     return output({

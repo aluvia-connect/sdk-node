@@ -10,6 +10,48 @@ export function output(data: Record<string, unknown>, exitCode = 0): never {
   process.exit(exitCode);
 }
 
+type OpenArgs = {
+  url?: string;
+  connectionId?: number;
+  headed: boolean;
+  sessionName?: string;
+  autoUnblock: boolean;
+  disableBlockDetection: boolean;
+};
+
+function parseOpenArgs(args: string[], startIndex: number): OpenArgs {
+  let url: string | undefined;
+  let connectionId: number | undefined;
+  let headed = false;
+  let sessionName: string | undefined;
+  let autoUnblock = false;
+  let disableBlockDetection = false;
+
+  for (let i = startIndex; i < args.length; i++) {
+    if (args[i] === '--connection-id' && args[i + 1]) {
+      const parsed = parseInt(args[i + 1], 10);
+      if (Number.isNaN(parsed)) {
+        output({ error: `Invalid --connection-id: '${args[i + 1]}' must be a valid number.` }, 1);
+      }
+      connectionId = parsed;
+      i++;
+    } else if (args[i] === '--browser-session' && args[i + 1]) {
+      sessionName = args[i + 1];
+      i++;
+    } else if (args[i] === '--headful') {
+      headed = true;
+    } else if (args[i] === '--auto-unblock') {
+      autoUnblock = true;
+    } else if (args[i] === '--disable-block-detection') {
+      disableBlockDetection = true;
+    } else if (!url && !args[i].startsWith('--')) {
+      url = args[i];
+    }
+  }
+
+  return { url, connectionId, headed, sessionName, autoUnblock, disableBlockDetection };
+}
+
 function parseArgs(argv: string[]): {
   command: string;
   url?: string;
@@ -26,32 +68,8 @@ function parseArgs(argv: string[]): {
 
   // Internal: --daemon mode (spawned by `open` in detached child)
   if (command === '--daemon') {
-    let url: string | undefined;
-    let connectionId: number | undefined;
-    let headed = false;
-    let sessionName: string | undefined;
-    let autoUnblock = false;
-    let disableBlockDetection = false;
-
-    for (let i = 1; i < args.length; i++) {
-      if (args[i] === '--connection-id' && args[i + 1]) {
-        connectionId = parseInt(args[i + 1], 10);
-        i++;
-      } else if (args[i] === '--browser-session' && args[i + 1]) {
-        sessionName = args[i + 1];
-        i++;
-      } else if (args[i] === '--headful') {
-        headed = true;
-      } else if (args[i] === '--auto-unblock') {
-        autoUnblock = true;
-      } else if (args[i] === '--disable-block-detection') {
-        disableBlockDetection = true;
-      } else if (!url && !args[i].startsWith('--')) {
-        url = args[i];
-      }
-    }
-
-    return { command: 'open', url, connectionId, daemon: true, headed, sessionName, autoUnblock, disableBlockDetection };
+    const parsed = parseOpenArgs(args, 1);
+    return { command: 'open', ...parsed, daemon: true };
   }
 
   if (command === 'close') {
@@ -88,32 +106,9 @@ function parseArgs(argv: string[]): {
   }
 
   if (command === 'open') {
-    let url: string | undefined;
-    let connectionId: number | undefined;
-    let headed = false;
-    let sessionName: string | undefined;
-    let autoUnblock = false;
-    let disableBlockDetection = false;
+    const parsed = parseOpenArgs(args, 1);
 
-    for (let i = 1; i < args.length; i++) {
-      if (args[i] === '--connection-id' && args[i + 1]) {
-        connectionId = parseInt(args[i + 1], 10);
-        i++;
-      } else if (args[i] === '--browser-session' && args[i + 1]) {
-        sessionName = args[i + 1];
-        i++;
-      } else if (args[i] === '--headful') {
-        headed = true;
-      } else if (args[i] === '--auto-unblock') {
-        autoUnblock = true;
-      } else if (args[i] === '--disable-block-detection') {
-        disableBlockDetection = true;
-      } else if (!url && !args[i].startsWith('--')) {
-        url = args[i];
-      }
-    }
-
-    if (!url) {
+    if (!parsed.url) {
       output(
         {
           error: 'URL is required. Usage: npx aluvia-sdk open <url> [--connection-id <id>] [--browser-session <name>]',
@@ -122,7 +117,7 @@ function parseArgs(argv: string[]): {
       );
     }
 
-    return { command: 'open', url, connectionId, headed, sessionName, autoUnblock, disableBlockDetection };
+    return { command: 'open', ...parsed };
   }
 
   // Unknown command — show help to stderr
