@@ -1,13 +1,13 @@
 ---
 name: aluvia
-description: "Stop your AI agent from getting blocked. Aluvia routes traffic through real US mobile carrier IPs (AT&T, T-Mobile, Verizon) so websites treat your agent like a human. Bypasses Cloudflare, DataDome, PerimeterX, Akamai Bot Manager, and other anti-bot systems automatically. Use when your agent hits 403 Forbidden, Cloudflare challenges, CAPTCHAs, rate limits (429), IP bans, empty responses, or WAF blocks. Features auto block detection and bypass, one-command IP rotation, US geo-targeting, dynamic proxy routing rules, and managed headless Chromium via Playwright — all through a JSON-first CLI built for AI agents."
+description: 'Stop your AI agent from getting blocked. Aluvia routes traffic through real US mobile carrier IPs (AT&T, T-Mobile, Verizon) so websites treat your agent like a human. Bypasses Cloudflare, DataDome, PerimeterX, Akamai Bot Manager, and other anti-bot systems automatically. Use when your agent hits 403 Forbidden, Cloudflare challenges, CAPTCHAs, rate limits (429), IP bans, empty responses, or WAF blocks. Features auto block detection and bypass, one-command IP rotation, US geo-targeting, dynamic proxy routing rules, and managed headless Chromium via Playwright — all through a JSON-first CLI built for AI agents.'
 metadata:
   {
-    "openclaw":
+    'openclaw':
       {
-        "requires": { "bins": ["aluvia"], "env": ["ALUVIA_API_KEY"] },
-        "primaryEnv": "ALUVIA_API_KEY",
-        "emoji": "🌐",
+        'requires': { 'bins': ['aluvia'], 'env': ['ALUVIA_API_KEY'] },
+        'primaryEnv': 'ALUVIA_API_KEY',
+        'emoji': '🌐',
       },
   }
 ---
@@ -33,6 +33,18 @@ Aluvia's proxies + Playwright + Chrome stack: detects website blocks and routes 
 - **Dynamic proxy routing rules** — Proxy only the domains that need it. Add or remove hostnames on the fly as your agent navigates across sites and discovers new endpoints.
 - **Managed headless Chromium with Playwright** — Full browser sessions with Chrome DevTools Protocol (CDP) access. No browser setup, no stealth plugins, no fingerprint patching required.
 - **JSON-first CLI built for agents** — Every command returns structured JSON to stdout. Designed for programmatic use by AI agents, not for humans typing in a terminal.
+
+## Installation
+
+```bash
+npm install -g @aluvia/sdk
+```
+
+Or use directly with npx (no install needed):
+
+```bash
+npx aluvia help
+```
 
 ## CLI Interface
 
@@ -145,6 +157,50 @@ Rules are appended to existing rules (not replaced).
 
 ```bash
 aluvia session close --browser-session my-task
+```
+
+## Integrating with agent-browser
+
+[agent-browser](https://www.npmjs.com/package/agent-browser) is a headless browser automation CLI for AI agents. You can drive an Aluvia-backed browser by passing the session CDP URL via `--cdp`.
+
+**Using the CDP URL with agent-browser**
+
+Start an Aluvia session, then pass the CDP URL to agent-browser:
+
+```bash
+# Start Aluvia proxy browser
+CDP_URL=$(aluvia session start https://example.com --auto-unblock --browser-session my-task | jq -r '.cdpUrl')
+
+# Connect agent-browser via CDP
+agent-browser --cdp $CDP_URL snapshot -i
+agent-browser --cdp $CDP_URL click @e1
+agent-browser --cdp $CDP_URL fill @e2 "search query"
+
+# When done
+aluvia session close --browser-session my-task
+```
+
+This routes all of agent-browser's traffic through Aluvia's residential proxies, avoiding blocks and CAPTCHAs.
+
+## Integrating with OpenClaw Browser Tool
+
+OpenClaw can control a browser via a [remote CDP profile](https://docs.openclaw.ai/tools/browser). Start an Aluvia session and add the session's CDP URL as a remote profile so the OpenClaw browser tool uses the Aluvia proxy.
+
+**Using the CDP URL with OpenClaw Browser Tool**
+
+```bash
+# Start Aluvia proxy browser
+CDP_URL=$(aluvia session start https://example.com --auto-unblock --browser-session my-task | jq -r '.cdpUrl')
+
+# Add a remote profile
+openclaw browser create-profile --name my-task --cdp-url $CDP_URL
+
+# Use the profile (e.g. openclaw browser --browser-profile my-task open https://example.com)
+# When done:
+aluvia session close --browser-session my-task
+
+# Delete the profile
+openclaw browser delete-profile --name my-task
 ```
 
 ## Safety Constraints
