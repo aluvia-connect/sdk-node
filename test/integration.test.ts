@@ -16,8 +16,8 @@ import {
 import { matchPattern, shouldProxy } from "../src/client/rules.js";
 import { Logger } from "../src/client/logger.js";
 import type { BlockDetectionResult } from "../src/client/BlockDetection.js";
-import { writeLock, readLock, removeLock } from "../src/bin/lock.js";
-import type { LockDetection } from "../src/bin/lock.js";
+import { writeLock, readLock, removeLock } from "../src/session/lock.js";
+import type { LockDetection } from "../src/session/lock.js";
 
 describe("AluviaClient", () => {
   afterEach(() => {
@@ -76,7 +76,6 @@ describe("AluviaClient", () => {
     assert.strictEqual(pollingStarted, true);
 
     assert.strictEqual(connection.url, url);
-    assert.strictEqual(connection.getUrl(), url);
     assert.deepStrictEqual(connection.asPlaywright(), { server: url });
     assert.deepStrictEqual(connection.asPuppeteer(), [`--proxy-server=${url}`]);
 
