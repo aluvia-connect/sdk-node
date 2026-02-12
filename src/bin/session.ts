@@ -190,7 +190,7 @@ async function handleSessionRotateIp(args: string[]): Promise<void> {
   const connId = requireConnectionId(lock, session);
   const api = requireApi();
 
-  const newSessionId = crypto.randomUUID();
+  const newSessionId = crypto.randomUUID().replace(/-/g, '');
   await api.account.connections.patch(connId, { session_id: newSessionId });
 
   return output({
