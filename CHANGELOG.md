@@ -10,19 +10,28 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 - `--auto-unblock` CLI flag to enable automatic block detection and page reload through Aluvia proxy.
 - Multi-session CLI support. Multiple browser sessions can now run in parallel, each with an auto-generated name (e.g. `swift-falcon`, `calm-river`). Use `--browser-session <name>` to specify a custom name.
-- `status` CLI command to list all active sessions or inspect a specific session.
-- `--all` flag on `close` command to stop all sessions at once.
-- `session` field included in all CLI JSON responses for agent session tracking.
+- Full CLI command surface for agent workflows: `session start`, `session close`, `session list`, `session get`, `session rotate-ip`, `session set-geo`, `session set-rules`, `account`, `account usage`, `geos`, `help`.
+- `--all` flag on `session close` command to stop all sessions at once.
+- `--run <script>` option on `session start` to execute a script with `page`, `browser`, `context` injected as globals.
+- `connect()` helper for AI agents to attach to running browser sessions via CDP.
+- `--help` / `-h` flag support at all command levels.
 
 ### Changed
-- Overhaul website block detection with weighted scoring system. Replaces binary keyword/status matching with probabilistic signal combination across 8 detector types (HTTP status, WAF headers, title keywords, challenge selectors, visible text, text-to-HTML ratio, redirect chains, meta refresh). Adds two-pass analysis (fast pass at `domcontentloaded`, full pass after `networkidle`), SPA navigation detection, word-boundary matching to prevent false positives, and hostname-level persistent block escalation. Detection results now include `tier` (`blocked`/`suspected`/`clear`), `score`, and `signals` array.
-- `onDetection` callback now fires on every page analysis, including `clear` results. Previously only fired for `blocked` and `suspected` tiers.
+- Overhaul website block detection with weighted scoring system. Replaces binary keyword/status matching with probabilistic signal combination across 8 detector types (HTTP status, WAF headers, title keywords, challenge selectors, visible text, text-to-HTML ratio, redirect chains, meta refresh). Adds two-pass analysis (fast pass at `domcontentloaded`, full pass after `networkidle`), SPA navigation detection, word-boundary matching to prevent false positives, and hostname-level persistent block escalation. Detection results now include `blockStatus` (`blocked`/`suspected`/`clear`), `score`, and `signals` array.
+- `onDetection` callback now fires on every page analysis, including `clear` results. Previously only fired for `blocked` and `suspected` results.
 - Add `autoUnblock` option to `BlockDetectionConfig` (default: `false`). Set to `true` to automatically add blocked hostnames to routing rules and reload the page. When `false` (the default), detection-only mode lets agents receive scores via `onDetection` and decide how to respond.
 - Rename `pageLoadDetection` option to `blockDetection` and `PageLoadDetectionConfig`/`PageLoadDetectionResult` types to `BlockDetectionConfig`/`BlockDetectionResult` for clarity.
+- Restructure CLI: replace `open`/`close`/`status` with `session start`/`session close`/`session list`/`session get` and add `session rotate-ip`, `session set-geo`, `session set-rules` subcommands.
 - Lock files are now per-session (`cli-<name>.lock`) instead of a single `cli.lock`.
+- `session close` now returns exit code 1 when no sessions are found.
+- `session set-rules` now deduplicates rules on append and errors when both positional rules and `--remove` are specified.
 
 ### Fixed
 - Fix control-flow bug in `close` command where missing `return` before `output()` calls caused fall-through execution, potentially sending SIGTERM to undefined PIDs.
+- Fix `handleOpen` crash when `spawn` throws (e.g. invalid executable path).
+- Fix invalid session names causing a 60-second timeout instead of an immediate error.
+- Fix `connect()` error messages referencing removed `open` and `status` commands.
+- Fix `--connection-id` validation missing in daemon argument parser.
 
 ### Removed
 - Remove gateway mode (`localProxy: false`). The SDK now always runs a local proxy on `127.0.0.1`. The `localProxy` option has been removed from `AluviaClientOptions`.
@@ -31,13 +40,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 - Auto reload a page on block detection. See [docs](https://docs.aluvia.io/aluvia-client/auto-unblock) for details.
-- CLI for managing browser sessions: `npx @aluvia/sdk open <url>` and `npx @aluvia/sdk close`.
+- CLI for managing browser sessions: `npx @aluvia/sdk session start <url>` and `npx @aluvia/sdk session close`.
 - Daemon mode: browser runs as a detached background process that survives terminal close.
 - CDP (Chrome DevTools Protocol) endpoint exposed via `--remote-debugging-port`, enabling external tools to connect with `connectOverCDP()` and share browser contexts/pages.
 - `cdpUrl` field on `AluviaClientConnection` for programmatic CDP access.
 - `headless` option on `AluviaClientOptions` (default: `true`). CLI flag `--headful` to launch a visible browser.
-- `--connection-id <id>` flag on CLI `open` command to reuse an existing connection.
-- Lock file (`/tmp/aluvia-sdk/cli.lock`) for single-instance enforcement with full session metadata.
+- `--connection-id <id>` flag on CLI `session start` command to reuse an existing connection.
+- Lock file (`/tmp/aluvia-sdk/cli-<name>.lock`) for per-session state persistence with full session metadata.
 - JSON output by default on all CLI commands for AI agent consumption.
 - `help` command with plain-text output.
 

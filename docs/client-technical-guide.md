@@ -473,13 +473,13 @@ const client = new AluviaClient({
   blockDetection: {
     enabled: true,
     autoUnblock: false,                  // Auto-add rules and reload on block (default: false)
-    autoUnblockOnSuspected: false,       // Also reload on "suspected" tier (default: false)
+    autoUnblockOnSuspected: false,       // Also reload on "suspected" status (default: false)
     networkIdleTimeoutMs: 3000,          // Max wait for networkidle (default: 3000)
     challengeSelectors: ['#my-captcha'], // Additional DOM selectors to check
     extraKeywords: ['custom block msg'], // Additional keywords to detect
     extraStatusCodes: [418],             // Additional HTTP status codes
     onDetection: (result, page) => {
-      console.log(`${result.tier} on ${result.hostname} — score: ${result.score}`);
+      console.log(`${result.blockStatus} on ${result.hostname} — score: ${result.score}`);
       console.log('Signals:', result.signals.map(s => s.name));
     },
   },
@@ -496,7 +496,7 @@ const client = new AluviaClient({
 | `extraStatusCodes` | `number[]` | `[]` | Additional HTTP status codes to treat as blocks. |
 | `networkIdleTimeoutMs` | `number` | `3000` | Max ms to wait for `networkidle` before full-pass analysis. |
 | `autoUnblock` | `boolean` | `false` | Automatically add blocked hostnames to routing rules and reload the page. Set to `true` to enable automatic remediation. |
-| `autoUnblockOnSuspected` | `boolean` | `false` | Also reload on `suspected` tier (by default, only `blocked` triggers reload). Requires `autoUnblock: true`. |
+| `autoUnblockOnSuspected` | `boolean` | `false` | Also reload on `suspected` block status (by default, only `blocked` triggers reload). Requires `autoUnblock: true`. |
 | `onDetection` | `function` | `undefined` | Callback fired on every detection result, including `clear`. Receives `(result, page)`. |
 
 ### Detection Result
@@ -507,7 +507,7 @@ The `onDetection` callback receives a `BlockDetectionResult`:
 type BlockDetectionResult = {
   url: string;               // Page URL
   hostname: string;          // Extracted hostname
-  tier: DetectionTier;       // "blocked" | "suspected" | "clear"
+  blockStatus: DetectionBlockStatus;  // "blocked" | "suspected" | "clear"
   score: number;             // 0.0 to 1.0
   signals: DetectionSignal[];// Fired signals with names and weights
   pass: "fast" | "full";    // Which analysis pass produced this result
@@ -520,13 +520,13 @@ type BlockDetectionResult = {
 
 Each signal detector returns a weight (0.0 to 1.0) representing independent probability of blocking. Scores are combined using probabilistic combination: `score = 1 - product(1 - weight)`. This prevents weak signals from stacking to false positives.
 
-| Score Range | Tier | Action (when `autoUnblock: true`) |
+| Score Range | Block Status | Action (when `autoUnblock: true`) |
 |-------------|------|--------|
 | >= 0.7 | `blocked` | Add hostname to rules and reload page |
 | >= 0.4 | `suspected` | Reload only if `autoUnblockOnSuspected: true` |
 | < 0.4 | `clear` | No action |
 
-When `autoUnblock: false` (the default), no automatic rule updates or page reloads occur for any tier. The `onDetection` callback still fires for every result, allowing agents to inspect scores and take action themselves.
+When `autoUnblock: false` (the default), no automatic rule updates or page reloads occur for any status. The `onDetection` callback still fires for every result, allowing agents to inspect scores and take action themselves.
 
 ### Signal Detectors
 
@@ -568,7 +568,7 @@ Use `client.getBlockedHostnames()` to see persistently blocked hostnames and `cl
 Set `logLevel: 'debug'` to get JSON-formatted detection results for every analysis pass, useful for calibrating signal weights:
 
 ```
-Detection result: {"url":"...","tier":"clear","score":0.10,"signals":[{"name":"waf_header_cloudflare","weight":0.10,"source":"fast"}],"pass":"full"}
+Detection result: {"url":"...","blockStatus":"clear","score":0.10,"signals":[{"name":"waf_header_cloudflare","weight":0.10,"source":"fast"}],"pass":"full"}
 ```
 
 ---

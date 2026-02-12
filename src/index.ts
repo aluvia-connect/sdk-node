@@ -27,7 +27,7 @@ export type {
   PlaywrightProxySettings,
   BlockDetectionConfig,
   BlockDetectionResult,
-  DetectionTier,
+  DetectionBlockStatus,
   DetectionSignal,
   RedirectHop,
 } from "./client/types.js";

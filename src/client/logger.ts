@@ -37,6 +37,11 @@ export class Logger {
     }
   }
 
+  /** Check if debug logging is enabled. */
+  get isDebug(): boolean {
+    return this.level === 'debug';
+  }
+
   /**
    * Log warning messages.
    * Logs when level is not 'silent'.

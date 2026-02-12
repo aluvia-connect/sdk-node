@@ -260,6 +260,7 @@ export class ConfigManager {
         this.pollInFlight = false;
       }
     }, this.options.pollIntervalMs);
+    this.timer.unref();
   }
 
   /**
@@ -331,8 +332,8 @@ export class ConfigManager {
    * Called by the polling timer.
    */
   private async pollOnce(): Promise<void> {
-    if (!this.config) {
-      this.logger.warn('No config available, skipping poll');
+    if (!this.config || this.accountConnectionId == null) {
+      this.logger.warn('No config or connection ID available, skipping poll');
       return;
     }
 

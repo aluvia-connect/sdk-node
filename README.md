@@ -75,13 +75,13 @@ This launches a headless Chromium browser routed through Aluvia's mobile proxy n
 
 ```json
 {
-  "browser-session": "swift-falcon",
-  "autoUnblock": true,
+  "browserSession": "swift-falcon",
+  "pid": 12345,
   "startUrl": "https://example.com",
   "cdpUrl": "http://127.0.0.1:38209",
-  "proxyUrl": "http://127.0.0.1:54321",
   "connectionId": 3449,
-  "pid": 12345
+  "blockDetection": true,
+  "autoUnblock": true
 }
 ```
 
@@ -325,15 +325,13 @@ Returns all running sessions with their connection details:
 {
   "sessions": [
     {
-      "browser-session": "swift-falcon",
+      "browserSession": "swift-falcon",
       "pid": 12345,
       "startUrl": "https://example.com",
       "cdpUrl": "http://127.0.0.1:38209",
-      "proxyUrl": "http://127.0.0.1:54321",
       "connectionId": 3449,
       "blockDetection": true,
-      "autoUnblock": false,
-      "lastDetection": null
+      "autoUnblock": false
     }
   ],
   "count": 1
@@ -346,31 +344,28 @@ Returns all running sessions with their connection details:
 aluvia session get [--browser-session <name>]
 ```
 
-Returns session details enriched with connection config and gateway proxy credentials from the API:
+Returns session details enriched with the full connection object from the API:
 
 ```json
 {
-  "browser-session": "swift-falcon",
+  "browserSession": "swift-falcon",
   "pid": 12345,
-  "alive": true,
   "startUrl": "https://example.com",
   "cdpUrl": "http://127.0.0.1:38209",
-  "proxyUrl": "http://127.0.0.1:54321",
   "connectionId": 3449,
-  "rules": ["example.com", "api.example.com"],
-  "sessionId": "a1b2c3d4-...",
-  "targetGeo": "US",
   "blockDetection": true,
   "autoUnblock": false,
-  "lastDetection": null,
-  "gatewayProxy": {
-    "url": "http://user:pass@gateway.aluvia.io:8080",
-    "host": "gateway.aluvia.io",
-    "port": 8080,
-    "protocol": "http",
-    "username": "user",
-    "password": "pass"
-  }
+  "lastDetection": {
+    "hostname": "example.com",
+    "lastUrl": "https://example.com/page",
+    "blockStatus": "blocked",
+    "score": 0.85,
+    "signals": ["http_status_403", "waf_header"],
+    "pass": "fast",
+    "persistentBlock": false,
+    "timestamp": 1739290800000
+  },
+  "connection": { ... }
 }
 ```
 
@@ -383,7 +378,7 @@ aluvia session rotate-ip [--browser-session <name>]
 Generates a new session ID to rotate the upstream IP:
 
 ```json
-{ "browser-session": "swift-falcon", "connectionId": 3449, "sessionId": "e5f6a7b8-..." }
+{ "browserSession": "swift-falcon", "connectionId": 3449, "sessionId": "e5f6a7b8-..." }
 ```
 
 #### `session set-geo` -- Set target geo
@@ -478,7 +473,7 @@ const { page } = await connect("swift-falcon");
 
 Most proxy solutions require you to decide upfront which sites to proxy. If a site blocks you later, you're stuck—restart your workers, redeploy your fleet, or lose the workflow.
 
-**With Aluvia, your agent can unblock itself.** The SDK includes automatic website block detection that identifies blocks, CAPTCHAs, and WAF challenges using a weighted scoring system across multiple signals (HTTP status codes, WAF headers, challenge selectors, page content, redirect chains, and more). The `onDetection` callback fires on every page analysis with the detection score, tier, and signals — giving your agent full visibility into what's happening.
+**With Aluvia, your agent can unblock itself.** The SDK includes automatic website block detection that identifies blocks, CAPTCHAs, and WAF challenges using a weighted scoring system across multiple signals (HTTP status codes, WAF headers, challenge selectors, page content, redirect chains, and more). The `onDetection` callback fires on every page analysis with the detection score, block status, and signals — giving your agent full visibility into what's happening.
 
 ### Automatic unblocking (recommended)
 
@@ -492,7 +487,7 @@ const client = new AluviaClient({
     enabled: true,
     autoUnblock: true,
     onDetection: (result, page) => {
-      console.log(`${result.tier} on ${result.hostname} (score: ${result.score})`);
+      console.log(`${result.blockStatus} on ${result.hostname} (score: ${result.score})`);
     },
   },
 });
@@ -513,8 +508,8 @@ const client = new AluviaClient({
   blockDetection: {
     enabled: true,
     onDetection: (result, page) => {
-      console.log(`${result.tier} on ${result.hostname} (score: ${result.score})`);
-      if (result.tier === "blocked") {
+      console.log(`${result.blockStatus} on ${result.hostname} (score: ${result.score})`);
+      if (result.blockStatus === "blocked") {
         // Agent decides what to do
       }
     },
@@ -522,11 +517,11 @@ const client = new AluviaClient({
 });
 ```
 
-### Detection tiers
+### Detection block statuses
 
-Each page analysis produces a score from 0.0 to 1.0. The score maps to a detection tier:
+Each page analysis produces a score from 0.0 to 1.0. The score maps to a block status:
 
-| Score | Tier | Meaning |
+| Score | Block Status | Meaning |
 |-------|------|---------|
 | >= 0.7 | `"blocked"` | High confidence the page is blocked (triggers reload when `autoUnblock: true`) |
 | >= 0.4 | `"suspected"` | Possible block, but not certain (reload only if `autoUnblockOnSuspected: true`) |

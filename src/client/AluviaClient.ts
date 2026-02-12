@@ -231,7 +231,7 @@ export class AluviaClient {
           this.blockDetection
             .analyzeFull(page, null)
             .then((result: BlockDetectionResult) => {
-              this.handleDetectionResult(result, page);
+              return this.handleDetectionResult(result, page);
             })
             .catch((error: any) => {
               this.logger.warn(
@@ -282,10 +282,10 @@ export class AluviaClient {
     // If auto-reload is disabled, stop here (detection-only mode)
     if (!this.blockDetection.isAutoUnblock()) return;
 
-    // Check if auto-reload should fire for this tier
+    // Check if auto-reload should fire for this blockStatus
     const shouldReload =
-      result.tier === "blocked" ||
-      (result.tier === "suspected" &&
+      result.blockStatus === "blocked" ||
+      (result.blockStatus === "suspected" &&
         this.blockDetection.isAutoUnblockOnSuspected());
 
     if (!shouldReload) return;
@@ -334,7 +334,10 @@ export class AluviaClient {
       return;
     }
 
-    // First block for this URL
+    // First block for this URL — cap set size to prevent unbounded growth
+    if (this.blockDetection!.retriedUrls.size >= 10_000) {
+      this.blockDetection!.retriedUrls.clear();
+    }
     this.blockDetection!.retriedUrls.add(url);
 
     // Add hostname to proxy routing rules
@@ -343,7 +346,7 @@ export class AluviaClient {
       const currentRules = config?.rules ?? [];
       if (!currentRules.includes(hostname)) {
         this.logger.info(
-          `Auto-adding ${hostname} to routing rules due to detection (tier: ${result.tier})`,
+          `Auto-adding ${hostname} to routing rules due to detection (blockStatus: ${result.blockStatus})`,
         );
         await this.updateRules([...currentRules, hostname]);
       }
@@ -387,37 +390,14 @@ export class AluviaClient {
       // Fetch initial configuration (may throw InvalidApiKeyError or ApiError)
       await this.configManager.init();
 
-      // Initialize Playwright if requested
-      let browserInstance: any = undefined;
-      if (this.options.startPlaywright) {
-        try {
-          const pw = await import("playwright");
-          // @ts-ignore
-          browserInstance = pw.chromium;
-        } catch {
-          // Playwright not installed — attempt auto-install
-          this.logger.info("Playwright not found. Installing playwright...");
-          const { execSync } = await import("node:child_process");
-          try {
-            execSync("npm install playwright", {
-              stdio: "inherit",
-              cwd: process.cwd(),
-            });
-            const pw = await import("playwright");
-            // @ts-ignore
-            browserInstance = pw.chromium;
-          } catch (installError: any) {
-            throw new ApiError(
-              `Failed to auto-install Playwright. Install it manually: npm install playwright\n${installError.message}`,
-              500,
-            );
-          }
-        }
-      }
+      const browserInstance = this.options.startPlaywright
+        ? await this._initPlaywright()
+        : undefined;
 
       // Keep config fresh so routing decisions update without restarting.
       this.configManager.startPolling();
 
+      try {
       const { host, port, url } = await this.proxyServer.start(
         this.options.localPort,
       );
@@ -473,13 +453,21 @@ export class AluviaClient {
       let browserCdpUrl: string | undefined;
       if (browserInstance) {
         const proxySettings = toPlaywrightProxySettings(url);
-        const cdpPort = await AluviaClient.findFreePort();
-        launchedBrowser = await browserInstance.launch({
-          proxy: proxySettings,
-          headless: this.options.headless !== false,
-          args: [`--remote-debugging-port=${cdpPort}`],
-        });
-        browserCdpUrl = `http://127.0.0.1:${cdpPort}`;
+        for (let attempt = 0; attempt < 3; attempt++) {
+          const cdpPort = await AluviaClient.findFreePort();
+          try {
+            launchedBrowser = await browserInstance.launch({
+              proxy: proxySettings,
+              headless: this.options.headless !== false,
+              args: [`--remote-debugging-port=${cdpPort}`],
+            });
+            browserCdpUrl = `http://127.0.0.1:${cdpPort}`;
+            break;
+          } catch (err: any) {
+            if (attempt === 2 || !err.message?.includes('EADDRINUSE')) throw err;
+            this.logger.debug(`Port ${cdpPort} taken, retrying browser launch`);
+          }
+        }
 
         launchedBrowserContext = await launchedBrowser.newContext();
 
@@ -497,7 +485,6 @@ export class AluviaClient {
         host,
         port,
         url,
-        getUrl: () => url,
         asPlaywright: () => toPlaywrightProxySettings(url),
         asPuppeteer: () => toPuppeteerArgs(url),
         asSelenium: () => toSeleniumArgs(url),
@@ -522,6 +509,10 @@ export class AluviaClient {
       this.started = true;
 
       return connection;
+      } catch (err) {
+        this.configManager.stopPolling();
+        throw err;
+      }
     })();
 
     try {
@@ -551,8 +542,8 @@ export class AluviaClient {
     }
 
     if (this.connection) {
-      await this.connection.stop();
-      // connection.stop() sets this.connection = null and this.started = false
+      await this.connection.close();
+      // connection.close() sets this.connection = null and this.started = false
     } else {
       await this.proxyServer.stop();
       this.configManager.stopPolling();
@@ -616,6 +607,36 @@ export class AluviaClient {
     if (this.blockDetection) {
       this.blockDetection.persistentHostnames.clear();
       this.blockDetection.retriedUrls.clear();
+    }
+  }
+
+  /**
+   * Import Playwright, auto-installing if necessary.
+   * Returns the chromium browser type for launching.
+   */
+  private async _initPlaywright(): Promise<any> {
+    try {
+      const pw = await import("playwright");
+      // @ts-ignore
+      return pw.chromium;
+    } catch {
+      // Playwright not installed — attempt auto-install
+      this.logger.info("Playwright not found. Installing playwright...");
+      const { execSync } = await import("node:child_process");
+      try {
+        execSync("npm install playwright", {
+          stdio: "inherit",
+          cwd: process.cwd(),
+        });
+        const pw = await import("playwright");
+        // @ts-ignore
+        return pw.chromium;
+      } catch (installError: any) {
+        throw new ApiError(
+          `Failed to auto-install Playwright. Install it manually: npm install playwright\n${installError.message}`,
+          500,
+        );
+      }
     }
   }
 

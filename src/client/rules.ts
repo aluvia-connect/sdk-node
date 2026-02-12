@@ -96,9 +96,9 @@ export function normalizeRules(rules: string[]): NormalizedRules {
 
   const trimmed = rules
     .filter((r) => typeof r === 'string')
-    .map((r) => r.trim())
+    .map((r) => r.trim().toLowerCase())
     .filter((r) => r.length > 0)
-    .filter((r) => r.toUpperCase() !== 'AUTO');
+    .filter((r) => r !== 'auto');
 
   if (trimmed.length === 0) {
     return { positiveRules: [], negativeRules: [], hasCatchAll: false, empty: true };
@@ -128,7 +128,7 @@ export function normalizeRules(rules: string[]): NormalizedRules {
  * Fast proxy decision using pre-normalized rules.
  */
 export function shouldProxyNormalized(hostname: string, rules: NormalizedRules): boolean {
-  const normalizedHostname = hostname.trim();
+  const normalizedHostname = hostname.trim().toLowerCase();
   if (!normalizedHostname) return false;
   if (rules.empty) return false;
 

@@ -3,9 +3,9 @@
 import type { Logger } from "./logger.js";
 
 /**
- * Detection tier based on scoring
+ * Detection block status based on scoring
  */
-export type DetectionTier = "blocked" | "suspected" | "clear";
+export type DetectionBlockStatus = "blocked" | "suspected" | "clear";
 
 /**
  * A single detection signal with weight
@@ -31,7 +31,7 @@ export type RedirectHop = {
 export type BlockDetectionResult = {
   url: string;
   hostname: string;
-  tier: DetectionTier;
+  blockStatus: DetectionBlockStatus;
   score: number;
   signals: DetectionSignal[];
   pass: "fast" | "full";
@@ -131,6 +131,10 @@ export class BlockDetection {
   public retriedUrls = new Set<string>();
   public persistentHostnames = new Set<string>();
 
+  // Pre-computed lookup structures
+  private statusCodeSet: Set<number>;
+  private allTitleKeywords: string[];
+
   constructor(config: BlockDetectionConfig, logger: Logger) {
     this.logger = logger;
     this.config = {
@@ -144,6 +148,10 @@ export class BlockDetection {
       autoUnblockOnSuspected: config.autoUnblockOnSuspected ?? false,
       onDetection: config.onDetection,
     };
+
+    // Pre-compute for hot-path performance
+    this.statusCodeSet = new Set([403, 429, ...this.config.extraStatusCodes]);
+    this.allTitleKeywords = [...TITLE_KEYWORDS, ...this.config.extraKeywords];
   }
 
   getNetworkIdleTimeoutMs(): number {
@@ -175,13 +183,13 @@ export class BlockDetection {
 
   private computeScore(
     signals: DetectionSignal[],
-  ): { score: number; tier: DetectionTier } {
-    if (signals.length === 0) return { score: 0, tier: "clear" };
+  ): { score: number; blockStatus: DetectionBlockStatus } {
+    if (signals.length === 0) return { score: 0, blockStatus: "clear" };
     const score =
       1 - signals.reduce((product, s) => product * (1 - s.weight), 1);
-    const tier =
+    const blockStatus =
       score >= 0.7 ? "blocked" : score >= 0.4 ? "suspected" : "clear";
-    return { score, tier };
+    return { score, blockStatus };
   }
 
   // --- Fast-pass Signal Detectors ---
@@ -190,8 +198,7 @@ export class BlockDetection {
     const status = response?.status?.() ?? 0;
     if (status === 0) return null;
 
-    const allCodes = [403, 429, ...this.config.extraStatusCodes];
-    if (allCodes.includes(status)) {
+    if (this.statusCodeSet.has(status)) {
       return {
         name: `http_status_${status}`,
         weight: 0.85,
@@ -241,8 +248,8 @@ export class BlockDetection {
           source: "fast",
         });
       }
-    } catch {
-      // Graceful degradation
+    } catch (err: any) {
+      this.logger.debug(`Detection check failed: ${err.message}`);
     }
 
     return signals;
@@ -255,8 +262,7 @@ export class BlockDetection {
   ): Promise<DetectionSignal | null> {
     try {
       const title = (await page.title()).toLowerCase();
-      const allKeywords = [...TITLE_KEYWORDS, ...this.config.extraKeywords];
-      for (const keyword of allKeywords) {
+      for (const keyword of this.allTitleKeywords) {
         if (title.includes(keyword.toLowerCase())) {
           return {
             name: "title_keyword",
@@ -266,8 +272,8 @@ export class BlockDetection {
           };
         }
       }
-    } catch {
-      // Graceful degradation
+    } catch (err: any) {
+      this.logger.debug(`Detection check failed: ${err.message}`);
     }
     return null;
   }
@@ -292,8 +298,8 @@ export class BlockDetection {
           source: "full",
         };
       }
-    } catch {
-      // Graceful degradation
+    } catch (err: any) {
+      this.logger.debug(`Detection check failed: ${err.message}`);
     }
     return null;
   }
@@ -350,8 +356,8 @@ export class BlockDetection {
           break;
         }
       }
-    } catch {
-      // Graceful degradation
+    } catch (err: any) {
+      this.logger.debug(`Detection check failed: ${err.message}`);
     }
     return signals;
   }
@@ -377,8 +383,8 @@ export class BlockDetection {
           source: "full",
         };
       }
-    } catch {
-      // Graceful degradation
+    } catch (err: any) {
+      this.logger.debug(`Detection check failed: ${err.message}`);
     }
     return null;
   }
@@ -439,8 +445,8 @@ export class BlockDetection {
           break;
         }
       }
-    } catch {
-      // Graceful degradation
+    } catch (err: any) {
+      this.logger.debug(`Detection check failed: ${err.message}`);
     }
 
     return { signals, chain };
@@ -470,8 +476,8 @@ export class BlockDetection {
           }
         }
       }
-    } catch {
-      // Graceful degradation
+    } catch (err: any) {
+      this.logger.debug(`Detection check failed: ${err.message}`);
     }
     return null;
   }
@@ -507,6 +513,29 @@ export class BlockDetection {
   }
 
   /**
+   * Run all content-based detectors in parallel.
+   * Shared by analyzeFull and analyzeSpa.
+   */
+  private async runContentDetectors(page: any): Promise<DetectionSignal[]> {
+    const [titleSignal, challengeSignal, textSignals, ratioSignal, metaSignal] =
+      await Promise.all([
+        this.detectTitleKeywords(page),
+        this.detectChallengeSelectors(page),
+        this.detectVisibleText(page, false),
+        this.detectTextToHtmlRatio(page),
+        this.detectMetaRefresh(page),
+      ]);
+
+    const signals: DetectionSignal[] = [];
+    if (titleSignal) signals.push(titleSignal);
+    if (challengeSignal) signals.push(challengeSignal);
+    signals.push(...textSignals);
+    if (ratioSignal) signals.push(ratioSignal);
+    if (metaSignal) signals.push(metaSignal);
+    return signals;
+  }
+
+  /**
    * Full pass - runs after networkidle. Runs all detectors and merges with fast pass.
    */
   async analyzeFull(
@@ -535,26 +564,11 @@ export class BlockDetection {
       signals.push(...headerSignals);
     }
 
-    // Full-pass detectors (parallelized — all are independent page reads)
-    const [titleSignal, challengeSignal, textSignals, ratioSignal, metaSignal] =
-      await Promise.all([
-        this.detectTitleKeywords(page),
-        this.detectChallengeSelectors(page),
-        this.detectVisibleText(page, false),
-        this.detectTextToHtmlRatio(page),
-        this.detectMetaRefresh(page),
-      ]);
-
-    if (titleSignal) signals.push(titleSignal);
-    if (challengeSignal) signals.push(challengeSignal);
-    signals.push(...textSignals);
-    if (ratioSignal) signals.push(ratioSignal);
+    signals.push(...await this.runContentDetectors(page));
 
     const { signals: redirectSignals, chain } =
       this.detectRedirectChain(response);
     signals.push(...redirectSignals);
-
-    if (metaSignal) signals.push(metaSignal);
 
     return this.reEvaluateIfSuspected(page, url, hostname, signals, chain);
   }
@@ -570,23 +584,7 @@ export class BlockDetection {
       return this.makeResult(url, hostname, [], "full", []);
     }
 
-    // Content-based detectors (parallelized — all are independent page reads)
-    const [titleSignal, challengeSignal, textSignals, ratioSignal, metaSignal] =
-      await Promise.all([
-        this.detectTitleKeywords(page),
-        this.detectChallengeSelectors(page),
-        this.detectVisibleText(page, false),
-        this.detectTextToHtmlRatio(page),
-        this.detectMetaRefresh(page),
-      ]);
-
-    const signals: DetectionSignal[] = [];
-    if (titleSignal) signals.push(titleSignal);
-    if (challengeSignal) signals.push(challengeSignal);
-    signals.push(...textSignals);
-    if (ratioSignal) signals.push(ratioSignal);
-    if (metaSignal) signals.push(metaSignal);
-
+    const signals = await this.runContentDetectors(page);
     return this.reEvaluateIfSuspected(page, url, hostname, signals, []);
   }
 
@@ -624,11 +622,11 @@ export class BlockDetection {
     pass: "fast" | "full",
     redirectChain: RedirectHop[],
   ): BlockDetectionResult {
-    const { score, tier } = this.computeScore(signals);
+    const { score, blockStatus } = this.computeScore(signals);
     return {
       url,
       hostname,
-      tier,
+      blockStatus,
       score,
       signals,
       pass,
@@ -638,10 +636,11 @@ export class BlockDetection {
   }
 
   private logResult(result: BlockDetectionResult): void {
+    if (!this.logger.isDebug) return;
     this.logger.debug(
       `Detection result: ${JSON.stringify({
         url: result.url,
-        tier: result.tier,
+        blockStatus: result.blockStatus,
         score: result.score,
         signals: result.signals.map((s) => ({
           name: s.name,
@@ -656,7 +655,7 @@ export class BlockDetection {
   private extractHostname(url: string): string {
     try {
       const parsed = new URL(url);
-      return parsed.hostname;
+      return parsed.hostname || url;
     } catch {
       return url;
     }

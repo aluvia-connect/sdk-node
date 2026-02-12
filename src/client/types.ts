@@ -3,7 +3,7 @@
 import type {
   BlockDetectionConfig,
   BlockDetectionResult,
-  DetectionTier,
+  DetectionBlockStatus,
   DetectionSignal,
   RedirectHop,
 } from "./BlockDetection.js";
@@ -159,11 +159,6 @@ export type AluviaClientConnection = {
   url: string;
 
   /**
-   * Returns the proxy URL (same as `url`).
-   */
-  getUrl(): string;
-
-  /**
    * Playwright adapter for chromium/firefox/webkit launch options.
    */
   asPlaywright(): PlaywrightProxySettings;
@@ -250,24 +245,22 @@ export type AluviaClientConnection = {
   cdpUrl?: string;
 
   /**
-   * Stop this proxy instance:
+   * Close this proxy instance:
    * - Close the local proxy server.
    * - Close the browser (if started).
-   * - Stop using it for new connections.
-   */
-  stop(): Promise<void>;
-
-  /**
-   * Alias for stop().
+   * - Stop config polling.
    */
   close(): Promise<void>;
+
+  /** @deprecated Use `close()` instead. */
+  stop(): Promise<void>;
 };
 
 // Re-export BlockDetection types for public API
 export type {
   BlockDetectionConfig,
   BlockDetectionResult,
-  DetectionTier,
+  DetectionBlockStatus,
   DetectionSignal,
   RedirectHop,
 } from "./BlockDetection.js";
