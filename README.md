@@ -213,7 +213,8 @@ const { page, browser, context, disconnect } = await connect();
 console.log("URL:", page.url());
 
 // When running multiple sessions, specify by name
-const { page } = await connect("swift-falcon");
+const conn = await connect("swift-falcon");
+console.log("URL:", conn.page.url());
 
 // Disconnect when done (the session keeps running)
 await disconnect();
@@ -472,12 +473,12 @@ const browser = await chromium.launch({ proxy: connection.asPlaywright() });
 const browser = await puppeteer.launch({ args: connection.asPuppeteer() });
 
 // Axios
-const client = axios.create(connection.asAxiosConfig());
-await client.get("https://example.com");
+const axiosClient = axios.create(connection.asAxiosConfig());
+await axiosClient.get("https://example.com");
 
 // got
-const client = got.extend(connection.asGotOptions());
-await client("https://example.com");
+const gotClient = got.extend(connection.asGotOptions());
+await gotClient("https://example.com");
 
 // Node's fetch (via undici)
 const myFetch = connection.asUndiciFetch();
