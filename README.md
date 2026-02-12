@@ -581,8 +581,8 @@ The client is split into two independent planes:
 
 - [What is Aluvia?](https://docs.aluvia.io/)
 - [Understanding connections](https://docs.aluvia.io/fundamentals/connections)
-- [Playwright integration guide](https://docs.aluvia.io/integrations/integration-playwright.md)
-- [Puppeteer](https://docs.aluvia.io/integrations/integration-puppeteer.md), [Selenium](https://docs.aluvia.io/integrations/integration-selenium.md), [Axios](https://docs.aluvia.io/integrations/integration-axios.md), [got](https://docs.aluvia.io/integrations/integration-got.md), [fetch](https://docs.aluvia.io/integrations/integration-fetch.md)
+- [Playwright integration guide](https://docs.aluvia.io/integrations/integration-playwright)
+- [Puppeteer](https://docs.aluvia.io/integrations/integration-puppeteer), [Selenium](https://docs.aluvia.io/integrations/integration-selenium), [Axios](https://docs.aluvia.io/integrations/integration-axios), [got](https://docs.aluvia.io/integrations/integration-got), [fetch](https://docs.aluvia.io/integrations/integration-fetch)
 - [CLI Technical Guide](docs/cli-technical-guide.md)
 - [Client Technical Guide](docs/client-technical-guide.md)
 - [API Technical Guide](docs/api-technical-guide.md)
