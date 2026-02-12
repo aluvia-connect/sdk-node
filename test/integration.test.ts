@@ -228,7 +228,7 @@ describe("BlockDetection Integration", () => {
     const mockResult: BlockDetectionResult = {
       url: "https://example.com/test",
       hostname: "example.com",
-      tier: "blocked",
+      blockStatus: "blocked",
       score: 0.85,
       signals: [
         {
@@ -250,7 +250,7 @@ describe("BlockDetection Integration", () => {
     await (client as any).handleDetectionResult(mockResult, mockPage);
 
     assert.ok(capturedResult);
-    assert.strictEqual(capturedResult!.tier, "blocked");
+    assert.strictEqual(capturedResult!.blockStatus, "blocked");
     assert.strictEqual(capturedResult!.score, 0.85);
     assert.strictEqual(capturedResult!.signals.length, 1);
   });
@@ -270,7 +270,7 @@ describe("BlockDetection Integration", () => {
     const mockResult: BlockDetectionResult = {
       url: "https://example.com/test",
       hostname: "example.com",
-      tier: "blocked",
+      blockStatus: "blocked",
       score: 0.85,
       signals: [],
       pass: "full",
@@ -303,7 +303,7 @@ describe("BlockDetection Integration", () => {
     const mockResult: BlockDetectionResult = {
       url: "https://example.com/test",
       hostname: "example.com",
-      tier: "suspected",
+      blockStatus: "suspected",
       score: 0.5,
       signals: [],
       pass: "full",
@@ -340,7 +340,7 @@ describe("BlockDetection Integration", () => {
     const mockResult: BlockDetectionResult = {
       url: "https://example.com/test",
       hostname: "example.com",
-      tier: "suspected",
+      blockStatus: "suspected",
       score: 0.5,
       signals: [],
       pass: "full",
@@ -373,7 +373,7 @@ describe("BlockDetection Integration", () => {
     const makeResult = (url: string): BlockDetectionResult => ({
       url,
       hostname: "example.com",
-      tier: "blocked",
+      blockStatus: "blocked",
       score: 0.85,
       signals: [],
       pass: "full",
@@ -434,7 +434,7 @@ describe("BlockDetection Integration", () => {
     const mockResult: BlockDetectionResult = {
       url: "https://blocked-site.com/test",
       hostname: "blocked-site.com",
-      tier: "blocked",
+      blockStatus: "blocked",
       score: 0.85,
       signals: [],
       pass: "full",
@@ -472,7 +472,7 @@ describe("BlockDetection Integration", () => {
     const mockResult: BlockDetectionResult = {
       url: "https://example.com/test",
       hostname: "example.com",
-      tier: "blocked",
+      blockStatus: "blocked",
       score: 0.85,
       signals: [],
       pass: "full",
@@ -514,7 +514,7 @@ describe("BlockDetection Integration", () => {
     const mockResult: BlockDetectionResult = {
       url: "https://example.com/test",
       hostname: "example.com",
-      tier: "clear",
+      blockStatus: "clear",
       score: 0,
       signals: [],
       pass: "full",
@@ -529,7 +529,7 @@ describe("BlockDetection Integration", () => {
     await (client as any).handleDetectionResult(mockResult, mockPage);
 
     assert.ok(capturedResult);
-    assert.strictEqual(capturedResult!.tier, "clear");
+    assert.strictEqual(capturedResult!.blockStatus, "clear");
     assert.strictEqual(capturedResult!.score, 0);
   });
 
@@ -554,7 +554,7 @@ describe("BlockDetection Integration", () => {
     const mockResult: BlockDetectionResult = {
       url: "https://example.com/test",
       hostname: "example.com",
-      tier: "blocked",
+      blockStatus: "blocked",
       score: 0.85,
       signals: [],
       pass: "full",
@@ -591,7 +591,7 @@ describe("BlockDetection Integration", () => {
     const mockResult: BlockDetectionResult = {
       url: "https://example.com/test",
       hostname: "example.com",
-      tier: "blocked",
+      blockStatus: "blocked",
       score: 0.85,
       signals: [],
       pass: "full",
@@ -660,7 +660,7 @@ describe("BlockDetection Integration", () => {
     const mockResult: BlockDetectionResult = {
       url: "https://example.com/test",
       hostname: "example.com",
-      tier: "blocked",
+      blockStatus: "blocked",
       score: 0.85,
       signals: [],
       pass: "full",
