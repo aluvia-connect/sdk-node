@@ -26,7 +26,8 @@
   },
   "bin": {
     "aluvia": "./dist/esm/bin/cli.js",
-    "aluvia-sdk": "./dist/esm/bin/cli.js"
+    "aluvia-sdk": "./dist/esm/bin/cli.js",
+    "aluvia-mcp": "./dist/esm/bin/mcp-server.js"
   },
   "files": [
     "dist/**/*",
@@ -51,7 +52,9 @@
     "ai-agent",
     "playwright",
     "puppeteer",
-    "aluvia"
+    "aluvia",
+    "mcp",
+    "model-context-protocol"
   ],
   "devDependencies": {
     "@types/node": "^24.10.2",
@@ -61,6 +64,7 @@
     "typescript": "^5.9.3"
   },
   "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.26.0",
     "http-proxy-agent": "^7.0.2",
     "https-proxy-agent": "^7.0.6",
     "proxy-chain": "^2.6.1",
