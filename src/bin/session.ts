@@ -2,9 +2,56 @@ import crypto from 'node:crypto';
 import { handleOpen } from './open.js';
 import type { OpenOptions } from './open.js';
 import { handleClose } from './close.js';
-import { listSessions } from './lock.js';
+import { listSessions } from '../session/lock.js';
 import { requireApi, resolveSession, requireConnectionId } from './api-helpers.js';
 import { output } from './cli.js';
+
+export type ParsedSessionArgs = {
+  url?: string;
+  connectionId?: number;
+  headed: boolean;
+  sessionName?: string;
+  autoUnblock: boolean;
+  disableBlockDetection: boolean;
+  run?: string;
+};
+
+export function parseSessionArgs(args: string[]): ParsedSessionArgs {
+  let url: string | undefined;
+  let connectionId: number | undefined;
+  let headed = false;
+  let sessionName: string | undefined;
+  let autoUnblock = false;
+  let disableBlockDetection = false;
+  let run: string | undefined;
+
+  for (let i = 0; i < args.length; i++) {
+    if (args[i] === '--connection-id' && args[i + 1]) {
+      const parsed = Number(args[i + 1]);
+      if (!Number.isInteger(parsed) || parsed < 1) {
+        output({ error: `Invalid --connection-id: '${args[i + 1]}' must be a positive integer.` }, 1);
+      }
+      connectionId = parsed;
+      i++;
+    } else if (args[i] === '--browser-session' && args[i + 1]) {
+      sessionName = args[i + 1];
+      i++;
+    } else if (args[i] === '--run' && args[i + 1]) {
+      run = args[i + 1];
+      i++;
+    } else if (args[i] === '--headful') {
+      headed = true;
+    } else if (args[i] === '--auto-unblock') {
+      autoUnblock = true;
+    } else if (args[i] === '--disable-block-detection') {
+      disableBlockDetection = true;
+    } else if (!url && !args[i].startsWith('--')) {
+      url = args[i];
+    }
+  }
+
+  return { url, connectionId, headed, sessionName, autoUnblock, disableBlockDetection, run };
+}
 
 export async function handleSession(args: string[]): Promise<void> {
   const subcommand = args[0];
@@ -33,41 +80,10 @@ export async function handleSession(args: string[]): Promise<void> {
   }
 }
 
-function handleSessionStart(args: string[]): void {
-  let url: string | undefined;
-  let connectionId: number | undefined;
-  let headless = true;
-  let sessionName: string | undefined;
-  let autoUnblock = false;
-  let disableBlockDetection = false;
-  let run: string | undefined;
+async function handleSessionStart(args: string[]): Promise<void> {
+  const parsed = parseSessionArgs(args);
 
-  for (let i = 0; i < args.length; i++) {
-    if (args[i] === '--connection-id' && args[i + 1]) {
-      const parsed = Number(args[i + 1]);
-      if (!Number.isInteger(parsed) || parsed < 1) {
-        output({ error: `Invalid --connection-id: '${args[i + 1]}' must be a positive integer.` }, 1);
-      }
-      connectionId = parsed;
-      i++;
-    } else if (args[i] === '--browser-session' && args[i + 1]) {
-      sessionName = args[i + 1];
-      i++;
-    } else if (args[i] === '--run' && args[i + 1]) {
-      run = args[i + 1];
-      i++;
-    } else if (args[i] === '--headful') {
-      headless = false;
-    } else if (args[i] === '--auto-unblock') {
-      autoUnblock = true;
-    } else if (args[i] === '--disable-block-detection') {
-      disableBlockDetection = true;
-    } else if (!url && !args[i].startsWith('--')) {
-      url = args[i];
-    }
-  }
-
-  if (!url) {
+  if (!parsed.url) {
     return output(
       { error: 'URL is required. Usage: aluvia session start <url> [options]' },
       1,
@@ -75,17 +91,17 @@ function handleSessionStart(args: string[]): void {
   }
 
   const opts: OpenOptions = {
-    url,
-    connectionId,
-    headless,
-    sessionName,
-    autoUnblock,
-    disableBlockDetection,
-    run,
+    url: parsed.url,
+    connectionId: parsed.connectionId,
+    headless: !parsed.headed,
+    sessionName: parsed.sessionName,
+    autoUnblock: parsed.autoUnblock,
+    disableBlockDetection: parsed.disableBlockDetection,
+    run: parsed.run,
   };
 
   // Delegates to the existing open handler (spawns daemon, waits for ready)
-  handleOpen(opts);
+  await handleOpen(opts);
 }
 
 async function handleSessionClose(args: string[]): Promise<void> {
@@ -108,15 +124,13 @@ function handleSessionList(): never {
   const sessions = listSessions();
   return output({
     sessions: sessions.map((s) => ({
-      'browser-session': s.session,
+      browserSession: s.session,
       pid: s.pid,
       startUrl: s.url ?? null,
       cdpUrl: s.cdpUrl ?? null,
-      proxyUrl: s.proxyUrl ?? null,
       connectionId: s.connectionId ?? null,
       blockDetection: s.blockDetection ?? false,
       autoUnblock: s.autoUnblock ?? false,
-      lastDetection: s.lastDetection ?? null,
     })),
     count: sessions.length,
   });
@@ -136,42 +150,23 @@ async function handleSessionGet(args: string[]): Promise<void> {
   const connId = lock.connectionId;
 
   const base: Record<string, unknown> = {
-    'browser-session': session,
+    browserSession: session,
     pid: lock.pid,
-    alive: true,
     startUrl: lock.url ?? null,
     cdpUrl: lock.cdpUrl ?? null,
-    proxyUrl: lock.proxyUrl ?? null,
     connectionId: connId ?? null,
     blockDetection: lock.blockDetection ?? false,
     autoUnblock: lock.autoUnblock ?? false,
     lastDetection: lock.lastDetection ?? null,
   };
 
-  // If we have a connection ID, enrich with API data
+  // If we have a connection ID, enrich with full connection object from API
   if (connId != null) {
     try {
       const api = requireApi();
       const conn = await api.account.connections.get(connId);
       if (conn) {
-        base.rules = conn.rules ?? [];
-        base.sessionId = conn.session_id ?? null;
-        base.targetGeo = conn.target_geo ?? null;
-
-        // Build gateway proxy object with plaintext credentials
-        if (conn.proxy_username && conn.proxy_password) {
-          const host = 'gateway.aluvia.io';
-          const port = 8080;
-          const protocol = 'http';
-          base.gatewayProxy = {
-            url: `${protocol}://${conn.proxy_username}:${conn.proxy_password}@${host}:${port}`,
-            host,
-            port,
-            protocol,
-            username: conn.proxy_username,
-            password: conn.proxy_password,
-          };
-        }
+        base.connection = conn;
       }
     } catch {
       // API enrichment is best-effort; base lock data is still returned
@@ -199,7 +194,7 @@ async function handleSessionRotateIp(args: string[]): Promise<void> {
   await api.account.connections.patch(connId, { session_id: newSessionId });
 
   return output({
-    'browser-session': session,
+    browserSession: session,
     connectionId: connId,
     sessionId: newSessionId,
   });
@@ -225,15 +220,19 @@ async function handleSessionSetGeo(args: string[]): Promise<void> {
     return output({ error: 'Geo code is required. Usage: aluvia session set-geo <geo> [--browser-session <name>]' }, 1);
   }
 
+  if (geo && !geo.trim()) {
+    return output({ error: 'Geo code cannot be empty. Provide a valid geo code or use --clear.' }, 1);
+  }
+
   const { session, lock } = resolveSession(sessionName);
   const connId = requireConnectionId(lock, session);
   const api = requireApi();
 
-  const targetGeo = clear ? null : (geo!.trim() || null);
+  const targetGeo = clear ? null : geo!.trim();
   await api.account.connections.patch(connId, { target_geo: targetGeo });
 
   return output({
-    'browser-session': session,
+    browserSession: session,
     connectionId: connId,
     targetGeo,
   });
@@ -260,6 +259,10 @@ async function handleSessionSetRules(args: string[]): Promise<void> {
     return output({ error: 'Rules are required. Usage: aluvia session set-rules <rules> [--browser-session <name>]' }, 1);
   }
 
+  if (appendRules && removeRules) {
+    return output({ error: 'Cannot both append and remove rules. Use either <rules> or --remove <rules>, not both.' }, 1);
+  }
+
   const { session, lock } = resolveSession(sessionName);
   const connId = requireConnectionId(lock, session);
   const api = requireApi();
@@ -275,15 +278,16 @@ async function handleSessionSetRules(args: string[]): Promise<void> {
     const toRemove = new Set(removeRules.split(',').map((r) => r.trim()).filter(Boolean));
     newRules = currentRules.filter((r) => !toRemove.has(r));
   } else {
-    // Append mode: add new rules to existing
+    // Append mode: add new rules to existing (deduplicate)
     const toAdd = appendRules!.split(',').map((r) => r.trim()).filter(Boolean);
-    newRules = [...currentRules, ...toAdd];
+    const existing = new Set(currentRules);
+    newRules = [...currentRules, ...toAdd.filter((r) => !existing.has(r))];
   }
 
   await api.account.connections.patch(connId, { rules: newRules });
 
   return output({
-    'browser-session': session,
+    browserSession: session,
     connectionId: connId,
     rules: newRules,
     count: newRules.length,

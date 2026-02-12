@@ -1,4 +1,4 @@
-import { readLock, listSessions, isProcessAlive, removeLock } from './bin/lock.js';
+import { readLock, listSessions, isProcessAlive, removeLock } from './session/lock.js';
 import { ConnectError } from './errors.js';
 
 export type ConnectResult = {
@@ -33,14 +33,10 @@ export async function connect(sessionName?: string): Promise<ConnectResult> {
 
   if (sessionName) {
     resolvedName = sessionName;
-    const lock = readLock(sessionName);
-    if (!lock) {
-      throw new ConnectError(`No Aluvia session found named '${sessionName}'. Run 'npx aluvia-sdk status' to list sessions.`);
-    }
   } else {
     const sessions = listSessions();
     if (sessions.length === 0) {
-      throw new ConnectError('No running Aluvia sessions found. Start one with: npx aluvia-sdk open <url>');
+      throw new ConnectError('No running Aluvia sessions found. Start one with: npx aluvia-sdk session start <url>');
     }
     if (sessions.length > 1) {
       const names = sessions.map((s) => s.session).join(', ');
@@ -52,7 +48,7 @@ export async function connect(sessionName?: string): Promise<ConnectResult> {
   // 3. Validate session state
   const lock = readLock(resolvedName);
   if (!lock) {
-    throw new ConnectError(`No Aluvia session found named '${resolvedName}'. Run 'npx aluvia-sdk status' to list sessions.`);
+    throw new ConnectError(`No Aluvia session found named '${resolvedName}'. Run 'npx aluvia-sdk session list' to list sessions.`);
   }
 
   if (!isProcessAlive(lock.pid)) {
@@ -77,8 +73,15 @@ export async function connect(sessionName?: string): Promise<ConnectResult> {
   }
 
   // 5. Get context and page
-  const context = browser.contexts()[0] ?? await browser.newContext();
-  const page = context.pages()[0] ?? await context.newPage();
+  let context: any;
+  let page: any;
+  try {
+    context = browser.contexts()[0] ?? await browser.newContext();
+    page = context.pages()[0] ?? await context.newPage();
+  } catch (err: any) {
+    await browser.close().catch(() => {});
+    throw new ConnectError(`Connected but failed to get page: ${err.message}`);
+  }
 
   return {
     browser,

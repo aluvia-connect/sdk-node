@@ -1,6 +1,6 @@
 import { AluviaApi } from '../api/AluviaApi.js';
-import { readLock, listSessions, isProcessAlive, removeLock } from './lock.js';
-import type { LockData } from './lock.js';
+import { readLock, listSessions, isProcessAlive, removeLock, toLockData } from '../session/lock.js';
+import type { LockData } from '../session/lock.js';
 import { output } from './cli.js';
 
 /**
@@ -40,26 +40,14 @@ export function resolveSession(sessionName?: string): { session: string; lock: L
     return output(
       {
         error: 'Multiple sessions running. Specify --browser-session <name>.',
-        'browser-sessions': sessions.map((s) => s.session),
+        browserSessions: sessions.map((s) => s.session),
       },
       1,
     );
   }
 
   const s = sessions[0];
-  const lock: LockData = {
-    pid: s.pid,
-    session: s.session,
-    connectionId: s.connectionId,
-    cdpUrl: s.cdpUrl,
-    proxyUrl: s.proxyUrl,
-    url: s.url,
-    ready: s.ready,
-    blockDetection: s.blockDetection,
-    autoUnblock: s.autoUnblock,
-    lastDetection: s.lastDetection,
-  };
-  return { session: s.session, lock };
+  return { session: s.session, lock: toLockData(s) };
 }
 
 /**

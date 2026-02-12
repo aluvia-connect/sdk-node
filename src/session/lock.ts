@@ -28,6 +28,8 @@ export type LockDetection = {
   blockStatus: string;
   score: number;
   signals: string[];
+  pass: string;
+  persistentBlock: boolean;
   timestamp: number;
 };
 
@@ -47,7 +49,9 @@ export type LockData = {
 export function writeLock(data: LockData, sessionName?: string): void {
   fs.mkdirSync(LOCK_DIR, { recursive: true });
   const filePath = path.join(LOCK_DIR, lockFileName(sessionName));
-  fs.writeFileSync(filePath, JSON.stringify(data), 'utf-8');
+  const tmpPath = filePath + '.tmp';
+  fs.writeFileSync(tmpPath, JSON.stringify(data), 'utf-8');
+  fs.renameSync(tmpPath, filePath);
 }
 
 export function readLock(sessionName?: string): LockData | null {
@@ -125,6 +129,11 @@ export type SessionInfo = {
   autoUnblock?: boolean;
   lastDetection?: LockDetection;
 };
+
+export function toLockData(info: SessionInfo): LockData {
+  const { session: _session, ...lock } = info;
+  return lock;
+}
 
 export function listSessions(): SessionInfo[] {
   fs.mkdirSync(LOCK_DIR, { recursive: true });

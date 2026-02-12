@@ -1,10 +1,11 @@
 #!/usr/bin/env node
 
 import { handleOpenDaemon } from './open.js';
-import { handleSession } from './session.js';
+import { handleSession, parseSessionArgs } from './session.js';
+import type { ParsedSessionArgs } from './session.js';
 import { handleAccount } from './account.js';
 import { handleGeos } from './geos.js';
-import { validateSessionName } from './lock.js';
+import { validateSessionName } from '../session/lock.js';
 
 export function output(data: Record<string, unknown>, exitCode = 0): never {
   console.log(JSON.stringify(data));
@@ -148,45 +149,8 @@ function printHelpAndExit(args: string[]): never {
   process.exit(0);
 }
 
-function parseDaemonArgs(args: string[]): {
-  url?: string;
-  connectionId?: number;
-  headed: boolean;
-  sessionName?: string;
-  autoUnblock: boolean;
-  disableBlockDetection: boolean;
-  run?: string;
-} {
-  let url: string | undefined;
-  let connectionId: number | undefined;
-  let headed = false;
-  let sessionName: string | undefined;
-  let autoUnblock = false;
-  let disableBlockDetection = false;
-  let run: string | undefined;
-
-  for (let i = 0; i < args.length; i++) {
-    if (args[i] === '--connection-id' && args[i + 1]) {
-      connectionId = Number(args[i + 1]);
-      i++;
-    } else if (args[i] === '--browser-session' && args[i + 1]) {
-      sessionName = args[i + 1];
-      i++;
-    } else if (args[i] === '--run' && args[i + 1]) {
-      run = args[i + 1];
-      i++;
-    } else if (args[i] === '--headful') {
-      headed = true;
-    } else if (args[i] === '--auto-unblock') {
-      autoUnblock = true;
-    } else if (args[i] === '--disable-block-detection') {
-      disableBlockDetection = true;
-    } else if (!url && !args[i].startsWith('--')) {
-      url = args[i];
-    }
-  }
-
-  return { url, connectionId, headed, sessionName, autoUnblock, disableBlockDetection, run };
+function parseDaemonArgs(args: string[]): ParsedSessionArgs {
+  return parseSessionArgs(args);
 }
 
 async function main(): Promise<void> {
@@ -201,8 +165,12 @@ async function main(): Promise<void> {
       output({ error: 'Invalid session name. Use only letters, numbers, hyphens, and underscores.' }, 1);
     }
 
+    if (!parsed.url) {
+      return output({ error: 'URL is required for daemon mode.' }, 1);
+    }
+
     await handleOpenDaemon({
-      url: parsed.url!,
+      url: parsed.url,
       connectionId: parsed.connectionId,
       headless: !parsed.headed,
       sessionName: parsed.sessionName,
@@ -213,18 +181,22 @@ async function main(): Promise<void> {
     return;
   }
 
+  // Check for --help / -h anywhere in args (subcommand help)
+  const wantsHelp = args.includes('--help') || args.includes('-h');
+
   if (command === 'session') {
+    if (wantsHelp) printHelpAndExit(args);
     await handleSession(args.slice(1));
   } else if (command === 'account') {
+    if (wantsHelp) printHelpAndExit(args);
     await handleAccount(args.slice(1));
   } else if (command === 'geos') {
+    if (wantsHelp) printHelpAndExit(args);
     await handleGeos();
   } else if (command === 'help' || command === '--help' || command === '-h' || command === '') {
     printHelpAndExit(args);
   } else {
-    console.error(`Unknown command: '${command}'\n`);
-    printHelp(true);
-    process.exit(1);
+    output({ error: `Unknown command: '${command}'. Run "aluvia help" for usage.` }, 1);
   }
 }
 

@@ -1,6 +1,6 @@
 import { AluviaClient } from '../client/AluviaClient.js';
-import { writeLock, readLock, removeLock, isProcessAlive, getLogFilePath, generateSessionName } from './lock.js';
-import type { LockDetection } from './lock.js';
+import { writeLock, readLock, removeLock, isProcessAlive, getLogFilePath, generateSessionName, validateSessionName } from '../session/lock.js';
+import type { LockDetection } from '../session/lock.js';
 import type { BlockDetectionResult } from '../client/BlockDetection.js';
 import { output } from './cli.js';
 import { spawn } from 'node:child_process';
@@ -19,20 +19,26 @@ export type OpenOptions = {
 };
 
 /**
- * Called from cli.ts when running `open <url>`.
- * Spawns the actual browser in a detached child and returns immediately.
+ * Called from cli.ts when running `session start <url>`.
+ * Spawns the actual browser in a detached child and polls until ready.
+ * Returns a Promise that resolves via process.exit() (never returns normally).
  */
-export function handleOpen({ url, connectionId, headless, sessionName, autoUnblock, disableBlockDetection, run }: OpenOptions): void {
+export function handleOpen({ url, connectionId, headless, sessionName, autoUnblock, disableBlockDetection, run }: OpenOptions): Promise<never> {
   // Generate session name if not provided
   const session = sessionName ?? generateSessionName();
+
+  // Validate session name early (before spawning daemon)
+  if (sessionName && !validateSessionName(sessionName)) {
+    output({ error: 'Invalid session name. Use only letters, numbers, hyphens, and underscores.' }, 1);
+  }
 
   // Check for existing instance with this session name
   const existing = readLock(session);
   if (existing !== null && isProcessAlive(existing.pid)) {
-    return output(
+    output(
       {
         error: `A browser session named '${session}' is already running.`,
-        'browser-session': session,
+        browserSession: session,
         startUrl: existing.url ?? null,
         cdpUrl: existing.cdpUrl ?? null,
         connectionId: existing.connectionId ?? null,
@@ -50,7 +56,7 @@ export function handleOpen({ url, connectionId, headless, sessionName, autoUnblo
   // Require API key
   const apiKey = process.env.ALUVIA_API_KEY;
   if (!apiKey) {
-    return output({ error: 'ALUVIA_API_KEY environment variable is required.' }, 1);
+    output({ error: 'ALUVIA_API_KEY environment variable is required.' }, 1);
   }
 
   // Spawn a detached child process that runs the daemon
@@ -74,7 +80,7 @@ export function handleOpen({ url, connectionId, headless, sessionName, autoUnblo
     args.push('--run', run);
   }
 
-  let child;
+  let child: ReturnType<typeof spawn>;
   try {
     child = spawn(process.execPath, [process.argv[1], ...args], {
       detached: true,
@@ -82,56 +88,60 @@ export function handleOpen({ url, connectionId, headless, sessionName, autoUnblo
       env: { ...process.env, ALUVIA_API_KEY: apiKey },
     });
     child.unref();
-  } finally {
+  } catch (err: any) {
     fs.closeSync(out);
+    return output({ browserSession: session, error: `Failed to spawn browser process: ${err.message}` }, 1);
   }
+  fs.closeSync(out);
 
   // Wait for the daemon to be fully ready (lock file with ready: true)
-  let attempts = 0;
-  const maxAttempts = 240; // 60 seconds max
-  const poll = setInterval(() => {
-    attempts++;
+  return new Promise(() => {
+    let attempts = 0;
+    const maxAttempts = 240; // 60 seconds max
+    const poll = setInterval(() => {
+      attempts++;
 
-    // Early exit if daemon process died
-    if (child.pid && !isProcessAlive(child.pid)) {
-      clearInterval(poll);
-      removeLock(session);
-      return output(
-        {
-          'browser-session': session,
-          error: 'Browser process exited unexpectedly.',
-          logFile,
-        },
-        1,
-      );
-    }
+      // Early exit if daemon process died
+      if (child.pid && !isProcessAlive(child.pid)) {
+        clearInterval(poll);
+        removeLock(session);
+        output(
+          {
+            browserSession: session,
+            error: 'Browser process exited unexpectedly.',
+            logFile,
+          },
+          1,
+        );
+      }
 
-    const lock = readLock(session);
-    if (lock && lock.ready) {
-      clearInterval(poll);
-      return output({
-        'browser-session': session,
-        autoUnblock: !!autoUnblock,
-        startUrl: lock.url ?? null,
-        cdpUrl: lock.cdpUrl ?? null,
-        proxyUrl: lock.proxyUrl ?? null,
-        connectionId: lock.connectionId ?? null,
-        pid: lock.pid,
-      });
-    }
-    if (attempts >= maxAttempts) {
-      clearInterval(poll);
-      const alive = child.pid ? isProcessAlive(child.pid) : false;
-      return output(
-        {
-          'browser-session': session,
-          error: alive ? 'Browser is still initializing (timeout).' : 'Browser process exited unexpectedly.',
-          logFile,
-        },
-        1,
-      );
-    }
-  }, 250);
+      const lock = readLock(session);
+      if (lock && lock.ready) {
+        clearInterval(poll);
+        output({
+          browserSession: session,
+          pid: lock.pid,
+          startUrl: lock.url ?? null,
+          cdpUrl: lock.cdpUrl ?? null,
+          connectionId: lock.connectionId ?? null,
+          blockDetection: lock.blockDetection ?? false,
+          autoUnblock: lock.autoUnblock ?? false,
+        });
+      }
+      if (attempts >= maxAttempts) {
+        clearInterval(poll);
+        const alive = child.pid ? isProcessAlive(child.pid) : false;
+        output(
+          {
+            browserSession: session,
+            error: alive ? 'Browser is still initializing (timeout).' : 'Browser process exited unexpectedly.',
+            logFile,
+          },
+          1,
+        );
+      }
+    }, 250);
+  });
 }
 
 /**
@@ -150,9 +160,11 @@ export async function handleOpenDaemon({ url, connectionId, headless, sessionNam
     const lastDetection: LockDetection = {
       hostname: result.hostname,
       lastUrl: result.url,
-      blockStatus: result.tier,
+      blockStatus: result.blockStatus,
       score: result.score,
       signals: result.signals.map((s) => s.name),
+      pass: result.pass,
+      persistentBlock: result.persistentBlock,
       timestamp: Date.now(),
     };
     writeLock({ ...lock, lastDetection }, sessionName);
@@ -194,6 +206,8 @@ export async function handleOpenDaemon({ url, connectionId, headless, sessionNam
   const connId: number | undefined = connectionId ?? client.connectionId;
 
   // Write lock file with full session metadata (marks session as ready)
+  // Read existing lock first to preserve lastDetection written by the onDetection callback
+  const existingLock = readLock(sessionName);
   writeLock(
     {
       pid: process.pid,
@@ -205,6 +219,7 @@ export async function handleOpenDaemon({ url, connectionId, headless, sessionNam
       ready: true,
       blockDetection: blockDetectionEnabled,
       autoUnblock: blockDetectionEnabled && !!autoUnblock,
+      lastDetection: existingLock?.lastDetection,
     },
     sessionName,
   );
