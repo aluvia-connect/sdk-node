@@ -50,8 +50,23 @@ export function writeLock(data: LockData, sessionName?: string): void {
   fs.mkdirSync(LOCK_DIR, { recursive: true });
   const filePath = path.join(LOCK_DIR, lockFileName(sessionName));
   const tmpPath = filePath + '.tmp';
-  fs.writeFileSync(tmpPath, JSON.stringify(data), 'utf-8');
-  fs.renameSync(tmpPath, filePath);
+  try {
+    fs.writeFileSync(tmpPath, JSON.stringify(data), 'utf-8');
+    try {
+      // On Windows, rename may fail to overwrite an existing file; remove it first.
+      fs.rmSync(filePath, { force: true });
+    } catch {
+      // Ignore errors removing the existing lock file.
+    }
+    fs.renameSync(tmpPath, filePath);
+  } finally {
+    try {
+      // Ensure no leftover temp file remains if rename fails.
+      fs.rmSync(tmpPath, { force: true });
+    } catch {
+      // Ignore cleanup errors.
+    }
+  }
 }
 
 export function readLock(sessionName?: string): LockData | null {
