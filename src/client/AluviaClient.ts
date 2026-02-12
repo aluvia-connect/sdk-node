@@ -54,6 +54,11 @@ export class AluviaClient {
   /** Promise-based mutex to serialize handleDetectionResult's critical section. */
   private _detectionMutex: Promise<void> = Promise.resolve();
 
+  /** Read-only access to the connection ID from ConfigManager. */
+  get connectionId(): number | undefined {
+    return this.configManager.connectionId;
+  }
+
   constructor(options: AluviaClientOptions) {
     const apiKey = String(options.apiKey ?? "").trim();
     if (!apiKey) {

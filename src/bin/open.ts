@@ -114,6 +114,7 @@ export function handleOpen({ url, connectionId, headless, sessionName, autoUnblo
         autoUnblock: !!autoUnblock,
         startUrl: lock.url ?? null,
         cdpUrl: lock.cdpUrl ?? null,
+        proxyUrl: lock.proxyUrl ?? null,
         connectionId: lock.connectionId ?? null,
         pid: lock.pid,
       });
@@ -172,7 +173,7 @@ export async function handleOpenDaemon({ url, connectionId, headless, sessionNam
   const connection = await client.start();
 
   // Write early lock so parent knows daemon is alive
-  writeLock({ pid: process.pid, session: sessionName, url, blockDetection: blockDetectionEnabled, autoUnblock: blockDetectionEnabled && !!autoUnblock }, sessionName);
+  writeLock({ pid: process.pid, session: sessionName, url, proxyUrl: connection.url, blockDetection: blockDetectionEnabled, autoUnblock: blockDetectionEnabled && !!autoUnblock }, sessionName);
 
   if (autoUnblock) console.log('[daemon] Auto-unblock enabled');
   console.log(`[daemon] Browser initialized — proxy: ${connection.url}`);
@@ -189,19 +190,8 @@ export async function handleOpenDaemon({ url, connectionId, headless, sessionNam
   const pageTitle = await page.title().catch(() => '');
   const cdpUrl = connection.cdpUrl ?? '';
 
-  // Get connection ID: use the one passed in, or fetch the latest from API
-  let connId: number | undefined = connectionId;
-  if (connId == null) {
-    try {
-      const connections = await client.api.account.connections.list();
-      if (connections.length > 0) {
-        const latest = connections[connections.length - 1];
-        connId = Number(latest.connection_id ?? latest.id);
-      }
-    } catch {
-      // ignore — connection ID is nice-to-have
-    }
-  }
+  // Get connection ID: use the one passed in, or read from ConfigManager
+  const connId: number | undefined = connectionId ?? client.connectionId;
 
   // Write lock file with full session metadata (marks session as ready)
   writeLock(
@@ -210,6 +200,7 @@ export async function handleOpenDaemon({ url, connectionId, headless, sessionNam
       session: sessionName,
       connectionId: connId,
       cdpUrl,
+      proxyUrl: connection.url,
       url,
       ready: true,
       blockDetection: blockDetectionEnabled,

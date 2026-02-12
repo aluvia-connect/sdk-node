@@ -36,6 +36,7 @@ export type LockData = {
   session?: string;
   connectionId?: number;
   cdpUrl?: string;
+  proxyUrl?: string;
   url?: string;
   ready?: boolean;
   blockDetection?: boolean;
@@ -117,6 +118,7 @@ export type SessionInfo = {
   pid: number;
   connectionId?: number;
   cdpUrl?: string;
+  proxyUrl?: string;
   url?: string;
   ready?: boolean;
   blockDetection?: boolean;
@@ -149,6 +151,7 @@ export function listSessions(): SessionInfo[] {
       pid: lock.pid,
       connectionId: lock.connectionId,
       cdpUrl: lock.cdpUrl,
+      proxyUrl: lock.proxyUrl,
       url: lock.url,
       ready: lock.ready,
       blockDetection: lock.blockDetection,

@@ -1,8 +1,9 @@
 #!/usr/bin/env node
 
-import { handleOpen, handleOpenDaemon } from './open.js';
-import { handleClose } from './close.js';
-import { handleStatus } from './status.js';
+import { handleOpenDaemon } from './open.js';
+import { handleSession } from './session.js';
+import { handleAccount } from './account.js';
+import { handleGeos } from './geos.js';
 import { validateSessionName } from './lock.js';
 
 export function output(data: Record<string, unknown>, exitCode = 0): never {
@@ -10,7 +11,144 @@ export function output(data: Record<string, unknown>, exitCode = 0): never {
   process.exit(exitCode);
 }
 
-type OpenArgs = {
+function printHelp(toStderr = false): void {
+  const log = toStderr ? console.error : console.log;
+  log('Aluvia CLI\n');
+  log('Usage:');
+  log('  aluvia session start <url> [options]       Start a browser session');
+  log('  aluvia session close [options]              Stop a browser session');
+  log('  aluvia session list                         List active browser sessions');
+  log('  aluvia session get [options]                Get session details and proxy URLs');
+  log('  aluvia session rotate-ip [options]          Rotate IP on a running session');
+  log('  aluvia session set-geo <geo> [options]      Set target geo on a running session');
+  log('  aluvia session set-rules <rules> [options]  Set routing rules on a running session\n');
+  log('  aluvia account                              Show account info');
+  log('  aluvia account usage [options]              Show usage stats');
+  log('  aluvia geos                                 List available geos');
+  log('  aluvia help [--json]                        Show this help\n');
+  log('Session start options:');
+  log('  --connection-id <id>       Use a specific connection ID');
+  log('  --headful                  Run browser in headful mode');
+  log('  --browser-session <name>   Name for this session (auto-generated if omitted)');
+  log('  --auto-unblock             Auto-detect blocks and reload through Aluvia');
+  log('  --disable-block-detection  Disable block detection entirely');
+  log('  --run <script>             Run a script with page, browser, context injected\n');
+  log('Session close options:');
+  log('  --browser-session <name>   Close a specific session');
+  log('  --all                      Close all sessions\n');
+  log('Session targeting (get, rotate-ip, set-geo, set-rules):');
+  log('  --browser-session <name>   Target a specific session (auto-selects if only one)\n');
+  log('Session set-rules:');
+  log('  <rules>                    Comma-separated rules to append (e.g. "a.com,b.com")');
+  log('  --remove <rules>           Remove specific rules instead of appending\n');
+  log('Session set-geo:');
+  log('  <geo>                      Geo code to set (e.g. "US")');
+  log('  --clear                    Clear target geo\n');
+  log('Account usage options:');
+  log('  --start <ISO8601>          Start date filter');
+  log('  --end <ISO8601>            End date filter\n');
+  log('Environment:');
+  log('  ALUVIA_API_KEY   Required. Your Aluvia API key.\n');
+  log('Output:');
+  log('  All commands output JSON to stdout.');
+}
+
+function printHelpJson(): never {
+  return output({
+    commands: [
+      {
+        command: 'session start <url>',
+        description: 'Start a browser session',
+        options: [
+          { flag: '--connection-id <id>', description: 'Use a specific connection ID' },
+          { flag: '--headful', description: 'Run browser in headful mode' },
+          { flag: '--browser-session <name>', description: 'Name for this session (auto-generated if omitted)' },
+          { flag: '--auto-unblock', description: 'Auto-detect blocks and reload through Aluvia' },
+          { flag: '--disable-block-detection', description: 'Disable block detection entirely' },
+          { flag: '--run <script>', description: 'Run a script with page, browser, context injected' },
+        ],
+      },
+      {
+        command: 'session close',
+        description: 'Stop a browser session',
+        options: [
+          { flag: '--browser-session <name>', description: 'Close a specific session' },
+          { flag: '--all', description: 'Close all sessions' },
+        ],
+      },
+      {
+        command: 'session list',
+        description: 'List active browser sessions',
+        options: [],
+      },
+      {
+        command: 'session get',
+        description: 'Get session details and proxy URLs',
+        options: [
+          { flag: '--browser-session <name>', description: 'Target a specific session (auto-selects if only one)' },
+        ],
+      },
+      {
+        command: 'session rotate-ip',
+        description: 'Rotate IP on a running session',
+        options: [
+          { flag: '--browser-session <name>', description: 'Target a specific session (auto-selects if only one)' },
+        ],
+      },
+      {
+        command: 'session set-geo <geo>',
+        description: 'Set target geo on a running session',
+        options: [
+          { flag: '--browser-session <name>', description: 'Target a specific session (auto-selects if only one)' },
+          { flag: '--clear', description: 'Clear target geo' },
+        ],
+      },
+      {
+        command: 'session set-rules <rules>',
+        description: 'Set routing rules on a running session',
+        options: [
+          { flag: '--browser-session <name>', description: 'Target a specific session (auto-selects if only one)' },
+          { flag: '--remove <rules>', description: 'Remove specific rules instead of appending' },
+        ],
+      },
+      {
+        command: 'account',
+        description: 'Show account info',
+        options: [],
+      },
+      {
+        command: 'account usage',
+        description: 'Show usage stats',
+        options: [
+          { flag: '--start <ISO8601>', description: 'Start date filter' },
+          { flag: '--end <ISO8601>', description: 'End date filter' },
+        ],
+      },
+      {
+        command: 'geos',
+        description: 'List available geos',
+        options: [],
+      },
+      {
+        command: 'help',
+        description: 'Show this help',
+        options: [
+          { flag: '--json', description: 'Output help as JSON' },
+        ],
+      },
+    ],
+  });
+}
+
+function printHelpAndExit(args: string[]): never {
+  if (args.includes('--json')) {
+    return printHelpJson();
+  }
+  printHelp();
+  process.exit(0);
+}
+
+function parseDaemonArgs(args: string[]): {
   url?: string;
   connectionId?: number;
   headed: boolean;
@@ -18,9 +156,7 @@ type OpenArgs = {
   autoUnblock: boolean;
   disableBlockDetection: boolean;
   run?: string;
-};
-
-function parseOpenArgs(args: string[], startIndex: number): OpenArgs {
+} {
   let url: string | undefined;
   let connectionId: number | undefined;
   let headed = false;
@@ -29,13 +165,9 @@ function parseOpenArgs(args: string[], startIndex: number): OpenArgs {
   let disableBlockDetection = false;
   let run: string | undefined;
 
-  for (let i = startIndex; i < args.length; i++) {
+  for (let i = 0; i < args.length; i++) {
     if (args[i] === '--connection-id' && args[i + 1]) {
-      const parsed = Number(args[i + 1]);
-      if (!Number.isInteger(parsed) || parsed < 1) {
-        output({ error: `Invalid --connection-id: '${args[i + 1]}' must be a positive integer.` }, 1);
-      }
-      connectionId = parsed;
+      connectionId = Number(args[i + 1]);
       i++;
     } else if (args[i] === '--browser-session' && args[i + 1]) {
       sessionName = args[i + 1];
@@ -57,133 +189,42 @@ function parseOpenArgs(args: string[], startIndex: number): OpenArgs {
   return { url, connectionId, headed, sessionName, autoUnblock, disableBlockDetection, run };
 }
 
-function parseArgs(argv: string[]): {
-  command: string;
-  url?: string;
-  connectionId?: number;
-  daemon?: boolean;
-  headed?: boolean;
-  sessionName?: string;
-  all?: boolean;
-  autoUnblock?: boolean;
-  disableBlockDetection?: boolean;
-  run?: string;
-} {
-  const args = argv.slice(2);
+async function main(): Promise<void> {
+  const args = process.argv.slice(2);
   const command = args[0] ?? '';
 
-  // Internal: --daemon mode (spawned by `open` in detached child)
+  // Internal: --daemon mode (spawned by `session start` in detached child)
   if (command === '--daemon') {
-    const parsed = parseOpenArgs(args, 1);
-    return { command: 'open', ...parsed, daemon: true };
-  }
+    const parsed = parseDaemonArgs(args.slice(1));
 
-  if (command === 'close') {
-    let sessionName: string | undefined;
-    let all = false;
-
-    for (let i = 1; i < args.length; i++) {
-      if (args[i] === '--browser-session' && args[i + 1]) {
-        sessionName = args[i + 1];
-        i++;
-      } else if (args[i] === '--all') {
-        all = true;
-      }
+    if (parsed.sessionName && !validateSessionName(parsed.sessionName)) {
+      output({ error: 'Invalid session name. Use only letters, numbers, hyphens, and underscores.' }, 1);
     }
 
-    return { command: 'close', sessionName, all };
+    await handleOpenDaemon({
+      url: parsed.url!,
+      connectionId: parsed.connectionId,
+      headless: !parsed.headed,
+      sessionName: parsed.sessionName,
+      autoUnblock: parsed.autoUnblock,
+      disableBlockDetection: parsed.disableBlockDetection,
+      run: parsed.run,
+    });
+    return;
   }
 
-  if (command === 'status') {
-    let sessionName: string | undefined;
-
-    for (let i = 1; i < args.length; i++) {
-      if (args[i] === '--browser-session' && args[i + 1]) {
-        sessionName = args[i + 1];
-        i++;
-      }
-    }
-
-    return { command: 'status', sessionName };
-  }
-
-  if (command === 'help' || command === '--help' || command === '-h' || command === '') {
-    return { command: 'help' };
-  }
-
-  if (command === 'open') {
-    const parsed = parseOpenArgs(args, 1);
-
-    if (!parsed.url) {
-      output(
-        {
-          error: 'URL is required. Usage: npx aluvia-sdk open <url> [--connection-id <id>] [--browser-session <name>]',
-        },
-        1,
-      );
-    }
-
-    return { command: 'open', ...parsed };
-  }
-
-  // Unknown command — show help to stderr
-  if (command) {
+  if (command === 'session') {
+    await handleSession(args.slice(1));
+  } else if (command === 'account') {
+    await handleAccount(args.slice(1));
+  } else if (command === 'geos') {
+    await handleGeos();
+  } else if (command === 'help' || command === '--help' || command === '-h' || command === '') {
+    printHelpAndExit(args);
+  } else {
     console.error(`Unknown command: '${command}'\n`);
-  }
-  printHelp(true);
-  process.exit(1);
-}
-
-function printHelp(toStderr = false): void {
-  const log = toStderr ? console.error : console.log;
-  log('Aluvia SDK CLI\n');
-  log('Usage:');
-  log('  npx aluvia-sdk open <url> [options]    Start a browser session');
-  log('  npx aluvia-sdk close [options]          Stop a browser session');
-  log('  npx aluvia-sdk status [options]         Show browser session status');
-  log('  npx aluvia-sdk help                     Show this help\n');
-  log('Open options:');
-  log('  --connection-id <id>       Use a specific connection ID');
-  log('  --headful                  Run browser in headful mode');
-  log('  --browser-session <name>   Name for this session (auto-generated if omitted)');
-  log('  --auto-unblock             Auto-detect blocks and reload through Aluvia');
-  log('  --disable-block-detection  Disable block detection entirely');
-  log('  --run <script>             Run a script with page, browser, context injected\n');
-  log('Close options:');
-  log('  --browser-session <name>   Close a specific session');
-  log('  --all                      Close all sessions\n');
-  log('Status options:');
-  log('  --browser-session <name>   Show status for a specific session\n');
-  log('Environment:');
-  log('  ALUVIA_API_KEY   Required. Your Aluvia API key.\n');
-  log('Output:');
-  log('  All commands output JSON to stdout for machine consumption.');
-}
-
-async function main(): Promise<void> {
-  const { command, url, connectionId, daemon, headed, sessionName, all, autoUnblock, disableBlockDetection, run } = parseArgs(process.argv);
-
-  // Validate session name if provided
-  if (sessionName && !validateSessionName(sessionName)) {
-    output(
-      { error: 'Invalid session name. Use only letters, numbers, hyphens, and underscores.' },
-      1,
-    );
-  }
-
-  if (command === 'help') {
-    printHelp();
-    process.exit(0);
-  } else if (command === 'open') {
-    if (daemon) {
-      await handleOpenDaemon({ url: url!, connectionId, headless: !headed, sessionName, autoUnblock, disableBlockDetection, run });
-    } else {
-      handleOpen({ url: url!, connectionId, headless: !headed, sessionName, autoUnblock, disableBlockDetection, run });
-    }
-  } else if (command === 'close') {
-    await handleClose(sessionName, all);
-  } else if (command === 'status') {
-    handleStatus(sessionName);
+    printHelp(true);
+    process.exit(1);
   }
 }
 

@@ -131,6 +131,11 @@ export class ConfigManager {
   private accountConnectionId: number | undefined;
   private pollInFlight = false;
 
+  /** Public read-only access to the account connection ID. */
+  get connectionId(): number | undefined {
+    return this.accountConnectionId;
+  }
+
   constructor(options: ConfigManagerOptions) {
     this.options = options;
     this.logger = new Logger(options.logLevel);
