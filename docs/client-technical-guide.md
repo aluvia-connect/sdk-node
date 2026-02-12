@@ -77,14 +77,21 @@ new AluviaClient(options: AluviaClientOptions)
 | `connectionId` | `string` | `undefined` | Existing connection ID. If omitted, creates a new connection. |
 | `strict` | `boolean` | `true` | Fail fast if config can't be loaded/created. |
 | `apiBaseUrl` | `string` | `"https://api.aluvia.io/v1"` | Aluvia API base URL. |
-| `pollIntervalMs` | `number` | `5000` | Config polling interval (ms). |
-| `timeoutMs` | `number` | `30000` | API request timeout (for `client.api` only). |
+| `pollIntervalMs` | `number` | `5000` | Config polling interval (ms). Minimum: 1000. Values below 1000 are capped. |
+| `timeoutMs` | `number` | `30000` | API request timeout in milliseconds (for `client.api` only). Optional — omit to use the default. |
 | `gatewayProtocol` | `"http" \| "https"` | `"http"` | Protocol for gateway connection. |
 | `gatewayPort` | `number` | `8080` (http) / `8443` (https) | Gateway port. |
 | `localPort` | `number` | OS-assigned | Local proxy port (client proxy mode only). |
 | `logLevel` | `"silent" \| "info" \| "debug"` | `"info"` | Logging verbosity. |
 | `startPlaywright` | `boolean` | `false` | Auto-launch Chromium with proxy configured. Requires `playwright` installed. |
 | `blockDetection` | `BlockDetectionConfig` | `undefined` | Configure automatic website block detection. See [Block Detection](#block-detection). |
+
+### Properties
+
+| Property | Type | Description |
+|----------|------|-------------|
+| `api` | `AluviaApi` | Direct access to the REST API wrapper. Available immediately after construction. |
+| `connectionId` | `number \| undefined` | Read-only connection ID from ConfigManager. Available after `start()`. |
 
 ### Methods
 
@@ -144,6 +151,14 @@ await client.updateTargetGeo('us_ca');  // Target California IPs
 await client.updateTargetGeo(null);    // Clear geo targeting
 ```
 
+#### `getBlockedHostnames(): string[]`
+
+Returns the list of hostnames that have been marked as persistently blocked (hostname-level escalation after repeated blocks). Used by block detection to prevent infinite retry loops.
+
+#### `clearBlockedHostnames(): void`
+
+Resets the persistent block tracking. Use this to allow the SDK to retry previously blocked hostnames.
+
 ---
 
 ## Connection Object
@@ -162,7 +177,6 @@ The `connection` object returned by `start()` contains proxy details and adapter
 
 | Method | Description |
 |--------|-------------|
-| `getUrl()` | Proxy URL (same as `url`). |
 | `asPlaywright()` | Returns `{ server, username?, password? }` for Playwright. |
 | `asPuppeteer()` | Returns `['--proxy-server=<url>']` for Puppeteer launch args. |
 | `asSelenium()` | Returns `'--proxy-server=<url>'` for Selenium. |
@@ -406,6 +420,7 @@ import {
   InvalidApiKeyError,
   ApiError,
   ProxyStartError,
+  ConnectError,
 } from '@aluvia/sdk';
 ```
 
@@ -415,6 +430,7 @@ import {
 | `InvalidApiKeyError` | API returns 401/403 (invalid or expired token). |
 | `ApiError` | Non-auth API failures, malformed responses, timeouts. |
 | `ProxyStartError` | Local proxy fails to bind/listen (e.g., port in use). |
+| `ConnectError` | `connect()` cannot find, resolve, or establish CDP connection to a session. |
 
 ### Error Properties
 
@@ -491,13 +507,26 @@ const client = new AluviaClient({
 | Option | Type | Default | Description |
 |--------|------|---------|-------------|
 | `enabled` | `boolean` | `true` | Enable/disable detection. |
-| `challengeSelectors` | `string[]` | `[]` | Additional DOM selectors to check for WAF/challenge elements. |
+| `challengeSelectors` | `string[]` | See below | CSS selectors to check for WAF/challenge elements. Defaults to 8 built-in selectors (Cloudflare, reCAPTCHA, hCaptcha, PerimeterX). Providing this replaces the defaults. |
 | `extraKeywords` | `string[]` | `[]` | Additional keywords to detect in page content. |
 | `extraStatusCodes` | `number[]` | `[]` | Additional HTTP status codes to treat as blocks. |
 | `networkIdleTimeoutMs` | `number` | `3000` | Max ms to wait for `networkidle` before full-pass analysis. |
 | `autoUnblock` | `boolean` | `false` | Automatically add blocked hostnames to routing rules and reload the page. Set to `true` to enable automatic remediation. |
 | `autoUnblockOnSuspected` | `boolean` | `false` | Also reload on `suspected` block status (by default, only `blocked` triggers reload). Requires `autoUnblock: true`. |
 | `onDetection` | `function` | `undefined` | Callback fired on every detection result, including `clear`. Receives `(result, page)`. |
+
+#### Default Challenge Selectors
+
+When `challengeSelectors` is not provided, the SDK uses these built-in selectors:
+
+- `#challenge-form` — Cloudflare challenge form
+- `#challenge-running` — Cloudflare active challenge
+- `.cf-browser-verification` — Cloudflare browser verification
+- `iframe[src*="recaptcha"]` — Google reCAPTCHA
+- `.g-recaptcha` — Google reCAPTCHA container
+- `#px-captcha` — PerimeterX CAPTCHA
+- `iframe[src*="hcaptcha"]` — hCaptcha
+- `.h-captcha` — hCaptcha container
 
 ### Detection Result
 

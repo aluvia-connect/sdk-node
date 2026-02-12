@@ -167,7 +167,7 @@ new AluviaApi(options: AluviaApiOptions)
 |--------|------|---------|-------------|
 | `apiKey` | `string` | **required** | Your Aluvia account API token. |
 | `apiBaseUrl` | `string` | `"https://api.aluvia.io/v1"` | Base URL for the Aluvia API. |
-| `timeoutMs` | `number` | `30000` | Request timeout in milliseconds. |
+| `timeoutMs` | `number` | `30000` | Request timeout in milliseconds. Optional — omit to use the 30-second default. |
 | `fetch` | `typeof fetch` | `globalThis.fetch` | Custom fetch implementation. |
 
 ### API Key Requirement
