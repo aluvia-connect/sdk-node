@@ -68,7 +68,7 @@ npm install @aluvia/sdk playwright
 ### 3. Start a browser session
 
 ```bash
-npx aluvia-sdk open https://example.com --auto-unblock
+aluvia session start https://example.com --auto-unblock
 ```
 
 This launches a headless Chromium browser routed through Aluvia's mobile proxy network and returns a CDP endpoint you can connect to:
@@ -79,6 +79,7 @@ This launches a headless Chromium browser routed through Aluvia's mobile proxy n
   "autoUnblock": true,
   "startUrl": "https://example.com",
   "cdpUrl": "http://127.0.0.1:38209",
+  "proxyUrl": "http://127.0.0.1:54321",
   "connectionId": 3449,
   "pid": 12345
 }
@@ -93,7 +94,7 @@ The browser runs as a background daemon. `--auto-unblock` enables automatic bloc
 Write your automation in a script — `page`, `browser`, and `context` are injected automatically:
 
 ```bash
-npx aluvia-sdk open https://example.com --auto-unblock --run script.mjs
+aluvia session start https://example.com --auto-unblock --run script.mjs
 ```
 
 ```js
@@ -114,15 +115,15 @@ const { page } = await connect();
 console.log("Title:", await page.title());
 ```
 
-This connects to the browser session started by `npx aluvia-sdk open` via CDP. Use this when your agent generates automation code dynamically at runtime.
+This connects to the browser session started by `aluvia session start` via CDP. Use this when your agent generates automation code dynamically at runtime.
 
 ### 5. Close the session when done
 
 ```bash
-npx aluvia-sdk close --browser-session swift-falcon
+aluvia session close --browser-session swift-falcon
 
 # Or close all sessions at once
-npx aluvia-sdk close --all
+aluvia session close --all
 ```
 
 ### Learn more
@@ -256,12 +257,14 @@ await client.updateRules([]); // Route all traffic direct
 
 ## CLI for AI agents
 
-The SDK includes a CLI that launches browser sessions as background daemons and outputs JSON for easy integration with AI agent frameworks. Multiple sessions can run in parallel, each with an auto-generated name (e.g. `swift-falcon`, `calm-river`). External tools can connect to any session's browser via CDP (Chrome DevTools Protocol) and share the same pages and contexts.
+The SDK includes a CLI that outputs JSON for easy integration with AI agent frameworks. It manages browser sessions, account info, and connection mutations — all from the command line. Multiple sessions can run in parallel, each with an auto-generated name (e.g. `swift-falcon`, `calm-river`).
 
-### `open` -- Start a browser session
+### Session commands
+
+#### `session start` -- Start a browser session
 
 ```bash
-npx aluvia-sdk open <url> [options]
+aluvia session start <url> [options]
 ```
 
 | Option | Description |
@@ -271,81 +274,172 @@ npx aluvia-sdk open <url> [options]
 | `--browser-session <name>` | Name for this session (auto-generated if omitted) |
 | `--auto-unblock` | Auto-detect blocks and reload through Aluvia |
 | `--disable-block-detection` | Disable block detection entirely |
+| `--run <script>` | Run a script with `page`, `browser`, `context` injected |
 
 ```bash
 # Start a browser session (headless by default)
-npx aluvia-sdk open https://example.com
-# {"browser-session":"swift-falcon","autoUnblock":false,"startUrl":"https://example.com","cdpUrl":"http://127.0.0.1:38209","connectionId":3449,"pid":12345}
+aluvia session start https://example.com
 
-# Start a second session in parallel
-npx aluvia-sdk open https://other-site.com
-# {"browser-session":"bold-tiger","autoUnblock":false,"startUrl":"https://other-site.com","cdpUrl":"http://127.0.0.1:42017","connectionId":3450,"pid":12346}
+# Start with auto-unblocking
+aluvia session start https://example.com --auto-unblock
 
 # Start with a visible browser window
-npx aluvia-sdk open https://example.com --headful
+aluvia session start https://example.com --headful
 
 # Reuse an existing connection
-npx aluvia-sdk open https://example.com --connection-id 3449
-
-# Enable automatic unblocking (detect blocks, add to proxy rules, reload)
-npx aluvia-sdk open https://example.com --auto-unblock
-
-# Disable block detection entirely
-npx aluvia-sdk open https://example.com --disable-block-detection
+aluvia session start https://example.com --connection-id 3449
 
 # Name a session explicitly
-npx aluvia-sdk open https://example.com --browser-session my-scraper
+aluvia session start https://example.com --browser-session my-scraper
+
+# Run a script and shut down when it finishes
+aluvia session start https://example.com --run script.mjs
 ```
 
-### `status` -- Show session status
+#### `session close` -- Stop a browser session
 
 ```bash
-npx aluvia-sdk status [--browser-session <name>]
+aluvia session close [--browser-session <name>] [--all]
 ```
-
-Status output includes `blockDetection` and `autoUnblock` flags, plus `lastDetection` with the most recent block detection result (or `null` if no detection has run yet).
-
-```bash
-# Check status of all sessions
-npx aluvia-sdk status
-# {"browser-sessions":[{"browser-session":"swift-falcon","pid":12345,"startUrl":"https://example.com","cdpUrl":"http://127.0.0.1:38209","connectionId":3449,"blockDetection":true,"autoUnblock":false,"lastDetection":null}],"count":1}
-
-# Check status of a specific session
-npx aluvia-sdk status --browser-session swift-falcon
-# {"browser-session":"swift-falcon","pid":12345,"startUrl":"https://example.com","cdpUrl":"http://127.0.0.1:38209","connectionId":3449,"blockDetection":true,"autoUnblock":false,"lastDetection":{"hostname":"example.com","lastUrl":"https://example.com/page","blockStatus":"blocked","score":0.85,"signals":["http_status_403","waf_header"],"timestamp":1739290800000}}
-```
-
-The `lastDetection` object contains:
-
-| Field | Description |
-|---|---|
-| `hostname` | The hostname that was analyzed |
-| `lastUrl` | The full URL that was analyzed |
-| `blockStatus` | `"blocked"`, `"suspected"`, or `"clear"` |
-| `score` | Detection confidence score (0.0 -- 1.0) |
-| `signals` | Signal names that fired (e.g. `["http_status_403", "waf_header"]`) |
-| `timestamp` | Unix timestamp (ms) of when the detection ran |
-
-### `close` -- Stop a browser session
-
-```bash
-npx aluvia-sdk close [--browser-session <name>] [--all]
-```
-
-| Option | Description |
-|---|---|
-| `--browser-session <name>` | Close a specific session |
-| `--all` | Close all sessions |
 
 ```bash
 # Stop a specific session
-npx aluvia-sdk close --browser-session swift-falcon
+aluvia session close --browser-session swift-falcon
 
 # Stop the running session (works when only one is active)
-npx aluvia-sdk close
+aluvia session close
 
 # Stop all sessions at once
-npx aluvia-sdk close --all
+aluvia session close --all
+```
+
+#### `session list` -- List active sessions
+
+```bash
+aluvia session list
+```
+
+Returns all running sessions with their connection details:
+
+```json
+{
+  "sessions": [
+    {
+      "browser-session": "swift-falcon",
+      "pid": 12345,
+      "startUrl": "https://example.com",
+      "cdpUrl": "http://127.0.0.1:38209",
+      "proxyUrl": "http://127.0.0.1:54321",
+      "connectionId": 3449,
+      "blockDetection": true,
+      "autoUnblock": false,
+      "lastDetection": null
+    }
+  ],
+  "count": 1
+}
+```
+
+#### `session get` -- Get full session details
+
+```bash
+aluvia session get [--browser-session <name>]
+```
+
+Returns session details enriched with connection config and gateway proxy credentials from the API:
+
+```json
+{
+  "browser-session": "swift-falcon",
+  "pid": 12345,
+  "alive": true,
+  "startUrl": "https://example.com",
+  "cdpUrl": "http://127.0.0.1:38209",
+  "proxyUrl": "http://127.0.0.1:54321",
+  "connectionId": 3449,
+  "rules": ["example.com", "api.example.com"],
+  "sessionId": "a1b2c3d4-...",
+  "targetGeo": "US",
+  "blockDetection": true,
+  "autoUnblock": false,
+  "lastDetection": null,
+  "gatewayProxy": {
+    "url": "http://user:pass@gateway.aluvia.io:8080",
+    "host": "gateway.aluvia.io",
+    "port": 8080,
+    "protocol": "http",
+    "username": "user",
+    "password": "pass"
+  }
+}
+```
+
+#### `session rotate-ip` -- Rotate IP address
+
+```bash
+aluvia session rotate-ip [--browser-session <name>]
+```
+
+Generates a new session ID to rotate the upstream IP:
+
+```json
+{ "browser-session": "swift-falcon", "connectionId": 3449, "sessionId": "e5f6a7b8-..." }
+```
+
+#### `session set-geo` -- Set target geo
+
+```bash
+aluvia session set-geo <geo> [--browser-session <name>]
+aluvia session set-geo --clear [--browser-session <name>]
+```
+
+```bash
+# Target US IPs
+aluvia session set-geo US
+
+# Clear geo targeting
+aluvia session set-geo --clear
+```
+
+#### `session set-rules` -- Manage routing rules
+
+```bash
+aluvia session set-rules <rules> [--browser-session <name>]
+aluvia session set-rules --remove <rules> [--browser-session <name>]
+```
+
+Rules are comma-separated. Append is the default; use `--remove` to remove specific rules.
+
+```bash
+# Append rules
+aluvia session set-rules "example.com,api.example.com"
+
+# Remove rules
+aluvia session set-rules --remove "example.com"
+```
+
+### Account commands
+
+```bash
+# Show account info
+aluvia account
+
+# Show usage stats (with optional date filters)
+aluvia account usage
+aluvia account usage --start 2025-01-01T00:00:00Z --end 2025-02-01T00:00:00Z
+```
+
+### Other commands
+
+```bash
+# List available geo-targeting options
+aluvia geos
+
+# Show help (plain text)
+aluvia help
+
+# Show help as JSON (for agents)
+aluvia help --json
 ```
 
 ### Connecting to a running browser
@@ -355,7 +449,7 @@ npx aluvia-sdk close --all
 Pass a script to execute inside the daemon process. `page`, `browser`, and `context` are available as globals:
 
 ```bash
-npx aluvia-sdk open https://example.com --run script.mjs
+aluvia session start https://example.com --run script.mjs
 ```
 
 ```js
