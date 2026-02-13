@@ -47,3 +47,14 @@ export class ProxyStartError extends Error {
   }
 }
 
+/**
+ * Thrown by connect() when it cannot establish a CDP connection to a running session.
+ */
+export class ConnectError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = 'ConnectError';
+    Object.setPrototypeOf(this, ConnectError.prototype);
+  }
+}
+

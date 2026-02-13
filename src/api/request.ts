@@ -96,7 +96,8 @@ export async function requestCore(options: RequestCoreOptions): Promise<RequestC
       if (controller.signal.aborted) {
         throw new ApiError(`Request timed out after ${timeoutMs}ms`, 408);
       }
-      throw err;
+      const message = err instanceof Error ? err.message : String(err);
+      throw new ApiError(`Network request failed: ${message}`);
     }
 
     const etag = response.headers.get('etag');
@@ -113,7 +114,11 @@ export async function requestCore(options: RequestCoreOptions): Promise<RequestC
     const text = await response.text();
     if (!text) return { status: response.status, etag, body: null };
 
-    return { status: response.status, etag, body: JSON.parse(text) };
+    try {
+      return { status: response.status, etag, body: JSON.parse(text) };
+    } catch {
+      return { status: response.status, etag, body: null };
+    }
   } finally {
     clearTimeout(timeoutId);
   }

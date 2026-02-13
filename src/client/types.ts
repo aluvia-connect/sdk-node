@@ -1,14 +1,22 @@
 // Public types for Aluvia Client Node
 
+import type {
+  BlockDetectionConfig,
+  BlockDetectionResult,
+  DetectionBlockStatus,
+  DetectionSignal,
+  RedirectHop,
+} from "./BlockDetection.js";
+
 /**
  * Protocol used to connect to the Aluvia gateway.
  */
-export type GatewayProtocol = 'http' | 'https';
+export type GatewayProtocol = "http" | "https";
 
 /**
  * Log level for the client.
  */
-export type LogLevel = 'silent' | 'info' | 'debug';
+export type LogLevel = "silent" | "info" | "debug";
 
 export type PlaywrightProxySettings = {
   server: string;
@@ -87,23 +95,14 @@ export type AluviaClientOptions = {
   connectionId?: number;
 
   /**
-   * Optional: enable local proxy mode (client proxy mode).
-   *
-   * If true (default): start the local proxy (127.0.0.1:<port>) and route traffic dynamically.
-   * If false: do NOT start a local proxy; adapters return gateway proxy settings
-   * from the account connection API response for direct use by Playwright/Axios/etc.
-   */
-  localProxy?: boolean;
-
-  /**
    * Optional: strict startup behavior.
    *
    * If true (default): `client.start()` throws if the SDK cannot load/create
    * an account connection config (proxy credentials + rules). This prevents
    * "silent direct routing" where the local proxy starts but bypasses Aluvia.
    *
-   * If false: in client proxy mode, the SDK may still start a local proxy and
-   * route traffic directly when config is unavailable.
+   * If false: the SDK may still start a local proxy and route traffic directly
+   * when config is unavailable.
    */
   strict?: boolean;
 
@@ -119,6 +118,25 @@ export type AluviaClientOptions = {
    * Note: Playwright must be installed as a dependency for this option to work.
    */
   startPlaywright?: boolean;
+
+  /**
+   * Optional: configuration for website block detection.
+   *
+   * When enabled (default), the SDK monitors pages using a weighted scoring
+   * system across multiple signal types (HTTP status, WAF headers, DOM
+   * selectors, visible text, redirect chains) with two-pass analysis.
+   */
+  blockDetection?: BlockDetectionConfig;
+
+  /**
+   * Optional: run the Playwright browser in headless or headed mode.
+   *
+   * If true (default): the browser runs without a visible window.
+   * If false: the browser opens a visible window.
+   *
+   * Only applies when `startPlaywright` is true.
+   */
+  headless?: boolean;
 };
 
 /**
@@ -126,39 +144,19 @@ export type AluviaClientOptions = {
  */
 export type AluviaClientConnection = {
   /**
-   * Proxy host to configure in your client.
-   *
-   * - In client proxy mode (localProxy: true): this is the local proxy host ('127.0.0.1').
-   * - In gateway mode: this is the Aluvia gateway host (typically 'gateway.aluvia.io').
+   * Proxy host: `'127.0.0.1'` (the local proxy).
    */
   host: string;
 
   /**
-   * Proxy port to configure in your client.
-   *
-   * - In client proxy mode (localProxy: true): this is the local proxy port.
-   * - In gateway mode: this is the Aluvia gateway port (typically 8080 or 8443).
+   * The local proxy port.
    */
   port: number;
 
   /**
-   * Convenience URL for the proxy server endpoint (without embedding credentials).
-   *
-   * - In client proxy mode (localProxy: true): 'http://127.0.0.1:<port>'
-   * - In gateway mode: '<protocol>://gateway.aluvia.io:<port>'
-   *
-   * (The local proxy itself is always HTTP; it may tunnel to an HTTP or HTTPS
-   * gateway upstream based on gatewayProtocol/gatewayPort.)
+   * Proxy URL: `'http://127.0.0.1:<port>'`.
    */
   url: string;
-
-  /**
-   * Returns a credential-embedded proxy URL intended for clients that require auth in the URL.
-   *
-   * Note: This value contains secrets (proxy username/password). Avoid logging it or putting it
-   * in places that may be exposed (e.g., process args).
-   */
-  getUrl(): string;
 
   /**
    * Playwright adapter for chromium/firefox/webkit launch options.
@@ -181,8 +179,8 @@ export type AluviaClientConnection = {
    * Useful for: Axios, got, node-fetch (legacy).
    */
   asNodeAgents(): {
-    http: import('node:http').Agent;
-    https: import('node:http').Agent;
+    http: import("node:http").Agent;
+    https: import("node:http").Agent;
   };
 
   /**
@@ -193,8 +191,8 @@ export type AluviaClientConnection = {
    */
   asAxiosConfig(): {
     proxy: false;
-    httpAgent: import('node:http').Agent;
-    httpsAgent: import('node:http').Agent;
+    httpAgent: import("node:http").Agent;
+    httpsAgent: import("node:http").Agent;
   };
 
   /**
@@ -204,8 +202,8 @@ export type AluviaClientConnection = {
    */
   asGotOptions(): {
     agent: {
-      http: import('node:http').Agent;
-      https: import('node:http').Agent;
+      http: import("node:http").Agent;
+      https: import("node:http").Agent;
     };
   };
 
@@ -213,7 +211,7 @@ export type AluviaClientConnection = {
    * undici proxy dispatcher (for undici fetch / undici clients).
    */
   // @ts-ignore
-  asUndiciDispatcher(): import('undici').Dispatcher;
+  asUndiciDispatcher(): import("undici").Dispatcher;
 
   /**
    * Returns a `fetch` function powered by undici that uses the proxy dispatcher per request.
@@ -233,16 +231,36 @@ export type AluviaClientConnection = {
    */
   browser?: any;
 
-  /**
-   * Stop this proxy instance:
-   * - Close the local proxy server.
-   * - Close the browser (if started).
-   * - Stop using it for new connections.
-   */
-  stop(): Promise<void>;
+  browserContext?: any;
 
   /**
-   * Alias for stop().
+   * Chrome DevTools Protocol HTTP endpoint URL (for example: http://127.0.0.1:<port>).
+   *
+   * Only available if `startPlaywright: true` was passed to AluviaClientOptions.
+   * Intended for use by external tools that connect to the browser via CDP.
+   * Tools that require a WebSocket debugger URL should derive it from this HTTP
+   * endpoint (for example, by fetching `${cdpUrl}/json/version` and using the
+   * `webSocketDebuggerUrl` field from the response).
+   */
+  cdpUrl?: string;
+
+  /**
+   * Close this proxy instance:
+   * - Close the local proxy server.
+   * - Close the browser (if started).
+   * - Stop config polling.
    */
   close(): Promise<void>;
+
+  /** @deprecated Use `close()` instead. */
+  stop(): Promise<void>;
 };
+
+// Re-export BlockDetection types for public API
+export type {
+  BlockDetectionConfig,
+  BlockDetectionResult,
+  DetectionBlockStatus,
+  DetectionSignal,
+  RedirectHop,
+} from "./BlockDetection.js";

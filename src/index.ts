@@ -2,8 +2,12 @@
 // Main entry point
 
 // Public class
-export { AluviaClient } from './client/AluviaClient.js';
-export { AluviaApi } from './api/AluviaApi.js';
+export { AluviaClient } from "./client/AluviaClient.js";
+export { AluviaApi } from "./api/AluviaApi.js";
+
+// Connect helper
+export { connect } from "./connect.js";
+export type { ConnectResult } from "./connect.js";
 
 // Public error classes
 export {
@@ -11,7 +15,8 @@ export {
   InvalidApiKeyError,
   ApiError,
   ProxyStartError,
-} from './errors.js';
+  ConnectError,
+} from "./errors.js";
 
 // Public types
 export type {
@@ -20,7 +25,12 @@ export type {
   AluviaClientOptions,
   AluviaClientConnection,
   PlaywrightProxySettings,
-} from './client/types.js';
+  BlockDetectionConfig,
+  BlockDetectionResult,
+  DetectionBlockStatus,
+  DetectionSignal,
+  RedirectHop,
+} from "./client/types.js";
 
 export type {
   Account,
@@ -32,4 +42,4 @@ export type {
   SuccessEnvelope,
   ErrorEnvelope,
   Envelope,
-} from './api/types.js';
+} from "./api/types.js";

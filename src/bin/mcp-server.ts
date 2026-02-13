@@ -1,0 +1,252 @@
+#!/usr/bin/env node
+
+import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
+import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
+import { z } from "zod";
+import * as tools from "./mcp-tools.js";
+
+const server = new McpServer({
+  name: "aluvia",
+  version: "1.2.0",
+});
+
+// --- Session tools ---
+
+server.tool(
+  "session_start",
+  "Start a browser session with Aluvia smart proxy. Spawns a headless browser connected through Aluvia gateway. Returns session details including CDP URL for remote debugging.",
+  {
+    url: z.string().describe("URL to open in the browser"),
+    connectionId: z
+      .number()
+      .int()
+      .positive()
+      .optional()
+      .describe("Use a specific Aluvia connection ID"),
+    headful: z
+      .boolean()
+      .optional()
+      .describe("Run browser in headful mode (default: headless)"),
+    browserSession: z
+      .string()
+      .optional()
+      .describe("Custom session name (auto-generated if omitted)"),
+    autoUnblock: z
+      .boolean()
+      .optional()
+      .describe("Auto-detect blocks and reload through Aluvia proxy"),
+    disableBlockDetection: z
+      .boolean()
+      .optional()
+      .describe("Disable block detection entirely"),
+  },
+  async (args) => {
+    const result = await tools.sessionStart(args);
+    return {
+      content: [
+        { type: "text" as const, text: JSON.stringify(result.data, null, 2) },
+      ],
+      isError: result.isError,
+    };
+  },
+);
+
+server.tool(
+  "session_close",
+  "Close one or all running browser sessions. Sends SIGTERM for graceful shutdown, then SIGKILL if needed.",
+  {
+    browserSession: z
+      .string()
+      .optional()
+      .describe("Name of session to close (auto-selects if only one)"),
+    all: z.boolean().optional().describe("Close all sessions"),
+  },
+  async (args) => {
+    const result = await tools.sessionClose(args);
+    return {
+      content: [
+        { type: "text" as const, text: JSON.stringify(result.data, null, 2) },
+      ],
+      isError: result.isError,
+    };
+  },
+);
+
+server.tool(
+  "session_list",
+  "List all active browser sessions with their PIDs, URLs, and proxy configuration.",
+  async () => {
+    const result = await tools.sessionList();
+    return {
+      content: [
+        { type: "text" as const, text: JSON.stringify(result.data, null, 2) },
+      ],
+      isError: result.isError,
+    };
+  },
+);
+
+server.tool(
+  "session_get",
+  "Get detailed information about a running session including proxy URLs, connection data, and block detection state.",
+  {
+    browserSession: z
+      .string()
+      .optional()
+      .describe("Name of session (auto-selects if only one)"),
+  },
+  async (args) => {
+    const result = await tools.sessionGet(args);
+    return {
+      content: [
+        { type: "text" as const, text: JSON.stringify(result.data, null, 2) },
+      ],
+      isError: result.isError,
+    };
+  },
+);
+
+server.tool(
+  "session_rotate_ip",
+  "Rotate the IP address for a running session by generating a new session ID on the Aluvia connection.",
+  {
+    browserSession: z
+      .string()
+      .optional()
+      .describe("Name of session (auto-selects if only one)"),
+  },
+  async (args) => {
+    const result = await tools.sessionRotateIp(args);
+    return {
+      content: [
+        { type: "text" as const, text: JSON.stringify(result.data, null, 2) },
+      ],
+      isError: result.isError,
+    };
+  },
+);
+
+server.tool(
+  "session_set_geo",
+  "Set or clear the target geographic region for a running session. Affects which mobile IP pool is used.",
+  {
+    geo: z.string().optional().describe('Geo code to set (e.g. "US", "GB")'),
+    clear: z
+      .boolean()
+      .optional()
+      .describe("Clear the target geo instead of setting one"),
+    browserSession: z
+      .string()
+      .optional()
+      .describe("Name of session (auto-selects if only one)"),
+  },
+  async (args) => {
+    const result = await tools.sessionSetGeo(args);
+    return {
+      content: [
+        { type: "text" as const, text: JSON.stringify(result.data, null, 2) },
+      ],
+      isError: result.isError,
+    };
+  },
+);
+
+server.tool(
+  "session_set_rules",
+  'Append or remove proxy routing rules for a running session. Rules are hostname patterns (e.g. "example.com", "*.google.com").',
+  {
+    rules: z
+      .string()
+      .optional()
+      .describe('Comma-separated rules to append (e.g. "a.com,b.com")'),
+    remove: z
+      .string()
+      .optional()
+      .describe("Comma-separated rules to remove instead of appending"),
+    browserSession: z
+      .string()
+      .optional()
+      .describe("Name of session (auto-selects if only one)"),
+  },
+  async (args) => {
+    const result = await tools.sessionSetRules(args);
+    return {
+      content: [
+        { type: "text" as const, text: JSON.stringify(result.data, null, 2) },
+      ],
+      isError: result.isError,
+    };
+  },
+);
+
+// --- Account tools ---
+
+server.tool(
+  "account_get",
+  "Get Aluvia account information including plan details and current balance.",
+  async () => {
+    const result = await tools.accountGet();
+    return {
+      content: [
+        { type: "text" as const, text: JSON.stringify(result.data, null, 2) },
+      ],
+      isError: result.isError,
+    };
+  },
+);
+
+server.tool(
+  "account_usage",
+  "Get Aluvia account usage statistics for a date range.",
+  {
+    start: z
+      .string()
+      .optional()
+      .describe(
+        'Start date filter (ISO8601 format, e.g. "2024-01-01T00:00:00Z")',
+      ),
+    end: z.string().optional().describe("End date filter (ISO8601 format)"),
+  },
+  async (args) => {
+    const result = await tools.accountUsage(args);
+    return {
+      content: [
+        { type: "text" as const, text: JSON.stringify(result.data, null, 2) },
+      ],
+      isError: result.isError,
+    };
+  },
+);
+
+// --- Geo tools ---
+
+server.tool(
+  "geos_list",
+  "List all available geographic regions for proxy targeting.",
+  async () => {
+    const result = await tools.geosList();
+    return {
+      content: [
+        { type: "text" as const, text: JSON.stringify(result.data, null, 2) },
+      ],
+      isError: result.isError,
+    };
+  },
+);
+
+// --- Start server ---
+
+async function main(): Promise<void> {
+  const transport = new StdioServerTransport();
+  await server.connect(transport);
+  console.error("Aluvia MCP server running on stdio");
+}
+
+// Only run when executed directly (not when imported for testing)
+const isMcpServer = process.argv[1]?.match(/(?:mcp-server)\.[jt]s$/);
+if (isMcpServer) {
+  main().catch((err) => {
+    console.error("Fatal error in MCP server:", err);
+    process.exit(1);
+  });
+}

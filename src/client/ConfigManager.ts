@@ -4,6 +4,9 @@ import type { GatewayProtocol, LogLevel } from './types.js';
 import { Logger } from './logger.js';
 import { InvalidApiKeyError, ApiError } from '../errors.js';
 import { requestCore } from '../api/request.js';
+import { isRecord, throwIfAuthError } from '../api/apiUtils.js';
+import { normalizeRules } from './rules.js';
+import type { NormalizedRules } from './rules.js';
 
 // Config types
 
@@ -24,6 +27,8 @@ export type RawProxyConfig = {
 export type ConnectionNetworkConfig = {
   rawProxy: RawProxyConfig;
   rules: string[];
+  /** Pre-normalized rules for efficient per-request matching. */
+  normalizedRules: NormalizedRules;
   sessionId: string | null;
   targetGeo: string | null;
   /**
@@ -46,10 +51,6 @@ type AccountConnectionData = {
 type AccountConnectionApiResponse = {
   data?: AccountConnectionData;
 };
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === 'object' && value !== null;
-}
 
 function toAccountConnectionApiResponse(value: unknown): AccountConnectionApiResponse {
   if (!isRecord(value)) return {};
@@ -130,6 +131,11 @@ export class ConfigManager {
   private accountConnectionId: number | undefined;
   private pollInFlight = false;
 
+  /** Public read-only access to the account connection ID. */
+  get connectionId(): number | undefined {
+    return this.accountConnectionId;
+  }
+
   constructor(options: ConfigManagerOptions) {
     this.options = options;
     this.logger = new Logger(options.logLevel);
@@ -145,7 +151,7 @@ export class ConfigManager {
    */
   async init(): Promise<void> {
     if (this.options.connectionId) {
-      this.accountConnectionId = this.options.connectionId ?? null;
+      this.accountConnectionId = this.options.connectionId;
       this.logger.info(`Using account connection API (connection id: ${this.accountConnectionId})`);
       let result: Awaited<ReturnType<typeof requestCore>>;
       try {
@@ -161,9 +167,7 @@ export class ConfigManager {
         throw new ApiError(`Failed to fetch account connection config: ${msg}`);
       }
 
-      if (result.status === 401 || result.status === 403) {
-        throw new InvalidApiKeyError(`Authentication failed with status ${result.status}`);
-      }
+      throwIfAuthError(result.status);
 
       if (result.status === 200 && result.body) {
         this.config = this.buildConfigFromAny(result.body, result.etag);
@@ -186,13 +190,12 @@ export class ConfigManager {
         body: {},
       });
 
-      if (created.status === 401 || created.status === 403) {
-        throw new InvalidApiKeyError(`Authentication failed with status ${created.status}`);
-      }
+      throwIfAuthError(created.status);
 
       if ((created.status === 200 || created.status === 201) && created.body) {
         const createdResponse = toAccountConnectionApiResponse(created.body);
-        this.accountConnectionId = Number(createdResponse.data?.connection_id);
+        const rawId = Number(createdResponse.data?.connection_id);
+        this.accountConnectionId = Number.isFinite(rawId) ? rawId : undefined;
 
         if (this.accountConnectionId != null) {
           this.logger.info(`Account connection created (connection id: ${this.accountConnectionId})`);
@@ -257,6 +260,7 @@ export class ConfigManager {
         this.pollInFlight = false;
       }
     }, this.options.pollIntervalMs);
+    this.timer.unref();
   }
 
   /**
@@ -278,7 +282,11 @@ export class ConfigManager {
     return this.config;
   }
 
-  async setConfig(body: Object): Promise<ConnectionNetworkConfig | null> {
+  async setConfig(body: Record<string, unknown>): Promise<ConnectionNetworkConfig | null> {
+    if (this.accountConnectionId == null || !Number.isFinite(this.accountConnectionId)) {
+      throw new ApiError('Cannot update config: no account connection ID. Ensure init() succeeds first.');
+    }
+
     this.logger.debug(`Setting config: ${JSON.stringify(body)}`);
 
     let result: Awaited<ReturnType<typeof requestCore>>;
@@ -296,9 +304,7 @@ export class ConfigManager {
       throw new ApiError(`Failed to update account connection config: ${msg}`);
     }
 
-    if (result.status === 401 || result.status === 403) {
-      throw new InvalidApiKeyError(`Authentication failed with status ${result.status}`);
-    }
+    throwIfAuthError(result.status);
 
     if (result.status === 200 && result.body) {
       this.config = this.buildConfigFromAny(result.body, result.etag);
@@ -326,8 +332,8 @@ export class ConfigManager {
    * Called by the polling timer.
    */
   private async pollOnce(): Promise<void> {
-    if (!this.config) {
-      this.logger.warn('No config available, skipping poll');
+    if (!this.config || this.accountConnectionId == null) {
+      this.logger.warn('No config or connection ID available, skipping poll');
       return;
     }
 
@@ -369,8 +375,8 @@ export class ConfigManager {
     const sessionId: string | null = data?.session_id ?? null;
     const targetGeo: string | null = data?.target_geo ?? null;
 
-    const username: string | null = data?.proxy_username ?? null;
-    const password: string | null = data?.proxy_password ?? null;
+    const username: string | null = (data?.proxy_username ?? '').trim() || null;
+    const password: string | null = (data?.proxy_password ?? '').trim() || null;
 
     if (!username || !password) {
       throw new ApiError(
@@ -388,6 +394,7 @@ export class ConfigManager {
         password,
       },
       rules,
+      normalizedRules: normalizeRules(rules),
       sessionId,
       targetGeo,
       etag,

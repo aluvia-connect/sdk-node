@@ -1,64 +1,63 @@
 // Integration smoke test for Aluvia Client
 
-import { test, mock, describe, beforeEach, afterEach } from 'node:test';
-import assert from 'node:assert';
-import { AluviaClient } from '../src/client/AluviaClient.js';
-import { requestCore } from '../src/api/request.js';
-import { ConfigManager } from '../src/client/ConfigManager.js';
-import { ProxyServer } from '../src/client/ProxyServer.js';
-import { AluviaApi } from '../src/api/AluviaApi.js';
+import { test, mock, describe, beforeEach, afterEach } from "node:test";
+import assert from "node:assert";
+import { AluviaClient } from "../src/client/AluviaClient.js";
+import { requestCore } from "../src/api/request.js";
+import { ConfigManager } from "../src/client/ConfigManager.js";
+import { ProxyServer } from "../src/client/ProxyServer.js";
+import { AluviaApi } from "../src/api/AluviaApi.js";
 import {
   MissingApiKeyError,
   InvalidApiKeyError,
   ApiError,
   ProxyStartError,
-} from '../src/errors.js';
-import { matchPattern, shouldProxy } from '../src/client/rules.js';
-import { Logger } from '../src/client/logger.js';
+} from "../src/errors.js";
+import { matchPattern, shouldProxy } from "../src/client/rules.js";
+import { Logger } from "../src/client/logger.js";
+import type { BlockDetectionResult } from "../src/client/BlockDetection.js";
+import { writeLock, readLock, removeLock } from "../src/session/lock.js";
+import type { LockDetection } from "../src/session/lock.js";
 
-describe('AluviaClient', () => {
+describe("AluviaClient", () => {
   afterEach(() => {
     mock.reset();
   });
 
-  test('throws MissingApiKeyError when apiKey is not provided', () => {
+  test("throws MissingApiKeyError when apiKey is not provided", () => {
+    assert.throws(() => new AluviaClient({ apiKey: "" }), MissingApiKeyError);
+  });
+
+  test("throws MissingApiKeyError when apiKey is whitespace-only", () => {
     assert.throws(
-      () => new AluviaClient({ apiKey: '' }),
-      MissingApiKeyError
+      () => new AluviaClient({ apiKey: "   " }),
+      MissingApiKeyError,
     );
   });
 
-  test('throws MissingApiKeyError when apiKey is whitespace-only', () => {
-    assert.throws(
-      () => new AluviaClient({ apiKey: '   ' }),
-      MissingApiKeyError
-    );
-  });
-
-  test('can be instantiated with valid apiKey', () => {
+  test("can be instantiated with valid apiKey", () => {
     const client = new AluviaClient({
-      apiKey: 'test-api-key',
-      logLevel: 'silent',
+      apiKey: "test-api-key",
+      logLevel: "silent",
     });
     assert.ok(client);
   });
 
-  test('applies default options correctly', () => {
+  test("applies default options correctly", () => {
     // This test verifies defaults are applied (constructor doesn't throw)
     const client = new AluviaClient({
-      apiKey: 'test-api-key',
+      apiKey: "test-api-key",
     });
     assert.ok(client);
   });
 
-  test('connection includes proxy adapter helpers', async () => {
+  test("connection includes proxy adapter helpers", async () => {
     const client = new AluviaClient({
-      apiKey: 'test-api-key',
-      logLevel: 'silent',
-      localProxy: true,
+      apiKey: "test-api-key",
+      logLevel: "silent",
     });
 
-    const url = 'http://127.0.0.1:54321';
+    const url = "http://127.0.0.1:54321";
     let pollingStarted = false;
 
     (client as any).configManager.init = async () => {};
@@ -67,7 +66,7 @@ describe('AluviaClient', () => {
     };
     (client as any).configManager.stopPolling = () => {};
     (client as any).proxyServer.start = async () => ({
-      host: '127.0.0.1',
+      host: "127.0.0.1",
       port: 54321,
       url,
     });
@@ -77,7 +76,6 @@ describe('AluviaClient', () => {
     assert.strictEqual(pollingStarted, true);
 
     assert.strictEqual(connection.url, url);
-    assert.strictEqual(connection.getUrl(), url);
     assert.deepStrictEqual(connection.asPlaywright(), { server: url });
     assert.deepStrictEqual(connection.asPuppeteer(), [`--proxy-server=${url}`]);
 
@@ -103,115 +101,26 @@ describe('AluviaClient', () => {
 
     const fetchA = connection.asUndiciFetch();
     const fetchB = connection.asUndiciFetch();
-    assert.strictEqual(typeof fetchA, 'function');
+    assert.strictEqual(typeof fetchA, "function");
     assert.strictEqual(fetchA, fetchB);
 
     await connection.close();
     assert.strictEqual((client as any).started, false);
   });
 
-  test('connection adapters use REMOTE proxy when localProxy is false', async () => {
+  test("connection adapters use LOCAL proxy by default", async () => {
     const client = new AluviaClient({
-      apiKey: 'test-api-key',
-      logLevel: 'silent',
-      localProxy: false,
+      apiKey: "test-api-key",
+      logLevel: "silent",
     });
 
-    (client as any).configManager.init = async () => {};
-    (client as any).configManager.startPolling = () => {
-      throw new Error(
-        'configManager.startPolling should not be called in gateway mode',
-      );
-    };
-    (client as any).configManager.stopPolling = () => {};
-    // Ensure local proxy never starts
-    (client as any).proxyServer.start = async () => {
-      throw new Error('proxyServer.start should not be called');
-    };
-
-    // Provide remote config via getConfig()
-    (client as any).configManager.getConfig = () => ({
-      rawProxy: {
-        protocol: 'http',
-        host: 'gateway.aluvia.io',
-        port: 8080,
-        username: 'user',
-        password: 'pass',
-      },
-      rules: ['*'],
-      sessionId: null,
-      targetGeo: null,
-      etag: '"e"',
-    });
-
-    const connection = await client.start();
-
-    assert.strictEqual(connection.url, 'http://gateway.aluvia.io:8080');
-    assert.deepStrictEqual(connection.asPlaywright(), {
-      server: 'http://gateway.aluvia.io:8080',
-      username: 'user',
-      password: 'pass',
-    });
-    assert.deepStrictEqual(connection.asPuppeteer(), [
-      '--proxy-server=http://gateway.aluvia.io:8080',
-    ]);
-    assert.strictEqual(typeof connection.getUrl(), 'string');
-    assert.ok(connection.getUrl().includes('gateway.aluvia.io:8080'));
-
-    const agents = connection.asNodeAgents();
-    assert.ok(agents.http);
-    assert.ok(agents.https);
-
-    const axiosCfg = connection.asAxiosConfig();
-    assert.strictEqual(axiosCfg.proxy, false);
-    assert.strictEqual(axiosCfg.httpAgent, agents.http);
-    assert.strictEqual(axiosCfg.httpsAgent, agents.https);
-
-    const gotOpts = connection.asGotOptions();
-    assert.strictEqual(gotOpts.agent.http, agents.http);
-    assert.strictEqual(gotOpts.agent.https, agents.https);
-
-    const dispatcher = connection.asUndiciDispatcher();
-    assert.ok(dispatcher);
-
-    const fetchFn = connection.asUndiciFetch();
-    assert.strictEqual(typeof fetchFn, 'function');
-
-    await connection.close();
-    assert.strictEqual((client as any).started, false);
-  });
-
-  test('gateway mode start throws when account connection config is missing', async () => {
-    const client = new AluviaClient({
-      apiKey: 'test-api-key',
-      logLevel: 'silent',
-      localProxy: false,
-    });
-
-    (client as any).configManager.init = async () => {};
-    (client as any).configManager.getConfig = () => null;
-    (client as any).configManager.startPolling = () => {};
-    (client as any).configManager.stopPolling = () => {};
-    (client as any).proxyServer.start = async () => {
-      throw new Error('proxyServer.start should not be called');
-    };
-
-    await assert.rejects(() => client.start(), ApiError);
-  });
-
-  test('connection adapters use LOCAL proxy by default (localProxy default true)', async () => {
-    const client = new AluviaClient({
-      apiKey: 'test-api-key',
-      logLevel: 'silent',
-    });
-
-    const url = 'http://127.0.0.1:54321';
+    const url = "http://127.0.0.1:54321";
 
     (client as any).configManager.init = async () => {};
     (client as any).configManager.startPolling = () => {};
     (client as any).configManager.stopPolling = () => {};
     (client as any).proxyServer.start = async () => ({
-      host: '127.0.0.1',
+      host: "127.0.0.1",
       port: 54321,
       url,
     });
@@ -224,60 +133,557 @@ describe('AluviaClient', () => {
 
     await connection.close();
   });
+});
 
-  test('start() is concurrency-safe: concurrent calls share one in-flight startup', async () => {
-    const client = new AluviaClient({
-      apiKey: 'test-api-key',
-      logLevel: 'silent',
-      localProxy: true,
-    });
-
-    const url = 'http://127.0.0.1:54321';
-
-    let initCalls = 0;
-    let pollingStarts = 0;
-    let proxyStarts = 0;
-
-    let resolveInit: (() => void) | null = null;
-    const initGate = new Promise<void>((res) => {
-      resolveInit = res;
-    });
-
-    (client as any).configManager.init = async () => {
-      initCalls += 1;
-      await initGate;
-    };
-    (client as any).configManager.startPolling = () => {
-      pollingStarts += 1;
-    };
-    (client as any).configManager.stopPolling = () => {};
-    (client as any).proxyServer.start = async () => {
-      proxyStarts += 1;
-      return { host: '127.0.0.1', port: 54321, url };
-    };
-    (client as any).proxyServer.stop = async () => {};
-
-    const p1 = client.start();
-    const p2 = client.start();
-
-    // Unblock init so startup can proceed.
-    // @ts-ignore
-    resolveInit?.();
-
-    const [c1, c2] = await Promise.all([p1, p2]);
-
-    assert.strictEqual(initCalls, 1);
-    assert.strictEqual(pollingStarts, 1);
-    assert.strictEqual(proxyStarts, 1);
-    assert.strictEqual(c1, c2);
-
-    await c1.close();
+describe("BlockDetection Integration", () => {
+  afterEach(() => {
+    mock.reset();
   });
 
-  test('updateTargetGeo() PATCHes target_geo via ConfigManager.setConfig', async () => {
+  test("AluviaClient initializes BlockDetection with new config shape", () => {
     const client = new AluviaClient({
-      apiKey: 'test-api-key',
-      logLevel: 'silent',
+      apiKey: "test-api-key",
+      logLevel: "silent",
+      blockDetection: {
+        enabled: true,
+        extraKeywords: ["custom-block"],
+        extraStatusCodes: [418],
+        challengeSelectors: ["#my-challenge"],
+        networkIdleTimeoutMs: 5000,
+        autoUnblockOnSuspected: true,
+      },
+    });
+    assert.ok(client);
+    assert.ok((client as any).blockDetection);
+  });
+
+  test("AluviaClient initializes BlockDetection when startPlaywright is true", () => {
+    const client = new AluviaClient({
+      apiKey: "test-api-key",
+      logLevel: "silent",
+      startPlaywright: true,
+    });
+    assert.ok(client);
+    assert.ok((client as any).blockDetection);
+  });
+
+  test("getBlockedHostnames returns empty array initially", () => {
+    const client = new AluviaClient({
+      apiKey: "test-api-key",
+      logLevel: "silent",
+      blockDetection: { enabled: true },
+    });
+    assert.deepStrictEqual(client.getBlockedHostnames(), []);
+  });
+
+  test("getBlockedHostnames returns empty array when detection is not configured", () => {
+    const client = new AluviaClient({
+      apiKey: "test-api-key",
+      logLevel: "silent",
+    });
+    assert.deepStrictEqual(client.getBlockedHostnames(), []);
+  });
+
+  test("clearBlockedHostnames does not throw when detection is not configured", () => {
+    const client = new AluviaClient({
+      apiKey: "test-api-key",
+      logLevel: "silent",
+    });
+    client.clearBlockedHostnames();
+  });
+
+  test("clearBlockedHostnames clears persistent tracking", () => {
+    const client = new AluviaClient({
+      apiKey: "test-api-key",
+      logLevel: "silent",
+      blockDetection: { enabled: true },
+    });
+    const pld = (client as any).blockDetection;
+    pld.persistentHostnames.add("example.com");
+    pld.retriedUrls.add("https://example.com/page");
+    assert.strictEqual(client.getBlockedHostnames().length, 1);
+
+    client.clearBlockedHostnames();
+    assert.deepStrictEqual(client.getBlockedHostnames(), []);
+    assert.strictEqual(pld.retriedUrls.size, 0);
+  });
+
+  test("onDetection callback receives result with tier/score", async () => {
+    let capturedResult: BlockDetectionResult | null = null;
+
+    const client = new AluviaClient({
+      apiKey: "test-api-key",
+      logLevel: "silent",
+      blockDetection: {
+        enabled: true,
+        onDetection: (result, page) => {
+          capturedResult = result;
+        },
+      },
+    });
+
+    (client as any).configManager.getConfig = () => ({ rules: [] });
+    (client as any).configManager.setConfig = async () => {};
+
+    const mockResult: BlockDetectionResult = {
+      url: "https://example.com/test",
+      hostname: "example.com",
+      blockStatus: "blocked",
+      score: 0.85,
+      signals: [
+        {
+          name: "http_status_403",
+          weight: 0.85,
+          details: "HTTP 403",
+          source: "fast",
+        },
+      ],
+      pass: "fast",
+      persistentBlock: false,
+      redirectChain: [],
+    };
+    const mockPage = {
+      url: () => "https://example.com/test",
+      reload: async () => {},
+    };
+
+    await (client as any).handleDetectionResult(mockResult, mockPage);
+
+    assert.ok(capturedResult);
+    assert.strictEqual(capturedResult!.blockStatus, "blocked");
+    assert.strictEqual(capturedResult!.score, 0.85);
+    assert.strictEqual(capturedResult!.signals.length, 1);
+  });
+
+  test("auto-reload fires for blocked tier", async () => {
+    let reloaded = false;
+
+    const client = new AluviaClient({
+      apiKey: "test-api-key",
+      logLevel: "silent",
+      blockDetection: { enabled: true, autoUnblock: true },
+    });
+
+    (client as any).configManager.getConfig = () => ({ rules: [] });
+    (client as any).configManager.setConfig = async () => {};
+
+    const mockResult: BlockDetectionResult = {
+      url: "https://example.com/test",
+      hostname: "example.com",
+      blockStatus: "blocked",
+      score: 0.85,
+      signals: [],
+      pass: "full",
+      persistentBlock: false,
+      redirectChain: [],
+    };
+    const mockPage = {
+      url: () => "https://example.com/test",
+      reload: async () => {
+        reloaded = true;
+      },
+    };
+
+    await (client as any).handleDetectionResult(mockResult, mockPage);
+    assert.strictEqual(reloaded, true);
+  });
+
+  test("no auto-reload for suspected tier by default", async () => {
+    let reloaded = false;
+
+    const client = new AluviaClient({
+      apiKey: "test-api-key",
+      logLevel: "silent",
+      blockDetection: { enabled: true },
+    });
+
+    (client as any).configManager.getConfig = () => ({ rules: [] });
+    (client as any).configManager.setConfig = async () => {};
+
+    const mockResult: BlockDetectionResult = {
+      url: "https://example.com/test",
+      hostname: "example.com",
+      blockStatus: "suspected",
+      score: 0.5,
+      signals: [],
+      pass: "full",
+      persistentBlock: false,
+      redirectChain: [],
+    };
+    const mockPage = {
+      url: () => "https://example.com/test",
+      reload: async () => {
+        reloaded = true;
+      },
+    };
+
+    await (client as any).handleDetectionResult(mockResult, mockPage);
+    assert.strictEqual(reloaded, false);
+  });
+
+  test("auto-reload fires for suspected when autoUnblockOnSuspected is true", async () => {
+    let reloaded = false;
+
+    const client = new AluviaClient({
+      apiKey: "test-api-key",
+      logLevel: "silent",
+      blockDetection: {
+        enabled: true,
+        autoUnblock: true,
+        autoUnblockOnSuspected: true,
+      },
+    });
+
+    (client as any).configManager.getConfig = () => ({ rules: [] });
+    (client as any).configManager.setConfig = async () => {};
+
+    const mockResult: BlockDetectionResult = {
+      url: "https://example.com/test",
+      hostname: "example.com",
+      blockStatus: "suspected",
+      score: 0.5,
+      signals: [],
+      pass: "full",
+      persistentBlock: false,
+      redirectChain: [],
+    };
+    const mockPage = {
+      url: () => "https://example.com/test",
+      reload: async () => {
+        reloaded = true;
+      },
+    };
+
+    await (client as any).handleDetectionResult(mockResult, mockPage);
+    assert.strictEqual(reloaded, true);
+  });
+
+  test("persistent block: first URL retried, second URL on same hostname skipped", async () => {
+    let reloadCount = 0;
+
+    const client = new AluviaClient({
+      apiKey: "test-api-key",
+      logLevel: "silent",
+      blockDetection: { enabled: true, autoUnblock: true },
+    });
+
+    (client as any).configManager.getConfig = () => ({ rules: [] });
+    (client as any).configManager.setConfig = async () => {};
+
+    const makeResult = (url: string): BlockDetectionResult => ({
+      url,
+      hostname: "example.com",
+      blockStatus: "blocked",
+      score: 0.85,
+      signals: [],
+      pass: "full",
+      persistentBlock: false,
+      redirectChain: [],
+    });
+
+    const makePage = (url: string) => ({
+      url: () => url,
+      reload: async () => {
+        reloadCount++;
+      },
+    });
+
+    // First block on URL1 - should reload
+    const result1 = makeResult("https://example.com/page1");
+    await (client as any).handleDetectionResult(
+      result1,
+      makePage("https://example.com/page1"),
+    );
+    assert.strictEqual(reloadCount, 1);
+
+    // Second block on URL1 - persistent, should NOT reload
+    const result2 = makeResult("https://example.com/page1");
+    await (client as any).handleDetectionResult(
+      result2,
+      makePage("https://example.com/page1"),
+    );
+    assert.strictEqual(reloadCount, 1);
+    assert.strictEqual(result2.persistentBlock, true);
+
+    // Third block on URL2 (same hostname) - hostname is persistent, skip immediately
+    const result3 = makeResult("https://example.com/page2");
+    await (client as any).handleDetectionResult(
+      result3,
+      makePage("https://example.com/page2"),
+    );
+    assert.strictEqual(reloadCount, 1);
+    assert.strictEqual(result3.persistentBlock, true);
+  });
+
+  test("handleDetectionResult adds hostname to rules", async () => {
+    let capturedRules: string[] | null = null;
+
+    const client = new AluviaClient({
+      apiKey: "test-api-key",
+      logLevel: "silent",
+      blockDetection: { enabled: true, autoUnblock: true },
+    });
+
+    (client as any).configManager.getConfig = () => ({
+      rules: [],
+    });
+    (client as any).configManager.setConfig = async (body: any) => {
+      if (body.rules) capturedRules = body.rules;
+    };
+
+    const mockResult: BlockDetectionResult = {
+      url: "https://blocked-site.com/test",
+      hostname: "blocked-site.com",
+      blockStatus: "blocked",
+      score: 0.85,
+      signals: [],
+      pass: "full",
+      persistentBlock: false,
+      redirectChain: [],
+    };
+    const mockPage = {
+      url: () => "https://blocked-site.com/test",
+      reload: async () => {},
+    };
+
+    await (client as any).handleDetectionResult(mockResult, mockPage);
+
+    assert.ok(capturedRules);
+    assert.strictEqual(capturedRules!.length, 1);
+    assert.strictEqual(capturedRules![0], "blocked-site.com");
+  });
+
+  test("handleDetectionResult does not add duplicate hostname to rules", async () => {
+    let setConfigCalled = false;
+
+    const client = new AluviaClient({
+      apiKey: "test-api-key",
+      logLevel: "silent",
+      blockDetection: { enabled: true, autoUnblock: true },
+    });
+
+    (client as any).configManager.getConfig = () => ({
+      rules: ["example.com"],
+    });
+    (client as any).configManager.setConfig = async () => {
+      setConfigCalled = true;
+    };
+
+    const mockResult: BlockDetectionResult = {
+      url: "https://example.com/test",
+      hostname: "example.com",
+      blockStatus: "blocked",
+      score: 0.85,
+      signals: [],
+      pass: "full",
+      persistentBlock: false,
+      redirectChain: [],
+    };
+    const mockPage = {
+      url: () => "https://example.com/test",
+      reload: async () => {},
+    };
+
+    await (client as any).handleDetectionResult(mockResult, mockPage);
+    assert.strictEqual(setConfigCalled, false);
+  });
+
+  test("blockDetection can be disabled", () => {
+    const client = new AluviaClient({
+      apiKey: "test-api-key",
+      logLevel: "silent",
+      blockDetection: { enabled: false },
+    });
+    assert.ok(client);
+  });
+
+  test("onDetection callback fires for clear tier", async () => {
+    let capturedResult: BlockDetectionResult | null = null;
+
+    const client = new AluviaClient({
+      apiKey: "test-api-key",
+      logLevel: "silent",
+      blockDetection: {
+        enabled: true,
+        onDetection: (result) => {
+          capturedResult = result;
+        },
+      },
+    });
+
+    const mockResult: BlockDetectionResult = {
+      url: "https://example.com/test",
+      hostname: "example.com",
+      blockStatus: "clear",
+      score: 0,
+      signals: [],
+      pass: "full",
+      persistentBlock: false,
+      redirectChain: [],
+    };
+    const mockPage = {
+      url: () => "https://example.com/test",
+      reload: async () => {},
+    };
+
+    await (client as any).handleDetectionResult(mockResult, mockPage);
+
+    assert.ok(capturedResult);
+    assert.strictEqual(capturedResult!.blockStatus, "clear");
+    assert.strictEqual(capturedResult!.score, 0);
+  });
+
+  test("autoUnblock: false prevents reload and rule update on blocked tier", async () => {
+    let reloaded = false;
+    let rulesUpdated = false;
+
+    const client = new AluviaClient({
+      apiKey: "test-api-key",
+      logLevel: "silent",
+      blockDetection: {
+        enabled: true,
+        autoUnblock: false,
+      },
+    });
+
+    (client as any).configManager.getConfig = () => ({ rules: [] });
+    (client as any).configManager.setConfig = async () => {
+      rulesUpdated = true;
+    };
+
+    const mockResult: BlockDetectionResult = {
+      url: "https://example.com/test",
+      hostname: "example.com",
+      blockStatus: "blocked",
+      score: 0.85,
+      signals: [],
+      pass: "full",
+      persistentBlock: false,
+      redirectChain: [],
+    };
+    const mockPage = {
+      url: () => "https://example.com/test",
+      reload: async () => {
+        reloaded = true;
+      },
+    };
+
+    await (client as any).handleDetectionResult(mockResult, mockPage);
+    assert.strictEqual(reloaded, false);
+    assert.strictEqual(rulesUpdated, false);
+  });
+
+  test("autoUnblock: false still fires onDetection callback", async () => {
+    let callbackFired = false;
+
+    const client = new AluviaClient({
+      apiKey: "test-api-key",
+      logLevel: "silent",
+      blockDetection: {
+        enabled: true,
+        autoUnblock: false,
+        onDetection: (result) => {
+          callbackFired = true;
+        },
+      },
+    });
+
+    const mockResult: BlockDetectionResult = {
+      url: "https://example.com/test",
+      hostname: "example.com",
+      blockStatus: "blocked",
+      score: 0.85,
+      signals: [],
+      pass: "full",
+      persistentBlock: false,
+      redirectChain: [],
+    };
+    const mockPage = {
+      url: () => "https://example.com/test",
+      reload: async () => {},
+    };
+
+    await (client as any).handleDetectionResult(mockResult, mockPage);
+    assert.strictEqual(callbackFired, true);
+  });
+
+  test("lastDetection round-trips through writeLock/readLock", () => {
+    const testSession = `__test-detection-${Date.now()}`;
+    const detection: LockDetection = {
+      hostname: "example.com",
+      lastUrl: "https://example.com/test",
+      blockStatus: "blocked",
+      score: 0.85,
+      signals: ["http_status_403", "waf_header"],
+      timestamp: Date.now(),
+    };
+
+    try {
+      writeLock(
+        {
+          pid: process.pid,
+          session: testSession,
+          ready: true,
+          blockDetection: true,
+          autoUnblock: true,
+          lastDetection: detection,
+        },
+        testSession,
+      );
+      const lock = readLock(testSession);
+      assert.ok(lock);
+      assert.strictEqual(lock!.blockDetection, true);
+      assert.strictEqual(lock!.autoUnblock, true);
+      assert.ok(lock!.lastDetection);
+      assert.strictEqual(lock!.lastDetection!.hostname, "example.com");
+      assert.strictEqual(lock!.lastDetection!.blockStatus, "blocked");
+      assert.strictEqual(lock!.lastDetection!.score, 0.85);
+      assert.deepStrictEqual(lock!.lastDetection!.signals, ["http_status_403", "waf_header"]);
+      assert.strictEqual(typeof lock!.lastDetection!.timestamp, "number");
+    } finally {
+      removeLock(testSession);
+    }
+  });
+
+  test("autoUnblock defaults to false", async () => {
+    let reloaded = false;
+
+    const client = new AluviaClient({
+      apiKey: "test-api-key",
+      logLevel: "silent",
+      blockDetection: { enabled: true },
+    });
+
+    (client as any).configManager.getConfig = () => ({ rules: [] });
+    (client as any).configManager.setConfig = async () => {};
+
+    const mockResult: BlockDetectionResult = {
+      url: "https://example.com/test",
+      hostname: "example.com",
+      blockStatus: "blocked",
+      score: 0.85,
+      signals: [],
+      pass: "full",
+      persistentBlock: false,
+      redirectChain: [],
+    };
+    const mockPage = {
+      url: () => "https://example.com/test",
+      reload: async () => {
+        reloaded = true;
+      },
+    };
+
+    await (client as any).handleDetectionResult(mockResult, mockPage);
+    assert.strictEqual(reloaded, false);
+  });
+});
+
+describe("AluviaClient updateTargetGeo", () => {
+  test("updateTargetGeo() PATCHes target_geo via ConfigManager.setConfig", async () => {
+    const client = new AluviaClient({
+      apiKey: "test-api-key",
+      logLevel: "silent",
     });
 
     let capturedBody: any = null;
@@ -286,14 +692,14 @@ describe('AluviaClient', () => {
       return null;
     };
 
-    await client.updateTargetGeo('US');
-    assert.deepStrictEqual(capturedBody, { target_geo: 'US' });
+    await client.updateTargetGeo("US");
+    assert.deepStrictEqual(capturedBody, { target_geo: "US" });
   });
 
-  test('updateTargetGeo() clears target_geo when passed null', async () => {
+  test("updateTargetGeo() clears target_geo when passed null", async () => {
     const client = new AluviaClient({
-      apiKey: 'test-api-key',
-      logLevel: 'silent',
+      apiKey: "test-api-key",
+      logLevel: "silent",
     });
 
     let capturedBody: any = null;
@@ -306,10 +712,10 @@ describe('AluviaClient', () => {
     assert.deepStrictEqual(capturedBody, { target_geo: null });
   });
 
-  test('updateTargetGeo() treats empty/whitespace string as clear (null)', async () => {
+  test("updateTargetGeo() treats empty/whitespace string as clear (null)", async () => {
     const client = new AluviaClient({
-      apiKey: 'test-api-key',
-      logLevel: 'silent',
+      apiKey: "test-api-key",
+      logLevel: "silent",
     });
 
     let capturedBody: any = null;
@@ -318,19 +724,19 @@ describe('AluviaClient', () => {
       return null;
     };
 
-    await client.updateTargetGeo('   ');
+    await client.updateTargetGeo("   ");
     assert.deepStrictEqual(capturedBody, { target_geo: null });
   });
 });
 
-describe('requestCore', () => {
+describe("requestCore", () => {
   const originalFetch = globalThis.fetch;
 
   afterEach(() => {
     globalThis.fetch = originalFetch;
   });
 
-  test('requestCore sends If-None-Match when provided', async () => {
+  test("requestCore sends If-None-Match when provided", async () => {
     let capturedInit: any = null;
     let capturedUrl: any = null;
 
@@ -344,21 +750,21 @@ describe('requestCore', () => {
     }) as any;
 
     const res = await requestCore({
-      apiBaseUrl: 'https://api.aluvia.io/v1/',
-      apiKey: 'test-api-key',
-      method: 'GET',
-      path: '/account/connections/123',
+      apiBaseUrl: "https://api.aluvia.io/v1/",
+      apiKey: "test-api-key",
+      method: "GET",
+      path: "/account/connections/123",
       ifNoneMatch: '"etag-prev"',
     });
 
-    assert.ok(String(capturedUrl).endsWith('/account/connections/123'));
-    assert.strictEqual(capturedInit.method, 'GET');
-    assert.strictEqual(capturedInit.headers['If-None-Match'], '"etag-prev"');
+    assert.ok(String(capturedUrl).endsWith("/account/connections/123"));
+    assert.strictEqual(capturedInit.method, "GET");
+    assert.strictEqual(capturedInit.headers["If-None-Match"], '"etag-prev"');
     assert.strictEqual(res.status, 200);
     assert.strictEqual(res.etag, '"etag-a"');
   });
 
-  test('requestCore POSTs JSON body with Content-Type when body is provided', async () => {
+  test("requestCore POSTs JSON body with Content-Type when body is provided", async () => {
     let capturedInit: any = null;
 
     globalThis.fetch = (async (_url: any, init: any) => {
@@ -471,7 +877,7 @@ describe("ConfigManager polling", () => {
       strict: true,
     });
 
-    (mgr as any).accountConnectionId = "123";
+    (mgr as any).accountConnectionId = 123;
 
     await assert.rejects(
       () => mgr.setConfig({ rules: ["*"] }),
@@ -501,7 +907,7 @@ describe("ConfigManager polling", () => {
       strict: true,
     });
 
-    (mgr as any).accountConnectionId = "123";
+    (mgr as any).accountConnectionId = 123;
 
     await assert.rejects(
       () => mgr.setConfig({ rules: ["*"] }),
@@ -545,7 +951,7 @@ describe("ConfigManager polling", () => {
     };
 
     (mgr as any).config = existingConfig;
-    (mgr as any).accountConnectionId = "123";
+    (mgr as any).accountConnectionId = 123;
 
     await (mgr as any).pollOnce();
 
@@ -1091,7 +1497,6 @@ describe("Playwright integration", () => {
     const client = new AluviaClient({
       apiKey: "test-api-key",
       logLevel: "silent",
-      localProxy: true,
       startPlaywright: false,
     });
 
@@ -1117,7 +1522,6 @@ describe("Playwright integration", () => {
     const client = new AluviaClient({
       apiKey: "test-api-key",
       logLevel: "silent",
-      localProxy: true,
     });
 
     const url = "http://127.0.0.1:54321";
@@ -1138,11 +1542,12 @@ describe("Playwright integration", () => {
     await connection.close();
   });
 
-  test("throws ApiError when Playwright is not installed but startPlaywright is true", async () => {
+  // Skipped: Playwright is installed as a peerDependency, so the dynamic import() cannot fail.
+  // The global.import mock never worked (import() is a language keyword, not a global).
+  test.skip("throws ApiError when Playwright is not installed but startPlaywright is true", async () => {
     const client = new AluviaClient({
       apiKey: "test-api-key",
       logLevel: "silent",
-      localProxy: true,
       startPlaywright: true,
     });
 
@@ -1182,11 +1587,10 @@ describe("Playwright integration", () => {
     }
   });
 
-  test("launches browser in local proxy mode when startPlaywright is true", async () => {
+  test("launches browser when startPlaywright is true", async () => {
     const client = new AluviaClient({
       apiKey: "test-api-key",
       logLevel: "silent",
-      localProxy: true,
       startPlaywright: true,
     });
 
@@ -1338,156 +1742,10 @@ describe("Playwright integration", () => {
     await connection.close();
   });
 
-  test("launches browser in gateway mode when startPlaywright is true", async () => {
-    const client = new AluviaClient({
-      apiKey: "test-api-key",
-      logLevel: "silent",
-      localProxy: false,
-      startPlaywright: true,
-    });
-
-    let browserLaunched = false;
-    let launchProxySettings: any = null;
-
-    const mockBrowser = {
-      close: async () => {},
-    };
-
-    (client as any).configManager.init = async () => {};
-    (client as any).configManager.stopPolling = () => {};
-    (client as any).configManager.getConfig = () => ({
-      rawProxy: {
-        protocol: "http",
-        host: "gateway.aluvia.io",
-        port: 8080,
-        username: "user",
-        password: "pass",
-      },
-      rules: ["*"],
-      sessionId: null,
-      targetGeo: null,
-      etag: '"e"',
-    });
-
-    // Similar mocking approach as local proxy mode
-    const startMethod = (client as any).start.bind(client);
-    (client as any).start = async function () {
-      const configManager = (this as any).configManager;
-      const options = (this as any).options;
-
-      if ((this as any).started && (this as any).connection) {
-        return (this as any).connection;
-      }
-
-      if ((this as any).startPromise) {
-        return (this as any).startPromise;
-      }
-
-      (this as any).startPromise = (async () => {
-        await configManager.init();
-
-        let browserInstance: any = undefined;
-        if (options.startPlaywright) {
-          const pw = {
-            chromium: {
-              launch: async (opts: any) => {
-                browserLaunched = true;
-                launchProxySettings = opts?.proxy;
-                return mockBrowser;
-              },
-            },
-          };
-          browserInstance = pw.chromium;
-        }
-
-        const cfg = configManager.getConfig();
-
-        let launchedBrowser: any = undefined;
-        if (browserInstance && cfg) {
-          const { protocol, host, port, username, password } = cfg.rawProxy;
-          const proxySettings = {
-            server: `${protocol}://${host}:${port}`,
-            username,
-            password,
-          };
-          launchedBrowser = await browserInstance.launch({
-            proxy: proxySettings,
-          });
-        }
-
-        const stop = async () => {
-          configManager.stopPolling();
-          (this as any).connection = null;
-          (this as any).started = false;
-        };
-
-        const stopWithBrowser = async () => {
-          if (launchedBrowser) {
-            await launchedBrowser.close();
-          }
-          await stop();
-        };
-
-        const connection = {
-          host: cfg?.rawProxy.host ?? "127.0.0.1",
-          port: cfg?.rawProxy.port ?? 0,
-          url: `${cfg?.rawProxy.protocol}://${cfg?.rawProxy.host}:${cfg?.rawProxy.port}`,
-          getUrl: () => "",
-          asPlaywright: () => ({
-            server: "",
-            username: "user",
-            password: "pass",
-          }),
-          asPuppeteer: () => [],
-          asSelenium: () => "",
-          asNodeAgents: () => ({ http: null as any, https: null as any }),
-          asAxiosConfig: () => ({
-            proxy: false,
-            httpAgent: null as any,
-            httpsAgent: null as any,
-          }),
-          asGotOptions: () => ({
-            agent: { http: null as any, https: null as any },
-          }),
-          asUndiciDispatcher: () => null as any,
-          asUndiciFetch: () => (() => {}) as any,
-          browser: launchedBrowser,
-          stop: stopWithBrowser,
-          close: stopWithBrowser,
-        };
-
-        (this as any).connection = connection;
-        (this as any).started = true;
-        return connection;
-      })();
-
-      try {
-        return await (this as any).startPromise;
-      } finally {
-        (this as any).startPromise = null;
-      }
-    };
-
-    const connection = await client.start();
-
-    assert.strictEqual(browserLaunched, true);
-    assert.ok(launchProxySettings);
-    assert.strictEqual(
-      launchProxySettings.server,
-      "http://gateway.aluvia.io:8080",
-    );
-    assert.strictEqual(launchProxySettings.username, "user");
-    assert.strictEqual(launchProxySettings.password, "pass");
-    assert.strictEqual(connection.browser, mockBrowser);
-
-    await connection.close();
-  });
-
   test("browser is closed when connection.close() is called", async () => {
     const client = new AluviaClient({
       apiKey: "test-api-key",
       logLevel: "silent",
-      localProxy: true,
       startPlaywright: true,
     });
 

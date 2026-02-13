@@ -75,66 +75,78 @@ export function matchPattern(hostname: string, pattern: string): boolean {
  * @param rules - Array of rule patterns
  * @returns true if the hostname should be proxied
  */
-export function shouldProxy(hostname: string, rules: string[]): boolean {
-  const normalizedHostname = hostname.trim();
-  if (!normalizedHostname) return false;
+/**
+ * Pre-normalized rules for efficient per-request matching.
+ */
+export type NormalizedRules = {
+  positiveRules: string[];
+  negativeRules: string[];
+  hasCatchAll: boolean;
+  empty: boolean;
+};
 
-  // Empty rules means no proxy
+/**
+ * Pre-process raw rule strings into a NormalizedRules structure.
+ * Call once when config is loaded, then use shouldProxyNormalized() per request.
+ */
+export function normalizeRules(rules: string[]): NormalizedRules {
   if (!rules || rules.length === 0) {
-    return false;
+    return { positiveRules: [], negativeRules: [], hasCatchAll: false, empty: true };
   }
 
-  const normalizedRules = rules
+  const trimmed = rules
     .filter((r) => typeof r === 'string')
-    .map((r) => r.trim())
-    .filter((r) => r.length > 0);
+    .map((r) => r.trim().toLowerCase())
+    .filter((r) => r.length > 0)
+    .filter((r) => r !== 'auto');
 
-  // Filter out AUTO placeholder
-  const effectiveRules = normalizedRules.filter((r) => r.toUpperCase() !== 'AUTO');
-
-  // If no effective rules after filtering, no proxy
-  if (effectiveRules.length === 0) {
-    return false;
+  if (trimmed.length === 0) {
+    return { positiveRules: [], negativeRules: [], hasCatchAll: false, empty: true };
   }
 
-  // Separate positive and negative rules
   const negativeRules: string[] = [];
   const positiveRules: string[] = [];
 
-  for (const rule of effectiveRules) {
+  for (const rule of trimmed) {
     if (rule.startsWith('-')) {
-      const neg = rule.slice(1).trim(); // Remove the '-' prefix
+      const neg = rule.slice(1).trim();
       if (neg.length > 0) negativeRules.push(neg);
     } else {
       positiveRules.push(rule);
     }
   }
 
-  // Check if hostname matches any negative rule
-  for (const negRule of negativeRules) {
-    if (matchPattern(normalizedHostname, negRule)) {
-      // Excluded by negative rule
-      return false;
-    }
+  return {
+    positiveRules,
+    negativeRules,
+    hasCatchAll: positiveRules.includes('*'),
+    empty: false,
+  };
+}
+
+/**
+ * Fast proxy decision using pre-normalized rules.
+ */
+export function shouldProxyNormalized(hostname: string, rules: NormalizedRules): boolean {
+  const normalizedHostname = hostname.trim().toLowerCase();
+  if (!normalizedHostname) return false;
+  if (rules.empty) return false;
+
+  for (const negRule of rules.negativeRules) {
+    if (matchPattern(normalizedHostname, negRule)) return false;
   }
 
-  // Check if we have a catch-all '*'
-  const hasCatchAll = positiveRules.includes('*');
+  if (rules.hasCatchAll) return true;
 
-  if (hasCatchAll) {
-    // With catch-all, proxy everything not excluded by negative rules
-    return true;
+  for (const posRule of rules.positiveRules) {
+    if (matchPattern(normalizedHostname, posRule)) return true;
   }
 
-  // Without catch-all, check if hostname matches any positive rule
-  for (const posRule of positiveRules) {
-    if (matchPattern(normalizedHostname, posRule)) {
-      return true;
-    }
-  }
-
-  // No match found
   return false;
+}
+
+export function shouldProxy(hostname: string, rules: string[]): boolean {
+  return shouldProxyNormalized(hostname, normalizeRules(rules));
 }
 
 

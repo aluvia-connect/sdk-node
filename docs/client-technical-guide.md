@@ -5,13 +5,13 @@
 ## Table of Contents
 
 - [Architecture](#architecture)
-- [Operating Modes](#operating-modes)
 - [AluviaClient API](#aluviaclient-api)
 - [Connection Object](#connection-object)
 - [Tool Adapters](#tool-adapters)
 - [Routing Rules](#routing-rules)
 - [Runtime Updates](#runtime-updates)
 - [Error Handling](#error-handling)
+- [Block Detection](#block-detection)
 - [Security](#security)
 - [Internal Behavior](#internal-behavior)
 
@@ -61,72 +61,6 @@ The client is split into two independent **planes**:
 
 ---
 
-## Operating Modes
-
-The client supports two modes controlled by the `localProxy` option:
-
-### Client Proxy Mode (Default)
-
-**`localProxy: true`** (default)
-
-```ts
-const client = new AluviaClient({
-  apiKey: process.env.ALUVIA_API_KEY!,
-  localProxy: true, // default
-});
-```
-
-**Behavior:**
-- Starts a local proxy on `http://127.0.0.1:<port>`
-- Your tools point at the local proxy (no credentials exposed)
-- SDK makes per-request routing decisions (direct vs gateway)
-- Polls for config updates—rules apply without restart
-
-**Connection URLs:**
-- `connection.url` → `"http://127.0.0.1:54321"` (no creds)
-- `connection.getUrl()` → same as `connection.url` (safe)
-
-**Best for:**
-- Chromium-based tools (Puppeteer/Selenium) where proxy auth is cumbersome
-- Selective per-hostname routing
-- Keeping credentials completely out of your tool configuration
-
-### Gateway Mode
-
-**`localProxy: false`**
-
-```ts
-const client = new AluviaClient({
-  apiKey: process.env.ALUVIA_API_KEY!,
-  localProxy: false,
-});
-```
-
-**Behavior:**
-- **No local proxy** is started
-- Connection returns gateway proxy settings directly
-- Your tools must handle proxy authentication
-- No continuous polling (config is snapshot at start)
-
-**Connection URLs:**
-- `connection.url` → `"http://gateway.aluvia.io:8080"` (no creds)
-- `connection.getUrl()` → `"http://user:pass@gateway.aluvia.io:8080"` (**contains secrets**)
-
-**Best for:**
-- When you don't want a local listener process
-- Tools that handle proxy auth cleanly (Playwright has built-in support)
-- Pure HTTP client usage (Axios/got/undici)
-
-### Mode Comparison
-
-| Aspect | Client Proxy Mode | Gateway Mode |
-|--------|-------------------|--------------|
-| Local proxy | ✅ Starts on `127.0.0.1` | ❌ None |
-| Per-request routing | ✅ Based on rules | ❌ All traffic goes through gateway |
-| Credentials in config | ❌ Hidden internally | ⚠️ In `getUrl()` / adapters |
-| Polling | ✅ Continuous ETag polling | ❌ Snapshot at start |
-| Config required | ⚠️ Optional with `strict: false` | ✅ Required (fails without) |
-
 ---
 
 ## AluviaClient API
@@ -141,15 +75,23 @@ new AluviaClient(options: AluviaClientOptions)
 |--------|------|---------|-------------|
 | `apiKey` | `string` | **required** | Account API key (used as `Bearer` token). |
 | `connectionId` | `string` | `undefined` | Existing connection ID. If omitted, creates a new connection. |
-| `localProxy` | `boolean` | `true` | Enable client proxy mode (local proxy). |
 | `strict` | `boolean` | `true` | Fail fast if config can't be loaded/created. |
 | `apiBaseUrl` | `string` | `"https://api.aluvia.io/v1"` | Aluvia API base URL. |
-| `pollIntervalMs` | `number` | `5000` | Config polling interval (ms). |
-| `timeoutMs` | `number` | `30000` | API request timeout (for `client.api` only). |
+| `pollIntervalMs` | `number` | `5000` | Config polling interval (ms). Minimum: 1000. Values below 1000 are capped. |
+| `timeoutMs` | `number` | `30000` | API request timeout in milliseconds (for `client.api` only). Optional — omit to use the default. |
 | `gatewayProtocol` | `"http" \| "https"` | `"http"` | Protocol for gateway connection. |
 | `gatewayPort` | `number` | `8080` (http) / `8443` (https) | Gateway port. |
 | `localPort` | `number` | OS-assigned | Local proxy port (client proxy mode only). |
 | `logLevel` | `"silent" \| "info" \| "debug"` | `"info"` | Logging verbosity. |
+| `startPlaywright` | `boolean` | `false` | Auto-launch Chromium with proxy configured. Requires `playwright` installed. |
+| `blockDetection` | `BlockDetectionConfig` | `undefined` | Configure automatic website block detection. See [Block Detection](#block-detection). |
+
+### Properties
+
+| Property | Type | Description |
+|----------|------|-------------|
+| `api` | `AluviaApi` | Direct access to the REST API wrapper. Available immediately after construction. |
+| `connectionId` | `number \| undefined` | Read-only connection ID from ConfigManager. Available after `start()`. |
 
 ### Methods
 
@@ -162,9 +104,9 @@ Starts the client and returns a connection object.
 2. Initializes configuration via `ConfigManager.init()`:
    - If `connectionId` provided: `GET /account/connections/:id`
    - If omitted: `POST /account/connections` to create one
-3. Then, based on mode:
-   - **Client proxy mode**: starts polling, starts local proxy, returns connection
-   - **Gateway mode**: returns connection with gateway settings (no proxy, no polling)
+3. Starts polling for config updates
+4. Starts the local proxy on `127.0.0.1`
+5. Returns the connection object
 
 **Idempotency:** Calling `start()` multiple times returns the same connection. Concurrent calls share the same startup promise.
 
@@ -209,6 +151,14 @@ await client.updateTargetGeo('us_ca');  // Target California IPs
 await client.updateTargetGeo(null);    // Clear geo targeting
 ```
 
+#### `getBlockedHostnames(): string[]`
+
+Returns the list of hostnames that have been marked as persistently blocked (hostname-level escalation after repeated blocks). Used by block detection to prevent infinite retry loops.
+
+#### `clearBlockedHostnames(): void`
+
+Resets the persistent block tracking. Use this to allow the SDK to retry previously blocked hostnames.
+
 ---
 
 ## Connection Object
@@ -219,15 +169,14 @@ The `connection` object returned by `start()` contains proxy details and adapter
 
 | Property | Type | Description |
 |----------|------|-------------|
-| `host` | `string` | Proxy host (`"127.0.0.1"` in client proxy mode). |
-| `port` | `number` | Proxy port. |
-| `url` | `string` | Proxy URL without credentials. |
+| `host` | `string` | Proxy host (`"127.0.0.1"`). |
+| `port` | `number` | Local proxy port. |
+| `url` | `string` | Proxy URL (`"http://127.0.0.1:<port>"`). |
 
 ### Methods
 
 | Method | Description |
 |--------|-------------|
-| `getUrl()` | Proxy URL with embedded credentials. **Contains secrets in gateway mode.** |
 | `asPlaywright()` | Returns `{ server, username?, password? }` for Playwright. |
 | `asPuppeteer()` | Returns `['--proxy-server=<url>']` for Puppeteer launch args. |
 | `asSelenium()` | Returns `'--proxy-server=<url>'` for Selenium. |
@@ -252,7 +201,7 @@ try {
 
 This:
 - Stops config polling
-- Stops the local proxy (client proxy mode)
+- Stops the local proxy
 - Destroys cached Node agents and undici dispatchers
 
 ---
@@ -269,10 +218,7 @@ const browser = await chromium.launch({
 });
 ```
 
-**Returns:** `{ server: string, username?: string, password?: string }`
-
-- Client proxy mode: `{ server: "http://127.0.0.1:54321" }` (no creds)
-- Gateway mode: includes `username` and `password`
+**Returns:** `{ server: string }` — e.g., `{ server: "http://127.0.0.1:54321" }`
 
 ### Puppeteer
 
@@ -285,8 +231,6 @@ const browser = await puppeteer.launch({
 ```
 
 **Returns:** `['--proxy-server=http://127.0.0.1:54321']`
-
-**Note:** Puppeteer/Chromium requires separate proxy auth handling in gateway mode. Use client proxy mode (default) to avoid this.
 
 ### Selenium
 
@@ -476,6 +420,7 @@ import {
   InvalidApiKeyError,
   ApiError,
   ProxyStartError,
+  ConnectError,
 } from '@aluvia/sdk';
 ```
 
@@ -485,6 +430,7 @@ import {
 | `InvalidApiKeyError` | API returns 401/403 (invalid or expired token). |
 | `ApiError` | Non-auth API failures, malformed responses, timeouts. |
 | `ProxyStartError` | Local proxy fails to bind/listen (e.g., port in use). |
+| `ConnectError` | `connect()` cannot find, resolve, or establish CDP connection to a session. |
 
 ### Error Properties
 
@@ -530,6 +476,132 @@ const connection = await client.start();
 
 ---
 
+## Block Detection
+
+The SDK includes automatic website block detection that identifies blocks, CAPTCHAs, and WAF challenges using a weighted scoring system. When enabled, it monitors Playwright pages and fires the `onDetection` callback on every page analysis (including clear results). By default, `autoUnblock` is `false` (detection-only mode), meaning the SDK reports detection results but does not automatically remediate. Set `autoUnblock: true` to automatically add blocked hostnames to routing rules and reload the page.
+
+### Configuration
+
+```ts
+const client = new AluviaClient({
+  apiKey: process.env.ALUVIA_API_KEY!,
+  startPlaywright: true,
+  blockDetection: {
+    enabled: true,
+    autoUnblock: false,                  // Auto-add rules and reload on block (default: false)
+    autoUnblockOnSuspected: false,       // Also reload on "suspected" status (default: false)
+    networkIdleTimeoutMs: 3000,          // Max wait for networkidle (default: 3000)
+    challengeSelectors: ['#my-captcha'], // Additional DOM selectors to check
+    extraKeywords: ['custom block msg'], // Additional keywords to detect
+    extraStatusCodes: [418],             // Additional HTTP status codes
+    onDetection: (result, page) => {
+      console.log(`${result.blockStatus} on ${result.hostname} — score: ${result.score}`);
+      console.log('Signals:', result.signals.map(s => s.name));
+    },
+  },
+});
+```
+
+### `BlockDetectionConfig`
+
+| Option | Type | Default | Description |
+|--------|------|---------|-------------|
+| `enabled` | `boolean` | `true` | Enable/disable detection. |
+| `challengeSelectors` | `string[]` | See below | CSS selectors to check for WAF/challenge elements. Defaults to 8 built-in selectors (Cloudflare, reCAPTCHA, hCaptcha, PerimeterX). Providing this replaces the defaults. |
+| `extraKeywords` | `string[]` | `[]` | Additional keywords to detect in page content. |
+| `extraStatusCodes` | `number[]` | `[]` | Additional HTTP status codes to treat as blocks. |
+| `networkIdleTimeoutMs` | `number` | `3000` | Max ms to wait for `networkidle` before full-pass analysis. |
+| `autoUnblock` | `boolean` | `false` | Automatically add blocked hostnames to routing rules and reload the page. Set to `true` to enable automatic remediation. |
+| `autoUnblockOnSuspected` | `boolean` | `false` | Also reload on `suspected` block status (by default, only `blocked` triggers reload). Requires `autoUnblock: true`. |
+| `onDetection` | `function` | `undefined` | Callback fired on every detection result, including `clear`. Receives `(result, page)`. |
+
+#### Default Challenge Selectors
+
+When `challengeSelectors` is not provided, the SDK uses these built-in selectors:
+
+- `#challenge-form` — Cloudflare challenge form
+- `#challenge-running` — Cloudflare active challenge
+- `.cf-browser-verification` — Cloudflare browser verification
+- `iframe[src*="recaptcha"]` — Google reCAPTCHA
+- `.g-recaptcha` — Google reCAPTCHA container
+- `#px-captcha` — PerimeterX CAPTCHA
+- `iframe[src*="hcaptcha"]` — hCaptcha
+- `.h-captcha` — hCaptcha container
+
+### Detection Result
+
+The `onDetection` callback receives a `BlockDetectionResult`:
+
+```ts
+type BlockDetectionResult = {
+  url: string;               // Page URL
+  hostname: string;          // Extracted hostname
+  blockStatus: DetectionBlockStatus;  // "blocked" | "suspected" | "clear"
+  score: number;             // 0.0 to 1.0
+  signals: DetectionSignal[];// Fired signals with names and weights
+  pass: "fast" | "full";    // Which analysis pass produced this result
+  persistentBlock: boolean;  // True if hostname is persistently blocked
+  redirectChain: RedirectHop[];
+};
+```
+
+### How Scoring Works
+
+Each signal detector returns a weight (0.0 to 1.0) representing independent probability of blocking. Scores are combined using probabilistic combination: `score = 1 - product(1 - weight)`. This prevents weak signals from stacking to false positives.
+
+| Score Range | Block Status | Action (when `autoUnblock: true`) |
+|-------------|------|--------|
+| >= 0.7 | `blocked` | Add hostname to rules and reload page |
+| >= 0.4 | `suspected` | Reload only if `autoUnblockOnSuspected: true` |
+| < 0.4 | `clear` | No action |
+
+When `autoUnblock: false` (the default), no automatic rule updates or page reloads occur for any status. The `onDetection` callback still fires for every result, allowing agents to inspect scores and take action themselves.
+
+### Signal Detectors
+
+| Signal | Weight | Description |
+|--------|--------|-------------|
+| `http_status_403` | 0.85 | HTTP 403 Forbidden |
+| `http_status_429` | 0.85 | HTTP 429 Too Many Requests |
+| `http_status_503` | 0.6 | HTTP 503 Service Unavailable |
+| `waf_header_cf_mitigated` | 0.9 | `cf-mitigated: challenge` header |
+| `waf_header_cloudflare` | 0.1 | `server: cloudflare` header alone |
+| `title_keyword` | 0.8 | Block keywords in page title |
+| `challenge_selector` | 0.8 | WAF/CAPTCHA DOM elements detected |
+| `visible_text_keyword_strong` | 0.6 | High-confidence keywords on short pages |
+| `visible_text_keyword_weak` | 0.15 | Low-confidence keywords with word-boundary matching |
+| `visible_text_short` | 0.2 | Page has < 50 chars of visible text |
+| `low_text_ratio` | 0.2 | Text-to-HTML ratio < 3% (on pages >= 1000 bytes) |
+| `redirect_to_challenge` | 0.7 | Redirect chain includes challenge domain |
+| `meta_refresh_challenge` | 0.65 | `<meta http-equiv="refresh">` pointing to challenge URL |
+
+### Two-Pass Analysis
+
+1. **Fast pass** (at `domcontentloaded`): Checks HTTP status and response headers only. If score >= 0.9, triggers immediate remediation without waiting for full page load.
+2. **Full pass** (after `networkidle` with timeout cap): Runs all detectors including DOM inspection and page content analysis. If score falls in suspected range (0.4-0.7), re-runs text detection with layout-aware `innerText` for better accuracy.
+
+SPA navigations (URL changes without new HTTP responses) are also detected via `framenavigated` events with per-page debouncing.
+
+### Persistent Block Escalation
+
+The SDK tracks retried URLs and blocked hostnames to prevent infinite retry loops:
+
+1. First block on a URL: add to routing rules and reload.
+2. Second block on same URL: mark hostname as persistently blocked, skip reload.
+3. Any subsequent URL on a persistently blocked hostname: skip reload immediately.
+
+Use `client.getBlockedHostnames()` to see persistently blocked hostnames and `client.clearBlockedHostnames()` to reset tracking.
+
+### Structured Debug Logging
+
+Set `logLevel: 'debug'` to get JSON-formatted detection results for every analysis pass, useful for calibrating signal weights:
+
+```
+Detection result: {"url":"...","blockStatus":"clear","score":0.10,"signals":[{"name":"waf_header_cloudflare","weight":0.10,"source":"fast"}],"pass":"full"}
+```
+
+---
+
 ## Security
 
 ### Secrets
@@ -538,29 +610,12 @@ The following values are **secrets**—do not log or expose them:
 
 1. **`apiKey`** — Your account API key
 2. **Proxy credentials** — `proxy_username` and `proxy_password` from the API
-3. **`connection.getUrl()`** — Contains credentials in gateway mode
 
-### Client Proxy Mode Security
+### Proxy Security
 
 - Local proxy binds to **`127.0.0.1` only** (not `0.0.0.0`)
 - `connection.url` and `connection.getUrl()` return the same safe URL
 - Credentials never leave the SDK's internal state
-
-### Gateway Mode Security
-
-- `connection.getUrl()` contains embedded credentials
-- Adapters like `asPlaywright()` include `username`/`password`
-- **Never log** `connection.getUrl()` or pass it to process args
-
-### Best Practice
-
-```ts
-// ✅ Safe to log
-console.log('Proxy URL:', connection.url);
-
-// ❌ Never log in gateway mode
-console.log('Full URL:', connection.getUrl()); // Contains secrets!
-```
 
 ---
 
@@ -588,17 +643,11 @@ client.start()
     │               • sessionId, targetGeo
     │               • etag
     │
-    ├─► localProxy: true?
-    │       │
-    │       ├─► Yes (Client Proxy Mode):
-    │       │       • Start polling (setInterval)
-    │       │       • Start ProxyServer on 127.0.0.1
-    │       │       • Return connection (local proxy URL)
-    │       │
-    │       └─► No (Gateway Mode):
-    │               • Return connection (gateway URL + creds)
+    ├─► Start polling (setInterval)
     │
-    └─► Return AluviaClientConnection
+    ├─► Start ProxyServer on 127.0.0.1
+    │
+    └─► Return AluviaClientConnection (local proxy URL)
 ```
 
 ### Per-Request Routing (Client Proxy Mode)
