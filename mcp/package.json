@@ -15,7 +15,7 @@
   },
   "engines": { "node": ">=18" },
   "dependencies": {
-    "@aluvia/sdk": "file:..",
+    "@aluvia/sdk": "^1.4.0",
     "@modelcontextprotocol/sdk": "^1.26.0",
     "zod": "^3.23.8"
   },
