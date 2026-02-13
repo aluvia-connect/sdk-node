@@ -5,14 +5,26 @@ import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js"
 import { z } from "zod";
 import * as tools from "./mcp-tools.js";
 
+type SessionStartArgs = {
+  url: string;
+  connectionId?: number;
+  headful?: boolean;
+  browserSession?: string;
+  autoUnblock?: boolean;
+  disableBlockDetection?: boolean;
+};
+
 const server = new McpServer({
   name: "aluvia",
   version: "1.2.0",
 });
 
+// Type assertion avoids TS2589 (excessively deep instantiation) from MCP SDK + Zod generics
+const tool = server.tool.bind(server) as (...args: unknown[]) => void;
+
 // --- Session tools ---
 
-server.tool(
+tool(
   "session_start",
   "Start a browser session with Aluvia smart proxy. Spawns a headless browser connected through Aluvia gateway. Returns session details including CDP URL for remote debugging.",
   {
@@ -40,7 +52,7 @@ server.tool(
       .optional()
       .describe("Disable block detection entirely"),
   },
-  async (args) => {
+  async (args: SessionStartArgs) => {
     const result = await tools.sessionStart(args);
     return {
       content: [
@@ -51,7 +63,9 @@ server.tool(
   },
 );
 
-server.tool(
+type SessionCloseArgs = { browserSession?: string; all?: boolean };
+
+tool(
   "session_close",
   "Close one or all running browser sessions. Sends SIGTERM for graceful shutdown, then SIGKILL if needed.",
   {
@@ -61,7 +75,7 @@ server.tool(
       .describe("Name of session to close (auto-selects if only one)"),
     all: z.boolean().optional().describe("Close all sessions"),
   },
-  async (args) => {
+  async (args: SessionCloseArgs) => {
     const result = await tools.sessionClose(args);
     return {
       content: [
@@ -72,7 +86,7 @@ server.tool(
   },
 );
 
-server.tool(
+tool(
   "session_list",
   "List all active browser sessions with their PIDs, URLs, and proxy configuration.",
   async () => {
@@ -86,7 +100,7 @@ server.tool(
   },
 );
 
-server.tool(
+tool(
   "session_get",
   "Get detailed information about a running session including proxy URLs, connection data, and block detection state.",
   {
@@ -95,7 +109,7 @@ server.tool(
       .optional()
       .describe("Name of session (auto-selects if only one)"),
   },
-  async (args) => {
+  async (args: { browserSession?: string }) => {
     const result = await tools.sessionGet(args);
     return {
       content: [
@@ -106,7 +120,7 @@ server.tool(
   },
 );
 
-server.tool(
+tool(
   "session_rotate_ip",
   "Rotate the IP address for a running session by generating a new session ID on the Aluvia connection.",
   {
@@ -115,7 +129,7 @@ server.tool(
       .optional()
       .describe("Name of session (auto-selects if only one)"),
   },
-  async (args) => {
+  async (args: { browserSession?: string }) => {
     const result = await tools.sessionRotateIp(args);
     return {
       content: [
@@ -126,7 +140,7 @@ server.tool(
   },
 );
 
-server.tool(
+tool(
   "session_set_geo",
   "Set or clear the target geographic region for a running session. Affects which mobile IP pool is used.",
   {
@@ -140,7 +154,7 @@ server.tool(
       .optional()
       .describe("Name of session (auto-selects if only one)"),
   },
-  async (args) => {
+  async (args: { geo?: string; clear?: boolean; browserSession?: string }) => {
     const result = await tools.sessionSetGeo(args);
     return {
       content: [
@@ -151,7 +165,7 @@ server.tool(
   },
 );
 
-server.tool(
+tool(
   "session_set_rules",
   'Append or remove proxy routing rules for a running session. Rules are hostname patterns (e.g. "example.com", "*.google.com").',
   {
@@ -168,7 +182,11 @@ server.tool(
       .optional()
       .describe("Name of session (auto-selects if only one)"),
   },
-  async (args) => {
+  async (args: {
+    rules?: string;
+    remove?: string;
+    browserSession?: string;
+  }) => {
     const result = await tools.sessionSetRules(args);
     return {
       content: [
@@ -181,7 +199,7 @@ server.tool(
 
 // --- Account tools ---
 
-server.tool(
+tool(
   "account_get",
   "Get Aluvia account information including plan details and current balance.",
   async () => {
@@ -195,7 +213,7 @@ server.tool(
   },
 );
 
-server.tool(
+tool(
   "account_usage",
   "Get Aluvia account usage statistics for a date range.",
   {
@@ -207,7 +225,7 @@ server.tool(
       ),
     end: z.string().optional().describe("End date filter (ISO8601 format)"),
   },
-  async (args) => {
+  async (args: { start?: string; end?: string }) => {
     const result = await tools.accountUsage(args);
     return {
       content: [
@@ -220,7 +238,7 @@ server.tool(
 
 // --- Geo tools ---
 
-server.tool(
+tool(
   "geos_list",
   "List all available geographic regions for proxy targeting.",
   async () => {

@@ -1,6 +1,6 @@
 {
   "name": "@aluvia/sdk",
-  "version": "1.3.0",
+  "version": "1.4.0",
   "description": "Aluvia SDK for Node.js - local smart proxy for automation workloads and AI agents",
   "license": "MIT",
   "author": "Aluvia",
@@ -22,13 +22,20 @@
       "import": "./dist/esm/index.js",
       "require": "./dist/cjs/index.js"
     },
+    "./cli": {
+      "types": "./dist/types/bin/cli-adapter.d.ts",
+      "import": "./dist/esm/bin/cli-adapter.js",
+      "require": "./dist/cjs/bin/cli-adapter.js"
+    },
     "./package.json": "./package.json"
   },
   "bin": {
     "aluvia": "./dist/esm/bin/cli.js",
-    "aluvia-sdk": "./dist/esm/bin/cli.js",
-    "aluvia-mcp": "./dist/esm/bin/mcp-server.js"
+    "aluvia-sdk": "./dist/esm/bin/cli.js"
   },
+  "workspaces": [
+    "mcp"
+  ],
   "files": [
     "dist/**/*",
     "README.md",
@@ -36,8 +43,10 @@
   ],
   "scripts": {
     "build": "tsc -p tsconfig.esm.json && tsc -p tsconfig.cjs.json && node -e \"require('fs').mkdirSync('dist/cjs',{recursive:true});require('fs').writeFileSync('dist/cjs/package.json','{\\\"type\\\":\\\"commonjs\\\"}')\"",
+    "build:all": "npm run build && npm run build -w @aluvia/mcp",
     "prepare": "npm run build",
-    "test": "node --import tsx --test test/integration.test.ts",
+    "test": "node --import tsx --test test/integration.test.ts test/mcp-smoke.test.ts",
+    "test:mcp": "node mcp/test-stdio.mjs",
     "lint": "prettier --check src test",
     "lint:fix": "prettier --write src test"
   },
@@ -64,7 +73,6 @@
     "typescript": "^5.9.3"
   },
   "dependencies": {
-    "@modelcontextprotocol/sdk": "^1.26.0",
     "http-proxy-agent": "^7.0.2",
     "https-proxy-agent": "^7.0.6",
     "playwright": "^1.58.2",

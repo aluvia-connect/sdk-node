@@ -36,6 +36,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Removed
 - Remove gateway mode (`localProxy: false`). The SDK now always runs a local proxy on `127.0.0.1`. The `localProxy` option has been removed from `AluviaClientOptions`.
 
+## [1.4.0] - 2026-02-13
+
+### Added
+- Subpath export `@aluvia/sdk/cli` exposing `handleSession`, `handleAccount`, `handleGeos`, `handleOpen`, and `captureOutput` for programmatic use (e.g. by `@aluvia/mcp`).
+- Monorepo workspace: MCP server lives in the `mcp` package published as `@aluvia/mcp`.
+
+### Changed
+- `@modelcontextprotocol/sdk` is no longer a dependency of `@aluvia/sdk` (it is used only by `@aluvia/mcp`).
+
+### Removed
+- `aluvia-mcp` binary from this package. For the MCP server, install `@aluvia/mcp` and run `npx aluvia-mcp`. See [MCP Server Guide](docs/mcp-server-guide.md) and [mcp/README.md](mcp/README.md).
+
 ## [1.2.0] - 2026-02-11
 
 ### Added
@@ -167,6 +179,9 @@ At the bottom of the file, add comparison links:
 
 ---
 
-[Unreleased]: https://github.com/aluvia-connect/sdk-node/compare/v1.0.0...HEAD
+[Unreleased]: https://github.com/aluvia-connect/sdk-node/compare/v1.4.0...HEAD
+[1.4.0]: https://github.com/aluvia-connect/sdk-node/compare/v1.3.0...v1.4.0
+[1.3.0]: https://github.com/aluvia-connect/sdk-node/compare/v1.2.0...v1.3.0
+[1.2.0]: https://github.com/aluvia-connect/sdk-node/compare/v1.1.0...v1.2.0
+[1.1.0]: https://github.com/aluvia-connect/sdk-node/compare/v1.0.0...v1.1.0
 [1.0.0]: https://github.com/aluvia-connect/sdk-node/releases/tag/v1.0.0
-

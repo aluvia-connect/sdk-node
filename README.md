@@ -16,6 +16,7 @@ This SDK gives you everything you need:
 - **Adapters for every tool** — Playwright, Puppeteer, Selenium, Axios, got, and Node's fetch
 - **IP rotation and geo targeting** — rotate IPs or target specific US regions at runtime
 - **REST API wrapper** — manage connections, check usage, and build custom tooling with `AluviaApi`
+- **MCP server** — for Model Context Protocol (MCP) only, use the separate package: `npm install @aluvia/mcp` and run `npx aluvia-mcp`. See [mcp/README.md](mcp/README.md) and [MCP Server Guide](docs/mcp-server-guide.md).
 
 ---
 
@@ -58,7 +59,7 @@ aluvia session start https://example.com --auto-unblock --run your-script.js
 
 ## Skills
 
-- Claude code skll
+- Claude code skill
 - OpenClaw skill
 
 ---

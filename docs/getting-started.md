@@ -239,7 +239,13 @@ console.log("Connection created:", conn.connection_id);
 
 ## Quick start: MCP server
 
-The SDK includes a Model Context Protocol (MCP) server that exposes all CLI functionality as MCP tools. This lets AI agents control browser sessions through the MCP standard.
+For MCP-only use, install the dedicated package:
+
+```bash
+npm install @aluvia/mcp
+```
+
+The [MCP Server Guide](mcp-server-guide.md) describes the Model Context Protocol server that exposes CLI functionality as MCP tools for AI agents.
 
 ### Run the MCP server
 
