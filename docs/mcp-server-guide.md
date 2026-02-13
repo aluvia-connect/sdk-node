@@ -35,6 +35,14 @@ The Aluvia MCP server implements the [Model Context Protocol](https://modelconte
 
 ## Installation and setup
 
+For MCP only (recommended if you only need the MCP server):
+
+```bash
+npm install @aluvia/mcp
+```
+
+For the full SDK (CLI + programmatic API + MCP):
+
 ```bash
 npm install @aluvia/sdk
 ```

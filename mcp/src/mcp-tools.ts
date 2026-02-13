@@ -5,11 +5,13 @@
  * converting the handler's JSON output into MCP tool results.
  */
 
-import { handleSession } from "./session.js";
-import { handleAccount } from "./account.js";
-import { handleGeos } from "./geos.js";
-import { handleOpen } from "./open.js";
-import { captureOutput } from "./mcp-helpers.js";
+import {
+  handleSession,
+  handleAccount,
+  handleGeos,
+  handleOpen,
+  captureOutput,
+} from "@aluvia/sdk/cli";
 
 type ToolResult = { data: Record<string, unknown>; isError: boolean };
 
