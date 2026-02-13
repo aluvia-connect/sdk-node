@@ -9,7 +9,7 @@
   "bin": {
     "aluvia-mcp": "./dist/esm/mcp-server.js"
   },
-  "files": ["dist", "README.md", "LICENSE"],
+  "files": ["dist", "README.md", "LICENSE", "assets"],
   "scripts": {
     "build": "tsc -p tsconfig.json"
   },

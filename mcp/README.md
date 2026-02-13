@@ -1,56 +1,81 @@
 # @aluvia/mcp
 
-Aluvia MCP (Model Context Protocol) server — exposes browser session management, account operations, and geo-targeting as MCP tools for AI agents. Use it from Claude Desktop, Claude Code, Cursor, or any MCP-compatible client.
+<p align="center">
+  <img src="assets/aluvia-logo.png" alt="Aluvia Logo" width="200" />
+</p>
+
+<p align="center">
+  <strong>Unblockable browser automation for AI agents.</strong>
+</p>
+
+<p align="center">
+  <a href="https://www.npmjs.com/package/@aluvia/mcp"><img src="https://img.shields.io/npm/v/@aluvia/mcp.svg" alt="npm version"></a>
+  <a href="https://www.npmjs.com/package/@aluvia/mcp"><img src="https://img.shields.io/npm/dm/@aluvia/mcp.svg" alt="npm downloads"></a>
+  <a href="./LICENSE"><img src="https://img.shields.io/npm/l/@aluvia/mcp.svg" alt="license"></a>
+  <a href="https://modelcontextprotocol.io"><img src="https://img.shields.io/badge/MCP-1.0-compatible?labelColor=2d2d2d&color=5f5f5f" alt="MCP compatible"></a>
+</p>
 
 ---
 
-## Get an Aluvia API key
+**Stop getting blocked.** The Aluvia MCP server exposes browser session management, geo-targeting, and account operations as [Model Context Protocol](https://modelcontextprotocol.io) tools for AI agents. Route traffic through premium US mobile carrier IPs and bypass 403s, CAPTCHAs, and WAFs that stop other tools. Works with Claude Desktop, Claude Code, Cursor, VS Code, and any MCP-compatible client.
 
-You need an API key to run the MCP server. Get one from the [Aluvia dashboard](https://dashboard.aluvia.io). Create or sign in to your account, then copy your API key from the dashboard.
+## Table of Contents
+
+- [Quick Start](#-quick-start)
+- [Requirements](#-requirements)
+- [Installation](#-installation)
+- [Client Configuration](#-client-configuration)
+- [Available Tools](#-available-tools)
+- [Use Cases](#-use-cases)
+- [Why Aluvia](#-why-aluvia)
+- [Links](#-links)
+- [License](#license)
 
 ---
 
-## Install
+## Quick Start
+
+```bash
+npm install @aluvia/mcp
+export ALUVIA_API_KEY="your-api-key"
+npx aluvia-mcp
+```
+
+Get your API key at [dashboard.aluvia.io](https://dashboard.aluvia.io). The server runs on **stdio** (stdin/stdout JSON-RPC) — MCP clients spawn it and communicate over stdio.
+
+---
+
+## Requirements
+
+- **Node.js** 18+
+- **Aluvia API key** — [Sign up](https://dashboard.aluvia.io) and copy from the dashboard
+- **Playwright** — Required for session tools (`session_start`, etc.); install with `npm install playwright`
+
+---
+
+## Installation
 
 ```bash
 npm install @aluvia/mcp
 ```
 
----
-
-## Setup
-
-Set your API key in the environment (required):
+Set your API key in the environment:
 
 ```bash
 export ALUVIA_API_KEY="your-api-key"
 ```
 
-Or use a `.env` file in your project (never commit it):
+Or in a `.env` file (never commit):
 
-```bash
+```
 ALUVIA_API_KEY=your-api-key
 ```
 
 ---
 
-## Run
+## Client Configuration
 
-```bash
-npx aluvia-mcp
-```
-
-The server runs on **stdio** (stdin/stdout JSON-RPC) and logs to stderr. It does not open a network port. Your MCP client spawns this process and communicates over stdio.
-
-**Startup log (stderr):**
-
-```
-Aluvia MCP server running on stdio
-```
-
----
-
-## Client configuration
+Add the config below for your MCP client. Replace `your-api-key` with your actual key.
 
 ### Claude Desktop
 
@@ -61,7 +86,7 @@ Add to `claude_desktop_config.json`:
   "mcpServers": {
     "aluvia": {
       "command": "npx",
-      "args": ["aluvia-mcp"],
+      "args": ["-y", "aluvia-mcp"],
       "env": {
         "ALUVIA_API_KEY": "your-api-key"
       }
@@ -79,7 +104,7 @@ Add to `.claude/settings.json` or project MCP config:
   "mcpServers": {
     "aluvia": {
       "command": "npx",
-      "args": ["aluvia-mcp"],
+      "args": ["-y", "aluvia-mcp"],
       "env": {
         "ALUVIA_API_KEY": "your-api-key"
       }
@@ -90,57 +115,111 @@ Add to `.claude/settings.json` or project MCP config:
 
 ### Cursor
 
-Configure MCP in Cursor settings (e.g. **Settings → MCP**) so the Aluvia server is spawned with `ALUVIA_API_KEY` in `env`.
+1. Open **Settings → MCP**
+2. Add a new MCP server
+3. Use:
+   - **Command**: `npx`
+   - **Args**: `["-y", "aluvia-mcp"]`
+   - **Environment variables**: `ALUVIA_API_KEY` = your key
 
-### Other MCP clients
+### VS Code / Cursor (mcp.json)
 
-Spawn the server with `command: "npx"`, `args: ["aluvia-mcp"]`, and pass `ALUVIA_API_KEY` in the process environment.
+For workspace-level config, add `.vscode/mcp.json` or `mcp.json`:
 
-For full client setup and a generic Node.js example, see the [MCP Server Guide](https://github.com/aluvia-connect/sdk-node/blob/main/docs/mcp-server-guide.md#client-configuration) in the main SDK repo.
+```json
+{
+  "mcpServers": {
+    "aluvia": {
+      "command": "npx",
+      "args": ["-y", "aluvia-mcp"],
+      "env": {
+        "ALUVIA_API_KEY": "your-api-key"
+      }
+    }
+  }
+}
+```
+
+### Other MCP Clients
+
+Spawn with `command: "npx"`, `args: ["-y", "aluvia-mcp"]`, and `ALUVIA_API_KEY` in the process environment. See the [MCP Server Guide](https://github.com/aluvia-connect/sdk-node/blob/main/docs/mcp-server-guide.md#client-configuration) for a Node.js client example.
 
 ---
 
-## Available tools
+## Available Tools
 
-All tools return JSON. On success, `isError` is `false`. On failure, `isError` is `true` and the payload includes an `error` field. Parameters and response shapes are documented in the [MCP Server Guide](https://github.com/aluvia-connect/sdk-node/blob/main/docs/mcp-server-guide.md#tool-reference).
+All tools return JSON. On success, `isError` is `false`. On failure, `isError` is `true` and the payload includes an `error` field.
 
-### Session tools
+### Session Tools
 
-| Tool | Description |
-|------|-------------|
-| `session_start` | Start a browser session with Aluvia smart proxy. Options: `url` (required), `connectionId`, `headful`, `browserSession`, `autoUnblock`, `disableBlockDetection`. |
-| `session_close` | Close one or all running sessions. Options: `browserSession`, `all`. |
-| `session_list` | List active browser sessions (PIDs, URLs, CDP URLs, connection IDs). |
-| `session_get` | Full session details including block detection state and connection config. Options: `browserSession`. |
-| `session_rotate_ip` | Rotate IP for a session (new session ID). Options: `browserSession`. |
-| `session_set_geo` | Set or clear geo-targeting (e.g. `US`, `us_ca`). Options: `geo`, `clear`, `browserSession`. |
-| `session_set_rules` | Append or remove proxy routing rules (comma-separated hostnames). Options: `rules`, `remove`, `browserSession`. |
+| Tool                | Description                                                                                                                                                        |
+| ------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `session_start`     | Start a browser session with Aluvia smart proxy. **Params**: `url` (required), `connectionId`, `headful`, `browserSession`, `autoUnblock`, `disableBlockDetection` |
+| `session_close`     | Close one or all running sessions. **Params**: `browserSession`, `all`                                                                                             |
+| `session_list`      | List active sessions (PIDs, URLs, CDP URLs, connection IDs)                                                                                                        |
+| `session_get`       | Full session details including block detection state and connection config. **Params**: `browserSession`                                                           |
+| `session_rotate_ip` | Rotate IP for a session (new session ID). **Params**: `browserSession`                                                                                             |
+| `session_set_geo`   | Set or clear geo-targeting (e.g. `US`, `us_ca`, `us_ny`). **Params**: `geo`, `clear`, `browserSession`                                                             |
+| `session_set_rules` | Append or remove proxy routing rules (comma-separated hostnames). **Params**: `rules`, `remove`, `browserSession`                                                  |
 
-### Account tools
+### Account Tools
 
-| Tool | Description |
-|------|-------------|
-| `account_get` | Account info (balance, plan, connection count). |
-| `account_usage` | Usage statistics for a date range. Options: `start`, `end` (ISO 8601). |
+| Tool            | Description                                                              |
+| --------------- | ------------------------------------------------------------------------ |
+| `account_get`   | Account info (balance, plan, connection count)                           |
+| `account_usage` | Usage statistics for a date range. **Params**: `start`, `end` (ISO 8601) |
 
-### Geo tools
+### Geo Tools
 
-| Tool | Description |
-|------|-------------|
-| `geos_list` | List available geo-targeting regions (e.g. `us`, `us_ny`, `us_ca`, `gb`). |
+| Tool        | Description                                                              |
+| ----------- | ------------------------------------------------------------------------ |
+| `geos_list` | List available geo-targeting regions (e.g. `us`, `us_ny`, `us_ca`, `gb`) |
+
+Full parameter and response details: [MCP Server Guide — Tool Reference](https://github.com/aluvia-connect/sdk-node/blob/main/docs/mcp-server-guide.md#tool-reference).
+
+---
+
+## Use Cases
+
+| Scenario                        | Tools Used                                       | Flow                                                                            |
+| ------------------------------- | ------------------------------------------------ | ------------------------------------------------------------------------------- |
+| **Scrape a protected site**     | `session_start`, `session_list`                  | Start with `autoUnblock: true`; agent receives CDP URL for Playwright/Puppeteer |
+| **Bypass regional restriction** | `session_start`, `session_set_geo`               | Set `geo: "us_ca"` to access California-only content                            |
+| **Recover from block**          | `session_rotate_ip`, `session_set_rules`         | Rotate IP or add hostname to proxy rules at runtime                             |
+| **Monitor usage**               | `account_get`, `account_usage`                   | Check balance and data consumed                                                 |
+| **Multi-session automation**    | `session_start`, `session_close`, `session_list` | Name sessions via `browserSession`, manage multiple browsers                    |
+
+**Example agent prompt:** _"Open target-site.com. If you get blocked, rotate the IP to California and try again."_
+
+→ Agent calls `session_start` with `autoUnblock: true`, then `session_set_geo` with `geo: "us_ca"` if needed.
+
+---
+
+## Why Aluvia
+
+- **Mobile carrier IPs** — Same IPs real users use; sites trust them
+- **Block detection** — Detects 403s, WAF challenges, CAPTCHAs; auto-reloads through Aluvia when blocked
+- **Smart routing** — Proxy only hostnames that block you; everything else goes direct (saves cost and latency)
+- **Geo-targeting** — Target US regions (e.g. `us_ca`, `us_ny`) for localized content
+- **Runtime updates** — Add rules, rotate IPs, change geo without restarting
+
+---
+
+## Links
+
+| Resource             | URL                                                                                                       |
+| -------------------- | --------------------------------------------------------------------------------------------------------- |
+| **Aluvia Dashboard** | [dashboard.aluvia.io](https://dashboard.aluvia.io)                                                        |
+| **npm**              | [npmjs.com/package/@aluvia/mcp](https://www.npmjs.com/package/@aluvia/mcp)                                |
+| **Full MCP Guide**   | [docs/mcp-server-guide.md](https://github.com/aluvia-connect/sdk-node/blob/main/docs/mcp-server-guide.md) |
+| **Aluvia SDK**       | [@aluvia/sdk](https://github.com/aluvia-connect/sdk-node)                                                 |
+| **MCP Protocol**     | [modelcontextprotocol.io](https://modelcontextprotocol.io)                                                |
 
 ---
 
 ## Dependencies
 
-- **@aluvia/sdk** — provides the CLI handlers and proxy logic used by the MCP tools. For programmatic use (e.g. `AluviaClient`, `connect()`), install the full SDK: `npm install @aluvia/sdk`.
-
----
-
-## More information
-
-- **Full tool reference** (parameters, response JSON, error handling): [MCP Server Guide](https://github.com/aluvia-connect/sdk-node/blob/main/docs/mcp-server-guide.md) in the main SDK repo.
-- **SDK overview** (CLI, adapters, block detection, REST API): [Aluvia Node.js SDK README](https://github.com/aluvia-connect/sdk-node/blob/main/README.md).
+- **@aluvia/sdk** — CLI handlers and proxy logic. For programmatic use (`AluviaClient`, `connect()`), install the full SDK: `npm install @aluvia/sdk`.
 
 ---
 
