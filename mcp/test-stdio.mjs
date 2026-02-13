@@ -1,7 +1,11 @@
 /**
  * Smoke test: run aluvia-mcp, send MCP initialize + tools/list, check response.
- * Usage: node mcp/test-stdio.mjs
- * Requires: npm run build:all from repo root first.
+ *
+ * Usage (from repo root):
+ *   npm run build:all   # build SDK + MCP first
+ *   npm run test:mcp   # or: node mcp/test-stdio.mjs
+ *
+ * Exits 0 if tools/list returns expected tools; 1 on failure or timeout.
  */
 
 import { spawn } from "node:child_process";
