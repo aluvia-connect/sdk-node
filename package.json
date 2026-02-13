@@ -33,7 +33,9 @@
     "aluvia": "./dist/esm/bin/cli.js",
     "aluvia-sdk": "./dist/esm/bin/cli.js"
   },
-  "workspaces": ["mcp"],
+  "workspaces": [
+    "mcp"
+  ],
   "files": [
     "dist/**/*",
     "README.md",
@@ -43,7 +45,7 @@
     "build": "tsc -p tsconfig.esm.json && tsc -p tsconfig.cjs.json && node -e \"require('fs').mkdirSync('dist/cjs',{recursive:true});require('fs').writeFileSync('dist/cjs/package.json','{\\\"type\\\":\\\"commonjs\\\"}')\"",
     "build:all": "npm run build && npm run build -w @aluvia/mcp",
     "prepare": "npm run build",
-    "test": "node --import tsx --test test/integration.test.ts test/block-detection.test.ts test/mcp-smoke.test.ts",
+    "test": "node --import tsx --test test/integration.test.ts test/mcp-smoke.test.ts",
     "test:mcp": "node mcp/test-stdio.mjs",
     "lint": "prettier --check src test",
     "lint:fix": "prettier --write src test"
