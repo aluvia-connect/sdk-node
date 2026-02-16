@@ -10,9 +10,11 @@
 
 import { spawn } from "node:child_process";
 import { createInterface } from "node:readline";
+import { fileURLToPath } from "node:url";
 
 const bin = new URL("./dist/esm/mcp-server.js", import.meta.url);
-const child = spawn(process.execPath, [bin.pathname], {
+const binPath = fileURLToPath(bin);
+const child = spawn(process.execPath, [binPath], {
   stdio: ["pipe", "pipe", "pipe"],
 });
 
