@@ -135,7 +135,6 @@ export function handleOpen({ url, connectionId, headless, sessionName, autoUnblo
             },
             1,
           );
-          return;
         }
 
         const lock = readLock(session);
@@ -150,7 +149,6 @@ export function handleOpen({ url, connectionId, headless, sessionName, autoUnblo
             blockDetection: lock.blockDetection ?? false,
             autoUnblock: lock.autoUnblock ?? false,
           });
-          return;
         }
         if (attempts >= maxAttempts) {
           clearInterval(poll);
