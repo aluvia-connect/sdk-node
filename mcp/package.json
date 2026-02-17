@@ -4,6 +4,16 @@
   "description": "Aluvia MCP server — Model Context Protocol tools for browser sessions and account",
   "license": "MIT",
   "author": "Aluvia",
+  "keywords": [
+    "mcp",
+    "model-context-protocol",
+    "ai-agent",
+    "browser-automation",
+    "playwright",
+    "proxy",
+    "anti-bot",
+    "claude"
+  ],
   "type": "module",
   "main": "./dist/esm/mcp-server.js",
   "bin": {
