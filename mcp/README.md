@@ -1,7 +1,7 @@
 # @aluvia/mcp
 
 <p align="center">
-  <img src="assets/aluvia-logo.png" alt="Aluvia Logo" width="200" />
+  <img src="https://raw.githubusercontent.com/aluvia-connect/sdk-node/main/mcp/assets/aluvia-logo.png" alt="Aluvia Logo" width="200" />
 </p>
 
 <p align="center">

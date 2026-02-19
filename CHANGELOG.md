@@ -5,6 +5,12 @@ All notable changes to `@aluvia/sdk` are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.4.1] - 2026-02-17
+
+### Fixed
+- Fix CLI hanging indefinitely on `session start` due to unresolved Promise in `handleOpen`.
+- Fix reliability issue when spawning daemon process by resolving CLI path absolutely (replaces brittle `process.argv[1]` usage).
+
 ## [1.3.0] - 2026-02-13
 
 ### Added
@@ -179,7 +185,8 @@ At the bottom of the file, add comparison links:
 
 ---
 
-[Unreleased]: https://github.com/aluvia-connect/sdk-node/compare/v1.4.0...HEAD
+[Unreleased]: https://github.com/aluvia-connect/sdk-node/compare/v1.4.1...HEAD
+[1.4.1]: https://github.com/aluvia-connect/sdk-node/compare/v1.4.0...v1.4.1
 [1.4.0]: https://github.com/aluvia-connect/sdk-node/compare/v1.3.0...v1.4.0
 [1.3.0]: https://github.com/aluvia-connect/sdk-node/compare/v1.2.0...v1.3.0
 [1.2.0]: https://github.com/aluvia-connect/sdk-node/compare/v1.1.0...v1.2.0

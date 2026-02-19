@@ -6,7 +6,26 @@ import { output } from './cli.js';
 import { spawn } from 'node:child_process';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
-import { pathToFileURL } from 'node:url';
+import { pathToFileURL, fileURLToPath } from 'node:url';
+
+// Determine the directory of this module at load time
+// @ts-ignore - import.meta.url exists at runtime in ESM
+const thisModuleDir = path.dirname(fileURLToPath(import.meta.url));
+
+/**
+ * Get the path to cli.js for spawning daemon processes.
+ * Looks in the same directory as this module (works for both dev and installed).
+ */
+function getCliScriptPath(): string {
+  // cli.js should be in the same directory as open.js
+  const cliPath = path.join(thisModuleDir, 'cli.js');
+  
+  if (fs.existsSync(cliPath)) {
+    return cliPath;
+  }
+  
+  throw new Error(`Could not find cli.js at ${cliPath}`);
+}
 
 export type OpenOptions = {
   url: string;
@@ -82,7 +101,9 @@ export function handleOpen({ url, connectionId, headless, sessionName, autoUnblo
 
   let child: ReturnType<typeof spawn>;
   try {
-    child = spawn(process.execPath, [process.argv[1], ...args], {
+    // Get the path to cli.js in the same directory as this module
+    const cliPath = getCliScriptPath();
+    child = spawn(process.execPath, [cliPath, ...args], {
       detached: true,
       stdio: ['ignore', out, out],
       env: { ...process.env, ALUVIA_API_KEY: apiKey },
@@ -95,50 +116,56 @@ export function handleOpen({ url, connectionId, headless, sessionName, autoUnblo
   fs.closeSync(out);
 
   // Wait for the daemon to be fully ready (lock file with ready: true)
-  return new Promise(() => {
+  return new Promise((resolve, reject) => {
     let attempts = 0;
     const maxAttempts = 240; // 60 seconds max
     const poll = setInterval(() => {
       attempts++;
 
-      // Early exit if daemon process died
-      if (child.pid && !isProcessAlive(child.pid)) {
-        clearInterval(poll);
-        removeLock(session);
-        output(
-          {
-            browserSession: session,
-            error: 'Browser process exited unexpectedly.',
-            logFile,
-          },
-          1,
-        );
-      }
+      try {
+        // Early exit if daemon process died
+        if (child.pid && !isProcessAlive(child.pid)) {
+          clearInterval(poll);
+          removeLock(session);
+          output(
+            {
+              browserSession: session,
+              error: 'Browser process exited unexpectedly.',
+              logFile,
+            },
+            1,
+          );
+        }
 
-      const lock = readLock(session);
-      if (lock && lock.ready) {
-        clearInterval(poll);
-        output({
-          browserSession: session,
-          pid: lock.pid,
-          startUrl: lock.url ?? null,
-          cdpUrl: lock.cdpUrl ?? null,
-          connectionId: lock.connectionId ?? null,
-          blockDetection: lock.blockDetection ?? false,
-          autoUnblock: lock.autoUnblock ?? false,
-        });
-      }
-      if (attempts >= maxAttempts) {
-        clearInterval(poll);
-        const alive = child.pid ? isProcessAlive(child.pid) : false;
-        output(
-          {
+        const lock = readLock(session);
+        if (lock && lock.ready) {
+          clearInterval(poll);
+          output({
             browserSession: session,
-            error: alive ? 'Browser is still initializing (timeout).' : 'Browser process exited unexpectedly.',
-            logFile,
-          },
-          1,
-        );
+            pid: lock.pid,
+            startUrl: lock.url ?? null,
+            cdpUrl: lock.cdpUrl ?? null,
+            connectionId: lock.connectionId ?? null,
+            blockDetection: lock.blockDetection ?? false,
+            autoUnblock: lock.autoUnblock ?? false,
+          });
+        }
+        if (attempts >= maxAttempts) {
+          clearInterval(poll);
+          const alive = child.pid ? isProcessAlive(child.pid) : false;
+          output(
+            {
+              browserSession: session,
+              error: alive ? 'Browser is still initializing (timeout).' : 'Browser process exited unexpectedly.',
+              logFile,
+            },
+            1,
+          );
+        }
+      } catch (err) {
+        // In MCP capture mode, output() throws MCPOutputCapture which we need to propagate
+        clearInterval(poll);
+        reject(err);
       }
     }, 250);
   });
