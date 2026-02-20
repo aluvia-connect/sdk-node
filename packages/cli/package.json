@@ -1,0 +1,59 @@
+{
+  "name": "@aluvia/cli",
+  "version": "1.0.0",
+  "description": "Aluvia CLI - command line tools for browser automation and session management",
+  "license": "MIT",
+  "author": "Aluvia",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/aluvia-connect/sdk-node.git"
+  },
+  "homepage": "https://aluvia.io",
+  "bugs": {
+    "url": "https://github.com/aluvia-connect/sdk-node/issues"
+  },
+  "type": "module",
+  "main": "./dist/esm/cli.js",
+  "types": "./dist/types/cli.d.ts",
+  "bin": {
+    "aluvia": "./dist/esm/cli.js"
+  },
+  "exports": {
+    ".": {
+      "types": "./dist/types/cli-adapter.d.ts",
+      "import": "./dist/esm/cli-adapter.js",
+      "require": "./dist/cjs/cli-adapter.js"
+    },
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "dist/**/*",
+    "README.md",
+    "LICENSE"
+  ],
+  "scripts": {
+    "build": "tsc -p tsconfig.esm.json && tsc -p tsconfig.cjs.json && node -e \"require('fs').mkdirSync('dist/cjs',{recursive:true});require('fs').writeFileSync('dist/cjs/package.json','{\\\"type\\\":\\\"commonjs\\\"}')\"",
+    "lint": "prettier --check src",
+    "lint:fix": "prettier --write src"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "keywords": [
+    "cli",
+    "browser-automation",
+    "playwright",
+    "aluvia"
+  ],
+  "devDependencies": {
+    "@types/node": "^24.10.2",
+    "prettier": "^3.4.2",
+    "typescript": "^5.9.3"
+  },
+  "dependencies": {
+    "@aluvia/sdk": "^2.0.0"
+  }
+}
