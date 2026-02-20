@@ -18,6 +18,25 @@ export {
   ConnectError,
 } from "./errors.js";
 
+// Session lock utilities (used by CLI)
+export {
+  writeLock,
+  readLock,
+  removeLock,
+  isProcessAlive,
+  getLogFilePath,
+  validateSessionName,
+  generateSessionName,
+  listSessions,
+  toLockData,
+} from "./session/lock.js";
+
+export type {
+  LockData,
+  LockDetection,
+  SessionInfo,
+} from "./session/lock.js";
+
 // Public types
 export type {
   GatewayProtocol,

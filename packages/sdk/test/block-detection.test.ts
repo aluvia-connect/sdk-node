@@ -55,7 +55,7 @@ describe("BlockDetection", () => {
 
       const result = await detection.analyzeFast(mockPage, null);
       assert.strictEqual(result.score, 0);
-      assert.strictEqual(result.tier, "clear");
+      assert.strictEqual(result.blockStatus, "clear");
       assert.strictEqual(result.signals.length, 0);
     });
 
@@ -70,7 +70,7 @@ describe("BlockDetection", () => {
       };
 
       const result = await detection.analyzeFast(mockPage, mockResponse);
-      assert.strictEqual(result.tier, "blocked");
+      assert.strictEqual(result.blockStatus, "blocked");
       assert.ok(result.score >= 0.7);
     });
 
@@ -87,7 +87,7 @@ describe("BlockDetection", () => {
       ];
       const result = computeScore(twoWeakSignals);
       assert.strictEqual(result.score, 1 - 0.8 * 0.8); // 0.36
-      assert.strictEqual(result.tier, "clear"); // 0.36 < 0.4
+      assert.strictEqual(result.blockStatus, "clear"); // 0.36 < 0.4
     });
 
     test("tier boundaries: 0.7 is blocked, 0.4 is suspected, below 0.4 is clear", () => {
@@ -98,19 +98,19 @@ describe("BlockDetection", () => {
       const blocked = computeScore([
         { name: "a", weight: 0.7, details: "", source: "full" },
       ]);
-      assert.strictEqual(blocked.tier, "blocked");
+      assert.strictEqual(blocked.blockStatus, "blocked");
 
       // 0.5 -> suspected
       const suspected = computeScore([
         { name: "a", weight: 0.5, details: "", source: "full" },
       ]);
-      assert.strictEqual(suspected.tier, "suspected");
+      assert.strictEqual(suspected.blockStatus, "suspected");
 
       // 0.3 -> clear
       const clear = computeScore([
         { name: "a", weight: 0.3, details: "", source: "full" },
       ]);
-      assert.strictEqual(clear.tier, "clear");
+      assert.strictEqual(clear.blockStatus, "clear");
     });
 
     test("0.85 + 0.1 produces blocked tier (~0.865)", () => {
@@ -123,7 +123,7 @@ describe("BlockDetection", () => {
       ]);
       const expected = 1 - 0.15 * 0.9; // 0.865
       assert.ok(Math.abs(result.score - expected) < 0.001);
-      assert.strictEqual(result.tier, "blocked");
+      assert.strictEqual(result.blockStatus, "blocked");
     });
   });
 
@@ -680,7 +680,7 @@ describe("BlockDetection", () => {
         null,
       );
       assert.ok(result);
-      assert.strictEqual(result.tier, "clear");
+      assert.strictEqual(result.blockStatus, "clear");
       assert.strictEqual(result.score, 0);
     });
 
@@ -722,14 +722,14 @@ describe("BlockDetection", () => {
       const mockResponse = { status: () => 403, headers: () => ({}) };
 
       const fast = await detection.analyzeFast(mockPage, mockResponse);
-      assert.strictEqual(fast.tier, "clear");
+      assert.strictEqual(fast.blockStatus, "clear");
       assert.strictEqual(fast.score, 0);
 
       const full = await detection.analyzeFull(mockPage, mockResponse);
-      assert.strictEqual(full.tier, "clear");
+      assert.strictEqual(full.blockStatus, "clear");
 
       const spa = await detection.analyzeSpa(mockPage);
-      assert.strictEqual(spa.tier, "clear");
+      assert.strictEqual(spa.blockStatus, "clear");
     });
 
     test("extracts hostname correctly from various URLs", async () => {
@@ -779,7 +779,7 @@ describe("BlockDetection", () => {
       const jsonPart = logCall!.replace("Detection result: ", "");
       const parsed = JSON.parse(jsonPart);
       assert.strictEqual(parsed.url, "https://example.com");
-      assert.strictEqual(parsed.tier, "blocked");
+      assert.strictEqual(parsed.blockStatus, "blocked");
       assert.ok(parsed.score > 0);
       assert.ok(Array.isArray(parsed.signals));
       assert.strictEqual(parsed.pass, "fast");

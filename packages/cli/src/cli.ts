@@ -5,7 +5,7 @@ import { handleSession, parseSessionArgs } from "./session.js";
 import type { ParsedSessionArgs } from "./session.js";
 import { handleAccount } from "./account.js";
 import { handleGeos } from "./geos.js";
-import { validateSessionName } from "../session/lock.js";
+import { validateSessionName } from "@aluvia/sdk";
 import { isCapturing, MCPOutputCapture } from "./mcp-helpers.js";
 
 export function output(data: Record<string, unknown>, exitCode = 0): never {

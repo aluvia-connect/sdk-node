@@ -1,6 +1,5 @@
-import { AluviaApi } from '../api/AluviaApi.js';
-import { readLock, listSessions, isProcessAlive, removeLock, toLockData } from '../session/lock.js';
-import type { LockData } from '../session/lock.js';
+import { AluviaApi, readLock, listSessions, isProcessAlive, removeLock, toLockData } from '@aluvia/sdk';
+import type { LockData } from '@aluvia/sdk';
 import { output } from './cli.js';
 
 /**

@@ -1,5 +1,5 @@
-import { removeLock, isProcessAlive, listSessions, toLockData } from '../session/lock.js';
-import type { LockData } from '../session/lock.js';
+import { removeLock, isProcessAlive, listSessions, toLockData } from '@aluvia/sdk';
+import type { LockData } from '@aluvia/sdk';
 import { output } from './cli.js';
 
 export async function handleClose(sessionName?: string, closeAll?: boolean): Promise<void> {

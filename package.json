@@ -1,7 +1,8 @@
 {
-  "name": "@aluvia/sdk",
+  "name": "aluvia-monorepo",
   "version": "1.4.1",
-  "description": "Aluvia SDK for Node.js - local smart proxy for automation workloads and AI agents",
+  "private": true,
+  "description": "Aluvia SDK monorepo - smart proxy for automation workloads and AI agents",
   "license": "MIT",
   "author": "Aluvia",
   "repository": {
@@ -13,45 +14,20 @@
     "url": "https://github.com/aluvia-connect/sdk-node/issues"
   },
   "type": "module",
-  "main": "./dist/cjs/index.js",
-  "module": "./dist/esm/index.js",
-  "types": "./dist/types/index.d.ts",
-  "exports": {
-    ".": {
-      "types": "./dist/types/index.d.ts",
-      "import": "./dist/esm/index.js",
-      "require": "./dist/cjs/index.js"
-    },
-    "./cli": {
-      "types": "./dist/types/bin/cli-adapter.d.ts",
-      "import": "./dist/esm/bin/cli-adapter.js",
-      "require": "./dist/cjs/bin/cli-adapter.js"
-    },
-    "./package.json": "./package.json"
-  },
-  "bin": {
-    "aluvia": "./dist/esm/bin/cli.js",
-    "aluvia-sdk": "./dist/esm/bin/cli.js"
-  },
   "workspaces": [
-    "mcp"
-  ],
-  "files": [
-    "dist/**/*",
-    "README.md",
-    "LICENSE"
+    "packages/sdk",
+    "packages/cli",
+    "packages/mcp"
   ],
   "scripts": {
-    "build": "tsc -p tsconfig.esm.json && tsc -p tsconfig.cjs.json && node -e \"require('fs').mkdirSync('dist/cjs',{recursive:true});require('fs').writeFileSync('dist/cjs/package.json','{\\\"type\\\":\\\"commonjs\\\"}')\"",
-    "build:all": "npm run build && npm run build -w @aluvia/mcp",
-    "prepare": "npm run build",
-    "test": "node --import tsx --test test/integration.test.ts test/mcp-smoke.test.ts",
-    "test:mcp": "node mcp/test-stdio.mjs",
-    "lint": "prettier --check src test",
-    "lint:fix": "prettier --write src test"
-  },
-  "publishConfig": {
-    "access": "public"
+    "build": "npm run build -w @aluvia/sdk && npm run build -w @aluvia/cli && npm run build -w @aluvia/mcp",
+    "build:sdk": "npm run build -w @aluvia/sdk",
+    "build:cli": "npm run build -w @aluvia/cli",
+    "build:mcp": "npm run build -w @aluvia/mcp",
+    "test": "npm test -w @aluvia/sdk",
+    "test:mcp": "npm test -w @aluvia/mcp",
+    "lint": "npm run lint -w @aluvia/sdk && npm run lint -w @aluvia/cli",
+    "lint:fix": "npm run lint:fix -w @aluvia/sdk && npm run lint:fix -w @aluvia/cli"
   },
   "engines": {
     "node": ">=18"
@@ -71,12 +47,5 @@
     "prettier": "^3.4.2",
     "tsx": "^4.21.0",
     "typescript": "^5.9.3"
-  },
-  "dependencies": {
-    "http-proxy-agent": "^7.0.2",
-    "https-proxy-agent": "^7.0.6",
-    "playwright": "^1.58.2",
-    "proxy-chain": "^2.6.1",
-    "undici": "^6.22.0"
   }
 }

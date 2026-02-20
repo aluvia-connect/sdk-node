@@ -1,7 +1,5 @@
-import { AluviaClient } from '../client/AluviaClient.js';
-import { writeLock, readLock, removeLock, isProcessAlive, getLogFilePath, generateSessionName, validateSessionName } from '../session/lock.js';
-import type { LockDetection } from '../session/lock.js';
-import type { BlockDetectionResult } from '../client/BlockDetection.js';
+import { AluviaClient, writeLock, readLock, removeLock, isProcessAlive, getLogFilePath, generateSessionName, validateSessionName } from '@aluvia/sdk';
+import type { LockDetection, BlockDetectionResult } from '@aluvia/sdk';
 import { output } from './cli.js';
 import { spawn } from 'node:child_process';
 import * as fs from 'node:fs';

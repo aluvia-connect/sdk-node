@@ -21,11 +21,13 @@
   },
   "files": ["dist", "README.md", "LICENSE", "assets"],
   "scripts": {
-    "build": "tsc -p tsconfig.json"
+    "build": "tsc -p tsconfig.json",
+    "test": "node test-stdio.mjs"
   },
   "engines": { "node": ">=18" },
   "dependencies": {
     "@aluvia/sdk": "^1.4.1",
+    "@aluvia/cli": "^1.4.1",
     "@modelcontextprotocol/sdk": "^1.26.0",
     "zod": "^3.23.8"
   },

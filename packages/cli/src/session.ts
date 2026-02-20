@@ -2,7 +2,7 @@ import crypto from 'node:crypto';
 import { handleOpen } from './open.js';
 import type { OpenOptions } from './open.js';
 import { handleClose } from './close.js';
-import { listSessions } from '../session/lock.js';
+import { listSessions } from '@aluvia/sdk';
 import { requireApi, resolveSession, requireConnectionId } from './api-helpers.js';
 import { output } from './cli.js';
 

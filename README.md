@@ -7,7 +7,15 @@
 
 **Stop getting blocked.** Aluvia routes your AI agent's web traffic through premium US mobile carrier IPs — the same IPs used by real people on their phones. Websites trust them, so your agent stops hitting 403s, CAPTCHAs, and rate limits.
 
-This SDK gives you everything you need:
+## Packages
+
+This repository is organized as a monorepo with three packages:
+
+- **[@aluvia/sdk](./packages/sdk)** — Core SDK with `AluviaClient`, `AluviaApi`, framework adapters, and block detection
+- **[@aluvia/cli](./packages/cli)** — Command-line tools for browser automation and session management
+- **[@aluvia/mcp](./packages/mcp)** — Model Context Protocol server for AI agent integration
+
+## Features
 
 - **CLI for browser automation** — launch headless Chromium sessions from the command line, with JSON output designed for AI agent frameworks
 - **Automatic block detection and unblocking** — the SDK detects 403s, WAF challenges, and CAPTCHAs, then reroutes through Aluvia and reloads the page automatically
@@ -16,7 +24,6 @@ This SDK gives you everything you need:
 - **Adapters for every tool** — Playwright, Puppeteer, Selenium, Axios, got, and Node's fetch
 - **IP rotation and geo targeting** — rotate IPs or target specific US regions at runtime
 - **REST API wrapper** — manage connections, check usage, and build custom tooling with `AluviaApi`
-- **MCP server** — for Model Context Protocol (MCP) only, use the separate package: `npm install @aluvia/mcp` and run `npx aluvia-mcp`. See [mcp/README.md](mcp/README.md) and [MCP Server Guide](docs/mcp-server-guide.md).
 
 ---
 
@@ -42,9 +49,21 @@ This SDK gives you everything you need:
 
 ### 2. Install
 
+For programmatic use:
 ```bash
 npm install @aluvia/sdk playwright
 export ALUVIA_API_KEY="your-api-key"
+```
+
+For CLI use:
+```bash
+npm install -g @aluvia/cli
+export ALUVIA_API_KEY="your-api-key"
+```
+
+For MCP integration:
+```bash
+npm install @aluvia/mcp
 ```
 
 ### 3. Run
