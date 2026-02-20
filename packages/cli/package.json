@@ -54,6 +54,6 @@
     "typescript": "^5.9.3"
   },
   "dependencies": {
-    "@aluvia/sdk": "^1.4.1"
+    "@aluvia/sdk": "^2.0.0"
   }
 }

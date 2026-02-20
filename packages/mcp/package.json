@@ -26,7 +26,7 @@
   },
   "engines": { "node": ">=18" },
   "dependencies": {
-    "@aluvia/sdk": "^1.4.1",
+    "@aluvia/sdk": "^2.0.0",
     "@aluvia/cli": "^1.4.1",
     "@modelcontextprotocol/sdk": "^1.26.0",
     "zod": "^3.23.8"
