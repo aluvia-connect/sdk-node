@@ -1,6 +1,6 @@
 {
   "name": "@aluvia/mcp",
-  "version": "1.0.1",
+  "version": "1.0.2",
   "description": "Aluvia MCP server — Model Context Protocol tools for browser sessions and account",
   "license": "MIT",
   "author": "Aluvia",
@@ -27,7 +27,7 @@
   "engines": { "node": ">=18" },
   "dependencies": {
     "@aluvia/sdk": "^2.0.0",
-    "@aluvia/cli": "^1.4.1",
+    "@aluvia/cli": "^1.0.0",
     "@modelcontextprotocol/sdk": "^1.26.0",
     "zod": "^3.23.8"
   },
