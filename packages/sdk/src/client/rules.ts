@@ -22,7 +22,7 @@ export function matchPattern(hostname: string, pattern: string): boolean {
   if (!normalizedPattern) return false;
 
   // Universal wildcard matches everything
-  if (normalizedPattern === '*') {
+  if (normalizedPattern === "*") {
     return true;
   }
 
@@ -32,7 +32,7 @@ export function matchPattern(hostname: string, pattern: string): boolean {
   }
 
   // Prefix wildcard: *.example.com matches subdomains
-  if (normalizedPattern.startsWith('*.')) {
+  if (normalizedPattern.startsWith("*.")) {
     const suffix = normalizedPattern.slice(1); // '.example.com'
     // Must end with the suffix and have something before it
     if (normalizedHostname.endsWith(suffix)) {
@@ -44,10 +44,10 @@ export function matchPattern(hostname: string, pattern: string): boolean {
   }
 
   // Suffix wildcard: google.* matches google.com, google.co.uk, etc.
-  if (normalizedPattern.endsWith('.*')) {
+  if (normalizedPattern.endsWith(".*")) {
     const prefix = normalizedPattern.slice(0, -2); // 'google'
     // Must start with prefix followed by a dot
-    if (normalizedHostname.startsWith(prefix + '.')) {
+    if (normalizedHostname.startsWith(prefix + ".")) {
       return true;
     }
     return false;
@@ -91,24 +91,34 @@ export type NormalizedRules = {
  */
 export function normalizeRules(rules: string[]): NormalizedRules {
   if (!rules || rules.length === 0) {
-    return { positiveRules: [], negativeRules: [], hasCatchAll: false, empty: true };
+    return {
+      positiveRules: [],
+      negativeRules: [],
+      hasCatchAll: false,
+      empty: true,
+    };
   }
 
   const trimmed = rules
-    .filter((r) => typeof r === 'string')
+    .filter((r) => typeof r === "string")
     .map((r) => r.trim().toLowerCase())
     .filter((r) => r.length > 0)
-    .filter((r) => r !== 'auto');
+    .filter((r) => r !== "auto");
 
   if (trimmed.length === 0) {
-    return { positiveRules: [], negativeRules: [], hasCatchAll: false, empty: true };
+    return {
+      positiveRules: [],
+      negativeRules: [],
+      hasCatchAll: false,
+      empty: true,
+    };
   }
 
   const negativeRules: string[] = [];
   const positiveRules: string[] = [];
 
   for (const rule of trimmed) {
-    if (rule.startsWith('-')) {
+    if (rule.startsWith("-")) {
       const neg = rule.slice(1).trim();
       if (neg.length > 0) negativeRules.push(neg);
     } else {
@@ -119,7 +129,7 @@ export function normalizeRules(rules: string[]): NormalizedRules {
   return {
     positiveRules,
     negativeRules,
-    hasCatchAll: positiveRules.includes('*'),
+    hasCatchAll: positiveRules.includes("*"),
     empty: false,
   };
 }
@@ -127,7 +137,10 @@ export function normalizeRules(rules: string[]): NormalizedRules {
 /**
  * Fast proxy decision using pre-normalized rules.
  */
-export function shouldProxyNormalized(hostname: string, rules: NormalizedRules): boolean {
+export function shouldProxyNormalized(
+  hostname: string,
+  rules: NormalizedRules,
+): boolean {
   const normalizedHostname = hostname.trim().toLowerCase();
   if (!normalizedHostname) return false;
   if (rules.empty) return false;
@@ -148,5 +161,3 @@ export function shouldProxyNormalized(hostname: string, rules: NormalizedRules):
 export function shouldProxy(hostname: string, rules: string[]): boolean {
   return shouldProxyNormalized(hostname, normalizeRules(rules));
 }
-
-

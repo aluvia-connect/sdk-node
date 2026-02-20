@@ -15,13 +15,17 @@ const root = path.join(__dirname, "..");
 const mcpServerPath = path.join(root, "mcp", "dist", "esm", "mcp-server.js");
 const stdioScript = path.join(root, "mcp", "test-stdio.mjs");
 
-test("MCP server responds to initialize + tools/list with expected tools", {
-  skip: !fs.existsSync(mcpServerPath),
-}, () => {
-  const result = spawnSync(process.execPath, [stdioScript], {
-    cwd: root,
-    encoding: "utf-8",
-    timeout: 10_000,
-  });
-  assert.strictEqual(result.status, 0, result.stderr || result.stdout);
-});
+test(
+  "MCP server responds to initialize + tools/list with expected tools",
+  {
+    skip: !fs.existsSync(mcpServerPath),
+  },
+  () => {
+    const result = spawnSync(process.execPath, [stdioScript], {
+      cwd: root,
+      encoding: "utf-8",
+      timeout: 10_000,
+    });
+    assert.strictEqual(result.status, 0, result.stderr || result.stdout);
+  },
+);

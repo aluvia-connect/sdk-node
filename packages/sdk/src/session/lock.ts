@@ -1,25 +1,61 @@
-import * as fs from 'node:fs';
-import * as path from 'node:path';
-import * as os from 'node:os';
+import * as fs from "node:fs";
+import * as path from "node:path";
+import * as os from "node:os";
 
-const LOCK_DIR = path.join(os.tmpdir(), 'aluvia-sdk');
+const LOCK_DIR = path.join(os.tmpdir(), "aluvia-sdk");
 
 const ADJECTIVES = [
-  'swift', 'bold', 'calm', 'keen', 'warm', 'bright', 'silent', 'rapid', 'steady', 'clever',
-  'vivid', 'agile', 'noble', 'lucid', 'crisp', 'gentle', 'fierce', 'nimble', 'sturdy', 'witty',
+  "swift",
+  "bold",
+  "calm",
+  "keen",
+  "warm",
+  "bright",
+  "silent",
+  "rapid",
+  "steady",
+  "clever",
+  "vivid",
+  "agile",
+  "noble",
+  "lucid",
+  "crisp",
+  "gentle",
+  "fierce",
+  "nimble",
+  "sturdy",
+  "witty",
 ];
 
 const NOUNS = [
-  'falcon', 'tiger', 'river', 'maple', 'coral', 'cedar', 'orbit', 'prism', 'flint', 'spark',
-  'ridge', 'ember', 'crane', 'grove', 'stone', 'brook', 'drift', 'crest', 'sage', 'lynx',
+  "falcon",
+  "tiger",
+  "river",
+  "maple",
+  "coral",
+  "cedar",
+  "orbit",
+  "prism",
+  "flint",
+  "spark",
+  "ridge",
+  "ember",
+  "crane",
+  "grove",
+  "stone",
+  "brook",
+  "drift",
+  "crest",
+  "sage",
+  "lynx",
 ];
 
 function lockFileName(sessionName?: string): string {
-  return `cli-${sessionName ?? 'default'}.lock`;
+  return `cli-${sessionName ?? "default"}.lock`;
 }
 
 function logFileName(sessionName?: string): string {
-  return `cli-${sessionName ?? 'default'}.log`;
+  return `cli-${sessionName ?? "default"}.log`;
 }
 
 export type LockDetection = {
@@ -49,9 +85,9 @@ export type LockData = {
 export function writeLock(data: LockData, sessionName?: string): void {
   fs.mkdirSync(LOCK_DIR, { recursive: true });
   const filePath = path.join(LOCK_DIR, lockFileName(sessionName));
-  const tmpPath = filePath + '.tmp';
+  const tmpPath = filePath + ".tmp";
   try {
-    fs.writeFileSync(tmpPath, JSON.stringify(data), 'utf-8');
+    fs.writeFileSync(tmpPath, JSON.stringify(data), "utf-8");
     try {
       // On Windows, rename may fail to overwrite an existing file; remove it first.
       fs.rmSync(filePath, { force: true });
@@ -72,9 +108,9 @@ export function writeLock(data: LockData, sessionName?: string): void {
 export function readLock(sessionName?: string): LockData | null {
   try {
     const filePath = path.join(LOCK_DIR, lockFileName(sessionName));
-    const raw = fs.readFileSync(filePath, 'utf-8').trim();
+    const raw = fs.readFileSync(filePath, "utf-8").trim();
     const parsed = JSON.parse(raw);
-    if (typeof parsed.pid === 'number' && Number.isFinite(parsed.pid)) {
+    if (typeof parsed.pid === "number" && Number.isFinite(parsed.pid)) {
       return parsed;
     }
     return null;

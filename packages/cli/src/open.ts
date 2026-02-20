@@ -1,10 +1,19 @@
-import { AluviaClient, writeLock, readLock, removeLock, isProcessAlive, getLogFilePath, generateSessionName, validateSessionName } from '@aluvia/sdk';
-import type { LockDetection, BlockDetectionResult } from '@aluvia/sdk';
-import { output } from './cli.js';
-import { spawn } from 'node:child_process';
-import * as fs from 'node:fs';
-import * as path from 'node:path';
-import { pathToFileURL, fileURLToPath } from 'node:url';
+import {
+  AluviaClient,
+  writeLock,
+  readLock,
+  removeLock,
+  isProcessAlive,
+  getLogFilePath,
+  generateSessionName,
+  validateSessionName,
+} from "@aluvia/sdk";
+import type { LockDetection, BlockDetectionResult } from "@aluvia/sdk";
+import { output } from "./cli.js";
+import { spawn } from "node:child_process";
+import * as fs from "node:fs";
+import * as path from "node:path";
+import { pathToFileURL, fileURLToPath } from "node:url";
 
 // Determine the directory of this module at load time
 // @ts-ignore - import.meta.url exists at runtime in ESM
@@ -16,12 +25,12 @@ const thisModuleDir = path.dirname(fileURLToPath(import.meta.url));
  */
 function getCliScriptPath(): string {
   // cli.js should be in the same directory as open.js
-  const cliPath = path.join(thisModuleDir, 'cli.js');
-  
+  const cliPath = path.join(thisModuleDir, "cli.js");
+
   if (fs.existsSync(cliPath)) {
     return cliPath;
   }
-  
+
   throw new Error(`Could not find cli.js at ${cliPath}`);
 }
 
@@ -40,13 +49,27 @@ export type OpenOptions = {
  * Spawns the actual browser in a detached child and polls until ready.
  * Returns a Promise that resolves via process.exit() (never returns normally).
  */
-export function handleOpen({ url, connectionId, headless, sessionName, autoUnblock, disableBlockDetection, run }: OpenOptions): Promise<never> {
+export function handleOpen({
+  url,
+  connectionId,
+  headless,
+  sessionName,
+  autoUnblock,
+  disableBlockDetection,
+  run,
+}: OpenOptions): Promise<never> {
   // Generate session name if not provided
   const session = sessionName ?? generateSessionName();
 
   // Validate session name early (before spawning daemon)
   if (sessionName && !validateSessionName(sessionName)) {
-    output({ error: 'Invalid session name. Use only letters, numbers, hyphens, and underscores.' }, 1);
+    output(
+      {
+        error:
+          "Invalid session name. Use only letters, numbers, hyphens, and underscores.",
+      },
+      1,
+    );
   }
 
   // Check for existing instance with this session name
@@ -73,28 +96,28 @@ export function handleOpen({ url, connectionId, headless, sessionName, autoUnblo
   // Require API key
   const apiKey = process.env.ALUVIA_API_KEY;
   if (!apiKey) {
-    output({ error: 'ALUVIA_API_KEY environment variable is required.' }, 1);
+    output({ error: "ALUVIA_API_KEY environment variable is required." }, 1);
   }
 
   // Spawn a detached child process that runs the daemon
   const logFile = getLogFilePath(session);
-  const out = fs.openSync(logFile, 'a');
+  const out = fs.openSync(logFile, "a");
 
-  const args = ['--daemon', url, '--browser-session', session];
+  const args = ["--daemon", url, "--browser-session", session];
   if (connectionId != null) {
-    args.push('--connection-id', String(connectionId));
+    args.push("--connection-id", String(connectionId));
   }
   if (!headless) {
-    args.push('--headful');
+    args.push("--headful");
   }
   if (autoUnblock) {
-    args.push('--auto-unblock');
+    args.push("--auto-unblock");
   }
   if (disableBlockDetection) {
-    args.push('--disable-block-detection');
+    args.push("--disable-block-detection");
   }
   if (run) {
-    args.push('--run', run);
+    args.push("--run", run);
   }
 
   let child: ReturnType<typeof spawn>;
@@ -103,13 +126,19 @@ export function handleOpen({ url, connectionId, headless, sessionName, autoUnblo
     const cliPath = getCliScriptPath();
     child = spawn(process.execPath, [cliPath, ...args], {
       detached: true,
-      stdio: ['ignore', out, out],
+      stdio: ["ignore", out, out],
       env: { ...process.env, ALUVIA_API_KEY: apiKey },
     });
     child.unref();
   } catch (err: any) {
     fs.closeSync(out);
-    return output({ browserSession: session, error: `Failed to spawn browser process: ${err.message}` }, 1);
+    return output(
+      {
+        browserSession: session,
+        error: `Failed to spawn browser process: ${err.message}`,
+      },
+      1,
+    );
   }
   fs.closeSync(out);
 
@@ -128,7 +157,7 @@ export function handleOpen({ url, connectionId, headless, sessionName, autoUnblo
           output(
             {
               browserSession: session,
-              error: 'Browser process exited unexpectedly.',
+              error: "Browser process exited unexpectedly.",
               logFile,
             },
             1,
@@ -154,7 +183,9 @@ export function handleOpen({ url, connectionId, headless, sessionName, autoUnblo
           output(
             {
               browserSession: session,
-              error: alive ? 'Browser is still initializing (timeout).' : 'Browser process exited unexpectedly.',
+              error: alive
+                ? "Browser is still initializing (timeout)."
+                : "Browser process exited unexpectedly.",
               logFile,
             },
             1,
@@ -174,7 +205,15 @@ export function handleOpen({ url, connectionId, headless, sessionName, autoUnblo
  * Starts the proxy + browser, writes lock, and stays alive.
  * Logs go to the daemon log file (stdout is redirected), not to the user.
  */
-export async function handleOpenDaemon({ url, connectionId, headless, sessionName, autoUnblock, disableBlockDetection, run }: OpenOptions): Promise<void> {
+export async function handleOpenDaemon({
+  url,
+  connectionId,
+  headless,
+  sessionName,
+  autoUnblock,
+  disableBlockDetection,
+  run,
+}: OpenOptions): Promise<void> {
   const apiKey = process.env.ALUVIA_API_KEY!;
 
   const blockDetectionEnabled = !disableBlockDetection;
@@ -202,7 +241,11 @@ export async function handleOpenDaemon({ url, connectionId, headless, sessionNam
     headless: headless ?? true,
     blockDetection: blockDetectionEnabled
       ? autoUnblock
-        ? { enabled: true, autoUnblock: true, onDetection: updateLockWithDetection }
+        ? {
+            enabled: true,
+            autoUnblock: true,
+            onDetection: updateLockWithDetection,
+          }
         : { enabled: true, onDetection: updateLockWithDetection }
       : { enabled: false },
   });
@@ -210,22 +253,33 @@ export async function handleOpenDaemon({ url, connectionId, headless, sessionNam
   const connection = await client.start();
 
   // Write early lock so parent knows daemon is alive
-  writeLock({ pid: process.pid, session: sessionName, url, proxyUrl: connection.url, blockDetection: blockDetectionEnabled, autoUnblock: blockDetectionEnabled && !!autoUnblock }, sessionName);
+  writeLock(
+    {
+      pid: process.pid,
+      session: sessionName,
+      url,
+      proxyUrl: connection.url,
+      blockDetection: blockDetectionEnabled,
+      autoUnblock: blockDetectionEnabled && !!autoUnblock,
+    },
+    sessionName,
+  );
 
-  if (autoUnblock) console.log('[daemon] Auto-unblock enabled');
+  if (autoUnblock) console.log("[daemon] Auto-unblock enabled");
   console.log(`[daemon] Browser initialized — proxy: ${connection.url}`);
   if (connection.cdpUrl) console.log(`[daemon] CDP URL: ${connection.cdpUrl}`);
-  if (connectionId != null) console.log(`[daemon] Connection ID: ${connectionId}`);
+  if (connectionId != null)
+    console.log(`[daemon] Connection ID: ${connectionId}`);
   if (sessionName) console.log(`[daemon] Session: ${sessionName}`);
   console.log(`[daemon] Opening ${url}`);
 
   // Navigate to URL in the browser
   const page = await connection.browserContext.newPage();
-  await page.goto(url, { waitUntil: 'domcontentloaded' });
+  await page.goto(url, { waitUntil: "domcontentloaded" });
 
   // Gather session info
-  const pageTitle = await page.title().catch(() => '');
-  const cdpUrl = connection.cdpUrl ?? '';
+  const pageTitle = await page.title().catch(() => "");
+  const cdpUrl = connection.cdpUrl ?? "";
 
   // Get connection ID: use the one passed in, or read from ConfigManager
   const connId: number | undefined = connectionId ?? client.connectionId;
@@ -250,7 +304,7 @@ export async function handleOpenDaemon({ url, connectionId, headless, sessionNam
   );
 
   console.log(
-    `[daemon] Session ready — session: ${sessionName ?? 'default'}, url: ${url}, cdpUrl: ${cdpUrl}, connectionId: ${connId ?? 'unknown'}, pid: ${process.pid}`,
+    `[daemon] Session ready — session: ${sessionName ?? "default"}, url: ${url}, cdpUrl: ${cdpUrl}, connectionId: ${connId ?? "unknown"}, pid: ${process.pid}`,
   );
   if (pageTitle) console.log(`[daemon] Page title: ${pageTitle}`);
 
@@ -298,25 +352,25 @@ export async function handleOpenDaemon({ url, connectionId, headless, sessionNam
   const shutdown = async () => {
     if (stopping) return;
     stopping = true;
-    console.log('[daemon] Shutting down...');
+    console.log("[daemon] Shutting down...");
     try {
       await connection.close();
     } catch {
       // ignore
     }
     removeLock(sessionName);
-    console.log('[daemon] Stopped.');
+    console.log("[daemon] Stopped.");
     process.exit(0);
   };
 
-  process.on('SIGINT', shutdown);
-  process.on('SIGTERM', shutdown);
+  process.on("SIGINT", shutdown);
+  process.on("SIGTERM", shutdown);
 
   // Detect when the browser is closed by the user
   if (connection.browser) {
-    connection.browser.on('disconnected', () => {
+    connection.browser.on("disconnected", () => {
       if (!stopping) {
-        console.log('[daemon] Browser closed by user.');
+        console.log("[daemon] Browser closed by user.");
         removeLock(sessionName);
         client
           .stop()

@@ -163,10 +163,7 @@ export class BlockDetection {
   }
 
   getOnDetection():
-    | ((
-        result: BlockDetectionResult,
-        page: any,
-      ) => void | Promise<void>)
+    | ((result: BlockDetectionResult, page: any) => void | Promise<void>)
     | undefined {
     return this.config.onDetection;
   }
@@ -181,9 +178,10 @@ export class BlockDetection {
 
   // --- Scoring Engine ---
 
-  private computeScore(
-    signals: DetectionSignal[],
-  ): { score: number; blockStatus: DetectionBlockStatus } {
+  private computeScore(signals: DetectionSignal[]): {
+    score: number;
+    blockStatus: DetectionBlockStatus;
+  } {
     if (signals.length === 0) return { score: 0, blockStatus: "clear" };
     const score =
       1 - signals.reduce((product, s) => product * (1 - s.weight), 1);
@@ -227,10 +225,7 @@ export class BlockDetection {
       const headers = response.headers?.() ?? {};
 
       const cfMitigated = headers["cf-mitigated"];
-      if (
-        cfMitigated &&
-        cfMitigated.toLowerCase().includes("challenge")
-      ) {
+      if (cfMitigated && cfMitigated.toLowerCase().includes("challenge")) {
         signals.push({
           name: "waf_header_cf_mitigated",
           weight: 0.9,
@@ -389,9 +384,10 @@ export class BlockDetection {
     return null;
   }
 
-  private detectRedirectChain(
-    response: any,
-  ): { signals: DetectionSignal[]; chain: RedirectHop[] } {
+  private detectRedirectChain(response: any): {
+    signals: DetectionSignal[];
+    chain: RedirectHop[];
+  } {
     const chain: RedirectHop[] = [];
     const signals: DetectionSignal[] = [];
 
@@ -452,9 +448,7 @@ export class BlockDetection {
     return { signals, chain };
   }
 
-  private async detectMetaRefresh(
-    page: any,
-  ): Promise<DetectionSignal | null> {
+  private async detectMetaRefresh(page: any): Promise<DetectionSignal | null> {
     try {
       const refreshUrl = await page.evaluate(() => {
         const meta = document.querySelector('meta[http-equiv="refresh"]');
@@ -488,10 +482,7 @@ export class BlockDetection {
    * Fast pass - runs at domcontentloaded. Only HTTP status + response headers.
    * If score >= 0.9, caller should trigger remediation immediately.
    */
-  async analyzeFast(
-    page: any,
-    response: any,
-  ): Promise<BlockDetectionResult> {
+  async analyzeFast(page: any, response: any): Promise<BlockDetectionResult> {
     const url = page.url();
     const hostname = this.extractHostname(url);
 
@@ -564,7 +555,7 @@ export class BlockDetection {
       signals.push(...headerSignals);
     }
 
-    signals.push(...await this.runContentDetectors(page));
+    signals.push(...(await this.runContentDetectors(page)));
 
     const { signals: redirectSignals, chain } =
       this.detectRedirectChain(response);
@@ -603,12 +594,24 @@ export class BlockDetection {
       const innerTextSignals = await this.detectVisibleText(page, true);
       nonTextSignals.push(...innerTextSignals);
 
-      const result = this.makeResult(url, hostname, nonTextSignals, "full", redirectChain);
+      const result = this.makeResult(
+        url,
+        hostname,
+        nonTextSignals,
+        "full",
+        redirectChain,
+      );
       this.logResult(result);
       return result;
     }
 
-    const result = this.makeResult(url, hostname, signals, "full", redirectChain);
+    const result = this.makeResult(
+      url,
+      hostname,
+      signals,
+      "full",
+      redirectChain,
+    );
     this.logResult(result);
     return result;
   }
@@ -660,5 +663,4 @@ export class BlockDetection {
       return url;
     }
   }
-
 }

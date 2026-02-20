@@ -638,7 +638,10 @@ describe("BlockDetection Integration", () => {
       assert.strictEqual(lock!.lastDetection!.hostname, "example.com");
       assert.strictEqual(lock!.lastDetection!.blockStatus, "blocked");
       assert.strictEqual(lock!.lastDetection!.score, 0.85);
-      assert.deepStrictEqual(lock!.lastDetection!.signals, ["http_status_403", "waf_header"]);
+      assert.deepStrictEqual(lock!.lastDetection!.signals, [
+        "http_status_403",
+        "waf_header",
+      ]);
       assert.strictEqual(typeof lock!.lastDetection!.timestamp, "number");
     } finally {
       removeLock(testSession);

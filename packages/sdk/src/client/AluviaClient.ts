@@ -21,10 +21,7 @@ import {
 } from "./adapters.js";
 import { Logger } from "./logger.js";
 import { AluviaApi } from "../api/AluviaApi.js";
-import {
-  BlockDetection,
-  type BlockDetectionResult,
-} from "./BlockDetection.js";
+import { BlockDetection, type BlockDetectionResult } from "./BlockDetection.js";
 import * as net from "node:net";
 
 /**
@@ -68,9 +65,10 @@ export class AluviaClient {
     const strict = options.strict ?? true;
     this.options = { ...options, apiKey, strict };
 
-    const connectionId = options.connectionId != null ? Number(options.connectionId) : undefined;
+    const connectionId =
+      options.connectionId != null ? Number(options.connectionId) : undefined;
     if (connectionId !== undefined && !Number.isFinite(connectionId)) {
-      throw new Error('connectionId must be a finite number');
+      throw new Error("connectionId must be a finite number");
     }
 
     const apiBaseUrl = options.apiBaseUrl ?? "https://api.aluvia.io/v1";
@@ -108,10 +106,7 @@ export class AluviaClient {
     if (options.blockDetection !== undefined || options.startPlaywright) {
       this.logger.debug("Initializing block detection");
       const detectionConfig = options.blockDetection ?? { enabled: true };
-      this.blockDetection = new BlockDetection(
-        detectionConfig,
-        this.logger,
-      );
+      this.blockDetection = new BlockDetection(detectionConfig, this.logger);
     }
   }
 
@@ -293,7 +288,9 @@ export class AluviaClient {
     // Serialize the critical section: persistent-block state, rule updates, reload.
     // This prevents concurrent handlers from reading stale retriedUrls/persistentHostnames.
     let release!: () => void;
-    const gate = new Promise<void>((resolve) => { release = resolve; });
+    const gate = new Promise<void>((resolve) => {
+      release = resolve;
+    });
     const acquired = this._detectionMutex;
     this._detectionMutex = this._detectionMutex.then(() => gate);
 
@@ -318,9 +315,7 @@ export class AluviaClient {
     // Check persistent block escalation
     if (this.blockDetection!.persistentHostnames.has(hostname)) {
       result.persistentBlock = true;
-      this.logger.warn(
-        `Persistent block on ${hostname}, skipping reload`,
-      );
+      this.logger.warn(`Persistent block on ${hostname}, skipping reload`);
       return;
     }
 
@@ -398,117 +393,120 @@ export class AluviaClient {
       this.configManager.startPolling();
 
       try {
-      const { host, port, url } = await this.proxyServer.start(
-        this.options.localPort,
-      );
+        const { host, port, url } = await this.proxyServer.start(
+          this.options.localPort,
+        );
 
-      let nodeAgents: ReturnType<typeof createNodeProxyAgents> | null = null;
-      let undiciDispatcher: ReturnType<typeof createUndiciDispatcher> | null =
-        null;
-      let undiciFetchFn: ReturnType<typeof createUndiciFetch> | null = null;
+        let nodeAgents: ReturnType<typeof createNodeProxyAgents> | null = null;
+        let undiciDispatcher: ReturnType<typeof createUndiciDispatcher> | null =
+          null;
+        let undiciFetchFn: ReturnType<typeof createUndiciFetch> | null = null;
 
-      const getNodeAgents = () => {
-        if (!nodeAgents) {
-          nodeAgents = createNodeProxyAgents(url);
-        }
-        return nodeAgents;
-      };
-
-      const getUndiciDispatcher = () => {
-        if (!undiciDispatcher) {
-          undiciDispatcher = createUndiciDispatcher(url);
-        }
-        return undiciDispatcher;
-      };
-
-      const closeUndiciDispatcher = async () => {
-        const d: any = undiciDispatcher as any;
-        if (!d) return;
-        try {
-          if (typeof d.close === "function") {
-            await d.close();
-          } else if (typeof d.destroy === "function") {
-            d.destroy();
+        const getNodeAgents = () => {
+          if (!nodeAgents) {
+            nodeAgents = createNodeProxyAgents(url);
           }
-        } finally {
-          undiciDispatcher = null;
-        }
-      };
+          return nodeAgents;
+        };
 
-      const stop = async () => {
-        await this.proxyServer.stop();
-        this.configManager.stopPolling();
-        nodeAgents?.http?.destroy?.();
-        nodeAgents?.https?.destroy?.();
-        nodeAgents = null;
-        await closeUndiciDispatcher();
-        undiciFetchFn = null;
-        this.connection = null;
-        this.started = false;
-      };
+        const getUndiciDispatcher = () => {
+          if (!undiciDispatcher) {
+            undiciDispatcher = createUndiciDispatcher(url);
+          }
+          return undiciDispatcher;
+        };
 
-      // Launch browser if Playwright was requested
-      let launchedBrowser: any = undefined;
-      let launchedBrowserContext: any = undefined;
-      let browserCdpUrl: string | undefined;
-      if (browserInstance) {
-        const proxySettings = toPlaywrightProxySettings(url);
-        for (let attempt = 0; attempt < 3; attempt++) {
-          const cdpPort = await AluviaClient.findFreePort();
+        const closeUndiciDispatcher = async () => {
+          const d: any = undiciDispatcher as any;
+          if (!d) return;
           try {
-            launchedBrowser = await browserInstance.launch({
-              proxy: proxySettings,
-              headless: this.options.headless !== false,
-              args: [`--remote-debugging-port=${cdpPort}`],
-            });
-            browserCdpUrl = `http://127.0.0.1:${cdpPort}`;
-            break;
-          } catch (err: any) {
-            if (attempt === 2 || !err.message?.includes('EADDRINUSE')) throw err;
-            this.logger.debug(`Port ${cdpPort} taken, retrying browser launch`);
+            if (typeof d.close === "function") {
+              await d.close();
+            } else if (typeof d.destroy === "function") {
+              d.destroy();
+            }
+          } finally {
+            undiciDispatcher = null;
           }
+        };
+
+        const stop = async () => {
+          await this.proxyServer.stop();
+          this.configManager.stopPolling();
+          nodeAgents?.http?.destroy?.();
+          nodeAgents?.https?.destroy?.();
+          nodeAgents = null;
+          await closeUndiciDispatcher();
+          undiciFetchFn = null;
+          this.connection = null;
+          this.started = false;
+        };
+
+        // Launch browser if Playwright was requested
+        let launchedBrowser: any = undefined;
+        let launchedBrowserContext: any = undefined;
+        let browserCdpUrl: string | undefined;
+        if (browserInstance) {
+          const proxySettings = toPlaywrightProxySettings(url);
+          for (let attempt = 0; attempt < 3; attempt++) {
+            const cdpPort = await AluviaClient.findFreePort();
+            try {
+              launchedBrowser = await browserInstance.launch({
+                proxy: proxySettings,
+                headless: this.options.headless !== false,
+                args: [`--remote-debugging-port=${cdpPort}`],
+              });
+              browserCdpUrl = `http://127.0.0.1:${cdpPort}`;
+              break;
+            } catch (err: any) {
+              if (attempt === 2 || !err.message?.includes("EADDRINUSE"))
+                throw err;
+              this.logger.debug(
+                `Port ${cdpPort} taken, retrying browser launch`,
+              );
+            }
+          }
+
+          launchedBrowserContext = await launchedBrowser.newContext();
+
+          // Attach block detection
+          this.attachBlockDetectionListener(launchedBrowserContext);
         }
 
-        launchedBrowserContext = await launchedBrowser.newContext();
+        const stopWithBrowser = async () => {
+          if (launchedBrowser) await launchedBrowser.close();
+          await stop();
+        };
 
-        // Attach block detection
-        this.attachBlockDetectionListener(launchedBrowserContext);
-      }
+        // Build connection object
+        const connection: AluviaClientConnection = {
+          host,
+          port,
+          url,
+          asPlaywright: () => toPlaywrightProxySettings(url),
+          asPuppeteer: () => toPuppeteerArgs(url),
+          asSelenium: () => toSeleniumArgs(url),
+          asNodeAgents: () => getNodeAgents(),
+          asAxiosConfig: () => toAxiosConfig(getNodeAgents()),
+          asGotOptions: () => toGotOptions(getNodeAgents()),
+          asUndiciDispatcher: () => getUndiciDispatcher(),
+          asUndiciFetch: () => {
+            if (!undiciFetchFn) {
+              undiciFetchFn = createUndiciFetch(getUndiciDispatcher());
+            }
+            return undiciFetchFn;
+          },
+          browser: launchedBrowser,
+          browserContext: launchedBrowserContext,
+          cdpUrl: browserCdpUrl,
+          stop: stopWithBrowser,
+          close: stopWithBrowser,
+        };
 
-      const stopWithBrowser = async () => {
-        if (launchedBrowser) await launchedBrowser.close();
-        await stop();
-      };
+        this.connection = connection;
+        this.started = true;
 
-      // Build connection object
-      const connection: AluviaClientConnection = {
-        host,
-        port,
-        url,
-        asPlaywright: () => toPlaywrightProxySettings(url),
-        asPuppeteer: () => toPuppeteerArgs(url),
-        asSelenium: () => toSeleniumArgs(url),
-        asNodeAgents: () => getNodeAgents(),
-        asAxiosConfig: () => toAxiosConfig(getNodeAgents()),
-        asGotOptions: () => toGotOptions(getNodeAgents()),
-        asUndiciDispatcher: () => getUndiciDispatcher(),
-        asUndiciFetch: () => {
-          if (!undiciFetchFn) {
-            undiciFetchFn = createUndiciFetch(getUndiciDispatcher());
-          }
-          return undiciFetchFn;
-        },
-        browser: launchedBrowser,
-        browserContext: launchedBrowserContext,
-        cdpUrl: browserCdpUrl,
-        stop: stopWithBrowser,
-        close: stopWithBrowser,
-      };
-
-      this.connection = connection;
-      this.started = true;
-
-      return connection;
+        return connection;
       } catch (err) {
         this.configManager.stopPolling();
         throw err;
@@ -646,12 +644,12 @@ export class AluviaClient {
   private static findFreePort(): Promise<number> {
     return new Promise((resolve, reject) => {
       const server = net.createServer();
-      server.listen(0, '127.0.0.1', () => {
+      server.listen(0, "127.0.0.1", () => {
         const addr = server.address();
-        const port = typeof addr === 'object' && addr ? addr.port : 0;
+        const port = typeof addr === "object" && addr ? addr.port : 0;
         server.close(() => resolve(port));
       });
-      server.on('error', reject);
+      server.on("error", reject);
     });
   }
 }

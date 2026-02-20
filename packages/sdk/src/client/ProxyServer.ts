@@ -1,12 +1,12 @@
 // ProxyServer - Local HTTP proxy using proxy-chain
 
-import { Server as ProxyChainServer } from 'proxy-chain';
-import type { AddressInfo } from 'net';
-import type { ConfigManager } from './ConfigManager.js';
-import type { LogLevel } from './types.js';
-import { Logger } from './logger.js';
-import { ProxyStartError } from '../errors.js';
-import { shouldProxy, shouldProxyNormalized } from './rules.js';
+import { Server as ProxyChainServer } from "proxy-chain";
+import type { AddressInfo } from "net";
+import type { ConfigManager } from "./ConfigManager.js";
+import type { LogLevel } from "./types.js";
+import { Logger } from "./logger.js";
+import { ProxyStartError } from "../errors.js";
+import { shouldProxy, shouldProxyNormalized } from "./rules.js";
 
 /**
  * Result of starting the proxy server.
@@ -25,17 +25,14 @@ export class ProxyServer {
   private server: ProxyChainServer | null = null;
   private readonly configManager: ConfigManager;
   private readonly logger: Logger;
-  private readonly bindHost = '127.0.0.1';
+  private readonly bindHost = "127.0.0.1";
   private static readonly NO_CONFIG_WARN_INTERVAL_MS = 30_000;
   private lastNoConfigWarnAt = 0;
   private suppressedNoConfigWarnCount = 0;
 
-  constructor(
-    configManager: ConfigManager,
-    options?: { logLevel?: LogLevel }
-  ) {
+  constructor(configManager: ConfigManager, options?: { logLevel?: LogLevel }) {
     this.configManager = configManager;
-    this.logger = new Logger(options?.logLevel ?? 'info');
+    this.logger = new Logger(options?.logLevel ?? "info");
   }
 
   /**
@@ -71,7 +68,7 @@ export class ProxyServer {
       this.logger.info(`Proxy server listening on ${info.url}`);
       return info;
     } catch (error) {
-      const message = error instanceof Error ? error.message : 'Unknown error';
+      const message = error instanceof Error ? error.message : "Unknown error";
       throw new ProxyStartError(`Failed to start proxy server: ${message}`);
     }
   }
@@ -86,7 +83,7 @@ export class ProxyServer {
 
     try {
       await this.server.close(true);
-      this.logger.info('Proxy server stopped');
+      this.logger.info("Proxy server stopped");
     } finally {
       this.server = null;
     }
@@ -97,7 +94,10 @@ export class ProxyServer {
    * Decides whether to route through Aluvia or direct.
    */
   private handleRequest(params: {
-    request: { url?: string; headers?: Record<string, string | string[] | undefined> };
+    request: {
+      url?: string;
+      headers?: Record<string, string | string[] | undefined>;
+    };
     hostname?: string;
     port?: number;
     isHttp?: boolean;
@@ -116,11 +116,14 @@ export class ProxyServer {
         this.suppressedNoConfigWarnCount = 0;
         this.lastNoConfigWarnAt = now;
 
-        const suffix = suppressed > 0 ? ` (suppressed ${suppressed} similar warnings)` : '';
-        this.logger.warn(`No config available, bypassing proxy (direct)${suffix}`);
+        const suffix =
+          suppressed > 0 ? ` (suppressed ${suppressed} similar warnings)` : "";
+        this.logger.warn(
+          `No config available, bypassing proxy (direct)${suffix}`,
+        );
       } else {
         this.suppressedNoConfigWarnCount += 1;
-        this.logger.debug('No config available, bypassing proxy (direct)');
+        this.logger.debug("No config available, bypassing proxy (direct)");
       }
       return undefined;
     }
@@ -129,7 +132,7 @@ export class ProxyServer {
     const hostname = this.extractHostname(params);
 
     if (!hostname) {
-      this.logger.debug('Could not extract hostname, going direct');
+      this.logger.debug("Could not extract hostname, going direct");
       return undefined;
     }
 
@@ -156,19 +159,22 @@ export class ProxyServer {
    * Extract hostname from request parameters.
    */
   private extractHostname(params: {
-    request: { url?: string; headers?: Record<string, string | string[] | undefined> };
+    request: {
+      url?: string;
+      headers?: Record<string, string | string[] | undefined>;
+    };
     hostname?: string;
     port?: number;
     isHttp?: boolean;
   }): string | null {
     // For CONNECT requests (HTTPS), hostname is provided directly
-    if (typeof params.hostname === 'string') {
+    if (typeof params.hostname === "string") {
       const trimmed = params.hostname.trim();
       if (trimmed.length > 0) return trimmed;
     }
 
     const urlLikeRaw = params.request?.url;
-    if (typeof urlLikeRaw === 'string') {
+    if (typeof urlLikeRaw === "string") {
       const urlLike = urlLikeRaw.trim();
       if (urlLike.length > 0) {
         const fromUrlLike = (() => {
@@ -178,7 +184,7 @@ export class ProxyServer {
             // continue
           }
 
-          if (urlLike.startsWith('//')) {
+          if (urlLike.startsWith("//")) {
             try {
               return new URL(`http:${urlLike}`).hostname;
             } catch {
@@ -186,7 +192,7 @@ export class ProxyServer {
             }
           }
 
-          if (urlLike.startsWith('/')) {
+          if (urlLike.startsWith("/")) {
             return null;
           }
 
@@ -205,27 +211,26 @@ export class ProxyServer {
     const hostHeader = (() => {
       const headers = params.request?.headers;
       if (!headers) return null;
-      const host = headers['host'];
-      if (Array.isArray(host)) return typeof host[0] === 'string' ? host[0] : null;
-      return typeof host === 'string' ? host : null;
+      const host = headers["host"];
+      if (Array.isArray(host))
+        return typeof host[0] === "string" ? host[0] : null;
+      return typeof host === "string" ? host : null;
     })();
 
     if (hostHeader) {
       const value = hostHeader.trim();
       if (!value) return null;
 
-      if (value.startsWith('[')) {
-        const end = value.indexOf(']');
+      if (value.startsWith("[")) {
+        const end = value.indexOf("]");
         if (end > 1) return value.slice(1, end);
         return null;
       }
 
-      const hostOnly = value.split(':')[0]?.trim();
+      const hostOnly = value.split(":")[0]?.trim();
       return hostOnly && hostOnly.length > 0 ? hostOnly : null;
     }
 
     return null;
   }
 }
-
-

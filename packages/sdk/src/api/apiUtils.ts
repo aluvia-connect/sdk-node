@@ -1,8 +1,8 @@
-import { ApiError, InvalidApiKeyError } from '../errors.js';
-import type { ErrorEnvelope, SuccessEnvelope } from './types.js';
+import { ApiError, InvalidApiKeyError } from "../errors.js";
+import type { ErrorEnvelope, SuccessEnvelope } from "./types.js";
 
 export type ApiRequestArgs = {
-  method: 'GET' | 'POST' | 'PATCH' | 'DELETE';
+  method: "GET" | "POST" | "PATCH" | "DELETE";
   path: string;
   query?: Record<string, string | number | boolean | null | undefined>;
   body?: unknown;
@@ -21,25 +21,28 @@ export type ApiContext = {
 };
 
 export function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === 'object' && value !== null && !Array.isArray(value);
+  return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
 export function asErrorEnvelope(value: unknown): ErrorEnvelope | null {
   if (!isRecord(value)) return null;
-  if (value['success'] !== false) return null;
-  const error = value['error'];
+  if (value["success"] !== false) return null;
+  const error = value["error"];
   if (!isRecord(error)) return null;
-  const code = error['code'];
-  const message = error['message'];
-  if (typeof code !== 'string' || typeof message !== 'string') return null;
-  return { success: false, error: { code, message, details: error['details'] } };
+  const code = error["code"];
+  const message = error["message"];
+  if (typeof code !== "string" || typeof message !== "string") return null;
+  return {
+    success: false,
+    error: { code, message, details: error["details"] },
+  };
 }
 
 export function formatErrorDetails(details: unknown): string {
-  if (details == null) return '';
+  if (details == null) return "";
   try {
     const json = JSON.stringify(details);
-    if (!json) return '';
+    if (!json) return "";
     return json.length > 500 ? `${json.slice(0, 500)}…` : json;
   } catch {
     return String(details);
@@ -58,7 +61,7 @@ export function throwForNon2xx(result: ApiRequestResult): never {
   const maybeError = asErrorEnvelope(result.body);
   if (maybeError) {
     const details = formatErrorDetails(maybeError.error.details);
-    const detailsSuffix = details ? ` details=${details}` : '';
+    const detailsSuffix = details ? ` details=${details}` : "";
     throw new ApiError(
       `API request failed (HTTP ${status}) code=${maybeError.error.code} message=${maybeError.error.message}${detailsSuffix}`,
       status,
@@ -68,7 +71,7 @@ export function throwForNon2xx(result: ApiRequestResult): never {
   throw new ApiError(`API request failed (HTTP ${status})`, status);
 }
 
-export type AluviaApiRequestArgs = Omit<ApiRequestArgs, 'etag'>;
+export type AluviaApiRequestArgs = Omit<ApiRequestArgs, "etag">;
 
 export function throwIfAuthError(status: number): void {
   if (status === 401 || status === 403) {
@@ -79,11 +82,11 @@ export function throwIfAuthError(status: number): void {
 export function unwrapSuccess<T>(value: unknown): T | null {
   if (!isRecord(value)) return null;
 
-  if (value['success'] === true && 'data' in value) {
+  if (value["success"] === true && "data" in value) {
     return (value as SuccessEnvelope<T>).data;
   }
 
-  if ('data' in value) {
+  if ("data" in value) {
     return (value as { data: T }).data;
   }
 
@@ -102,7 +105,10 @@ export async function requestAndUnwrap<T>(
 
   const data = unwrapSuccess<T>(result.body);
   if (data == null) {
-    throw new ApiError('API response missing expected success envelope data', result.status);
+    throw new ApiError(
+      "API response missing expected success envelope data",
+      result.status,
+    );
   }
 
   return { data, etag: result.etag };

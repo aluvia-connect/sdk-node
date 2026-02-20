@@ -31,11 +31,7 @@ export {
   toLockData,
 } from "./session/lock.js";
 
-export type {
-  LockData,
-  LockDetection,
-  SessionInfo,
-} from "./session/lock.js";
+export type { LockData, LockDetection, SessionInfo } from "./session/lock.js";
 
 // Public types
 export type {

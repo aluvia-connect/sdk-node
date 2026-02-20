@@ -1,5 +1,10 @@
-import { readLock, listSessions, isProcessAlive, removeLock } from './session/lock.js';
-import { ConnectError } from './errors.js';
+import {
+  readLock,
+  listSessions,
+  isProcessAlive,
+  removeLock,
+} from "./session/lock.js";
+import { ConnectError } from "./errors.js";
 
 export type ConnectResult = {
   browser: any;
@@ -23,9 +28,11 @@ export async function connect(sessionName?: string): Promise<ConnectResult> {
   // 1. Import Playwright
   let pw: any;
   try {
-    pw = await import('playwright');
+    pw = await import("playwright");
   } catch {
-    throw new ConnectError('Playwright is required for connect(). Install it: npm install playwright');
+    throw new ConnectError(
+      "Playwright is required for connect(). Install it: npm install playwright",
+    );
   }
 
   // 2. Resolve session
@@ -36,11 +43,15 @@ export async function connect(sessionName?: string): Promise<ConnectResult> {
   } else {
     const sessions = listSessions();
     if (sessions.length === 0) {
-      throw new ConnectError('No running Aluvia sessions found. Start one with: npx aluvia-sdk session start <url>');
+      throw new ConnectError(
+        "No running Aluvia sessions found. Start one with: npx aluvia-sdk session start <url>",
+      );
     }
     if (sessions.length > 1) {
-      const names = sessions.map((s) => s.session).join(', ');
-      throw new ConnectError(`Multiple Aluvia sessions running (${names}). Specify which one: connect('${sessions[0].session}')`);
+      const names = sessions.map((s) => s.session).join(", ");
+      throw new ConnectError(
+        `Multiple Aluvia sessions running (${names}). Specify which one: connect('${sessions[0].session}')`,
+      );
     }
     resolvedName = sessions[0].session;
   }
@@ -48,16 +59,22 @@ export async function connect(sessionName?: string): Promise<ConnectResult> {
   // 3. Validate session state
   const lock = readLock(resolvedName);
   if (!lock) {
-    throw new ConnectError(`No Aluvia session found named '${resolvedName}'. Run 'npx aluvia-sdk session list' to list sessions.`);
+    throw new ConnectError(
+      `No Aluvia session found named '${resolvedName}'. Run 'npx aluvia-sdk session list' to list sessions.`,
+    );
   }
 
   if (!isProcessAlive(lock.pid)) {
     removeLock(resolvedName);
-    throw new ConnectError(`Session '${resolvedName}' is no longer running. Stale lock file removed.`);
+    throw new ConnectError(
+      `Session '${resolvedName}' is no longer running. Stale lock file removed.`,
+    );
   }
 
   if (!lock.ready) {
-    throw new ConnectError(`Session '${resolvedName}' is still starting up. Try again shortly.`);
+    throw new ConnectError(
+      `Session '${resolvedName}' is still starting up. Try again shortly.`,
+    );
   }
 
   if (!lock.cdpUrl) {
@@ -69,15 +86,17 @@ export async function connect(sessionName?: string): Promise<ConnectResult> {
   try {
     browser = await pw.chromium.connectOverCDP(lock.cdpUrl);
   } catch (err: any) {
-    throw new ConnectError(`Failed to connect to session '${resolvedName}' at ${lock.cdpUrl}: ${err.message}`);
+    throw new ConnectError(
+      `Failed to connect to session '${resolvedName}' at ${lock.cdpUrl}: ${err.message}`,
+    );
   }
 
   // 5. Get context and page
   let context: any;
   let page: any;
   try {
-    context = browser.contexts()[0] ?? await browser.newContext();
-    page = context.pages()[0] ?? await context.newPage();
+    context = browser.contexts()[0] ?? (await browser.newContext());
+    page = context.pages()[0] ?? (await context.newPage());
   } catch (err: any) {
     await browser.close().catch(() => {});
     throw new ConnectError(`Connected but failed to get page: ${err.message}`);

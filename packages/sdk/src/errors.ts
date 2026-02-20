@@ -4,9 +4,9 @@
  * Thrown when the apiKey is not provided to AluviaClient.
  */
 export class MissingApiKeyError extends Error {
-  constructor(message = 'Aluvia connection apiKey is required') {
+  constructor(message = "Aluvia connection apiKey is required") {
     super(message);
-    this.name = 'MissingApiKeyError';
+    this.name = "MissingApiKeyError";
     Object.setPrototypeOf(this, MissingApiKeyError.prototype);
   }
 }
@@ -15,9 +15,9 @@ export class MissingApiKeyError extends Error {
  * Thrown when the API returns 401 or 403, indicating the apiKey is invalid.
  */
 export class InvalidApiKeyError extends Error {
-  constructor(message = 'Invalid or expired Aluvia connection apiKey') {
+  constructor(message = "Invalid or expired Aluvia connection apiKey") {
     super(message);
-    this.name = 'InvalidApiKeyError';
+    this.name = "InvalidApiKeyError";
     Object.setPrototypeOf(this, InvalidApiKeyError.prototype);
   }
 }
@@ -30,7 +30,7 @@ export class ApiError extends Error {
 
   constructor(message: string, statusCode?: number) {
     super(message);
-    this.name = 'ApiError';
+    this.name = "ApiError";
     this.statusCode = statusCode;
     Object.setPrototypeOf(this, ApiError.prototype);
   }
@@ -40,9 +40,9 @@ export class ApiError extends Error {
  * Thrown when the local proxy server fails to start.
  */
 export class ProxyStartError extends Error {
-  constructor(message = 'Failed to start local proxy server') {
+  constructor(message = "Failed to start local proxy server") {
     super(message);
-    this.name = 'ProxyStartError';
+    this.name = "ProxyStartError";
     Object.setPrototypeOf(this, ProxyStartError.prototype);
   }
 }
@@ -53,8 +53,7 @@ export class ProxyStartError extends Error {
 export class ConnectError extends Error {
   constructor(message: string) {
     super(message);
-    this.name = 'ConnectError';
+    this.name = "ConnectError";
     Object.setPrototypeOf(this, ConnectError.prototype);
   }
 }
-

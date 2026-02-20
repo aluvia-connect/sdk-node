@@ -36,5 +36,3 @@ export type AccountConnectionDeleteResult = {
 };
 
 export type Geo = Record<string, unknown>;
-
-

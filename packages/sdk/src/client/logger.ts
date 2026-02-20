@@ -1,6 +1,6 @@
 // Logger utility for Aluvia Client
 
-import type { LogLevel } from './types.js';
+import type { LogLevel } from "./types.js";
 
 /**
  * Simple logger that respects log levels.
@@ -22,8 +22,8 @@ export class Logger {
    * Logs when level is 'info' or 'debug'.
    */
   info(...args: unknown[]): void {
-    if (this.level === 'info' || this.level === 'debug') {
-      console.log('[aluvia][info]', ...args);
+    if (this.level === "info" || this.level === "debug") {
+      console.log("[aluvia][info]", ...args);
     }
   }
 
@@ -32,14 +32,14 @@ export class Logger {
    * Logs only when level is 'debug'.
    */
   debug(...args: unknown[]): void {
-    if (this.level === 'debug') {
-      console.debug('[aluvia][debug]', ...args);
+    if (this.level === "debug") {
+      console.debug("[aluvia][debug]", ...args);
     }
   }
 
   /** Check if debug logging is enabled. */
   get isDebug(): boolean {
-    return this.level === 'debug';
+    return this.level === "debug";
   }
 
   /**
@@ -47,8 +47,8 @@ export class Logger {
    * Logs when level is not 'silent'.
    */
   warn(...args: unknown[]): void {
-    if (this.level !== 'silent') {
-      console.warn('[aluvia][warn]', ...args);
+    if (this.level !== "silent") {
+      console.warn("[aluvia][warn]", ...args);
     }
   }
 
@@ -57,8 +57,6 @@ export class Logger {
    * Always logs regardless of level.
    */
   error(...args: unknown[]): void {
-    console.error('[aluvia][error]', ...args);
+    console.error("[aluvia][error]", ...args);
   }
 }
-
-

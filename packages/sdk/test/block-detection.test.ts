@@ -366,8 +366,9 @@ describe("BlockDetection", () => {
             if (fnStr.includes("outerHTML"))
               return { htmlLength: 500, textLength: 200 };
             // Long enough to avoid strong keyword detection (>= 500 chars)
-            return "You are blocked from accessing this resource. " +
-              "a".repeat(500);
+            return (
+              "You are blocked from accessing this resource. " + "a".repeat(500)
+            );
           },
         };
 
@@ -381,7 +382,8 @@ describe("BlockDetection", () => {
     });
 
     describe("Word Boundary Matching", () => {
-      const escapeRegex = (str: string) => str.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+      const escapeRegex = (str: string) =>
+        str.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 
       test("'blocked' matches 'you are blocked'", () => {
         const regex = new RegExp("\\b" + escapeRegex("blocked") + "\\b", "i");
@@ -399,10 +401,7 @@ describe("BlockDetection", () => {
       });
 
       test("'forbidden' does not match 'forbiddenly' or 'unforbidden'", () => {
-        const regex = new RegExp(
-          "\\b" + escapeRegex("forbidden") + "\\b",
-          "i",
-        );
+        const regex = new RegExp("\\b" + escapeRegex("forbidden") + "\\b", "i");
         assert.strictEqual(regex.test("forbiddenly"), false);
         assert.strictEqual(regex.test("unforbidden"), false);
       });
@@ -588,12 +587,8 @@ describe("BlockDetection", () => {
 
       assert.strictEqual(fullResult.pass, "full");
       // Should contain both fast and full signals
-      const fastSignals = fullResult.signals.filter(
-        (s) => s.source === "fast",
-      );
-      const fullSignals = fullResult.signals.filter(
-        (s) => s.source === "full",
-      );
+      const fastSignals = fullResult.signals.filter((s) => s.source === "fast");
+      const fullSignals = fullResult.signals.filter((s) => s.source === "full");
       assert.ok(fastSignals.length > 0, "Should have fast-pass signals");
       assert.ok(fullSignals.length > 0, "Should have full-pass signals");
     });
@@ -614,7 +609,10 @@ describe("BlockDetection", () => {
       const statusSignal = result.signals.find((s) =>
         s.name.startsWith("http_status_"),
       );
-      assert.ok(statusSignal, "Should detect HTTP status even without fast pass");
+      assert.ok(
+        statusSignal,
+        "Should detect HTTP status even without fast pass",
+      );
     });
 
     test("analyzeSpa runs content-based detectors only", async () => {
@@ -651,14 +649,20 @@ describe("BlockDetection", () => {
       const detection = new BlockDetection({}, logger);
       assert.strictEqual(detection.retriedUrls.size, 0);
       detection.retriedUrls.add("https://example.com/page1");
-      assert.strictEqual(detection.retriedUrls.has("https://example.com/page1"), true);
+      assert.strictEqual(
+        detection.retriedUrls.has("https://example.com/page1"),
+        true,
+      );
     });
 
     test("persistentHostnames tracks hostnames", () => {
       const detection = new BlockDetection({}, logger);
       assert.strictEqual(detection.persistentHostnames.size, 0);
       detection.persistentHostnames.add("example.com");
-      assert.strictEqual(detection.persistentHostnames.has("example.com"), true);
+      assert.strictEqual(
+        detection.persistentHostnames.has("example.com"),
+        true,
+      );
     });
 
     test("hostname already in persistentHostnames causes immediate skip", () => {
@@ -746,10 +750,7 @@ describe("BlockDetection", () => {
       ];
 
       for (const tc of testCases) {
-        const result = await detection.analyzeFast(
-          { url: () => tc.url },
-          null,
-        );
+        const result = await detection.analyzeFast({ url: () => tc.url }, null);
         assert.strictEqual(
           result.hostname,
           tc.expected,

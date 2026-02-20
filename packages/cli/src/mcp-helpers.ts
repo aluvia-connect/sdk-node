@@ -39,7 +39,10 @@ export async function captureOutput(
     try {
       await fn();
       // Handler completed without calling output() — shouldn't happen for CLI handlers
-      return { data: { error: "Handler did not produce output" }, isError: true };
+      return {
+        data: { error: "Handler did not produce output" },
+        isError: true,
+      };
     } catch (err) {
       if (err instanceof MCPOutputCapture) {
         return {

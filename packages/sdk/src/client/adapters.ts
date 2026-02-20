@@ -1,9 +1,9 @@
-import { HttpProxyAgent } from 'http-proxy-agent';
-import { HttpsProxyAgent } from 'https-proxy-agent';
-import { ProxyAgent as UndiciProxyAgent, fetch as undiciFetch } from 'undici';
-import type { Dispatcher } from 'undici';
-import type { Agent as NodeAgent } from 'node:http';
-import type { PlaywrightProxySettings } from './types.js';
+import { HttpProxyAgent } from "http-proxy-agent";
+import { HttpsProxyAgent } from "https-proxy-agent";
+import { ProxyAgent as UndiciProxyAgent, fetch as undiciFetch } from "undici";
+import type { Dispatcher } from "undici";
+import type { Agent as NodeAgent } from "node:http";
+import type { PlaywrightProxySettings } from "./types.js";
 
 export type NodeProxyAgents = {
   http: NodeAgent;
@@ -23,7 +23,9 @@ export type GotProxyOptions = {
   };
 };
 
-export function toPlaywrightProxySettings(serverUrl: string): PlaywrightProxySettings {
+export function toPlaywrightProxySettings(
+  serverUrl: string,
+): PlaywrightProxySettings {
   return { server: serverUrl };
 }
 
@@ -66,5 +68,3 @@ export function createUndiciFetch(dispatcher: Dispatcher): typeof fetch {
     return undiciFetch(input, nextInit);
   }) as any;
 }
-
-

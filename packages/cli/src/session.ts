@@ -1,10 +1,14 @@
-import crypto from 'node:crypto';
-import { handleOpen } from './open.js';
-import type { OpenOptions } from './open.js';
-import { handleClose } from './close.js';
-import { listSessions } from '@aluvia/sdk';
-import { requireApi, resolveSession, requireConnectionId } from './api-helpers.js';
-import { output } from './cli.js';
+import crypto from "node:crypto";
+import { handleOpen } from "./open.js";
+import type { OpenOptions } from "./open.js";
+import { handleClose } from "./close.js";
+import { listSessions } from "@aluvia/sdk";
+import {
+  requireApi,
+  resolveSession,
+  requireConnectionId,
+} from "./api-helpers.js";
+import { output } from "./cli.js";
 
 export type ParsedSessionArgs = {
   url?: string;
@@ -26,57 +30,78 @@ export function parseSessionArgs(args: string[]): ParsedSessionArgs {
   let run: string | undefined;
 
   for (let i = 0; i < args.length; i++) {
-    if (args[i] === '--connection-id' && args[i + 1]) {
+    if (args[i] === "--connection-id" && args[i + 1]) {
       const parsed = Number(args[i + 1]);
       if (!Number.isInteger(parsed) || parsed < 1) {
-        output({ error: `Invalid --connection-id: '${args[i + 1]}' must be a positive integer.` }, 1);
+        output(
+          {
+            error: `Invalid --connection-id: '${args[i + 1]}' must be a positive integer.`,
+          },
+          1,
+        );
       }
       connectionId = parsed;
       i++;
-    } else if (args[i] === '--browser-session' && args[i + 1]) {
+    } else if (args[i] === "--browser-session" && args[i + 1]) {
       sessionName = args[i + 1];
       i++;
-    } else if (args[i] === '--run' && args[i + 1]) {
+    } else if (args[i] === "--run" && args[i + 1]) {
       run = args[i + 1];
       i++;
-    } else if (args[i] === '--headful') {
+    } else if (args[i] === "--headful") {
       headed = true;
-    } else if (args[i] === '--auto-unblock') {
+    } else if (args[i] === "--auto-unblock") {
       autoUnblock = true;
-    } else if (args[i] === '--disable-block-detection') {
+    } else if (args[i] === "--disable-block-detection") {
       disableBlockDetection = true;
-    } else if (!url && !args[i].startsWith('--')) {
+    } else if (!url && !args[i].startsWith("--")) {
       url = args[i];
     }
   }
 
-  return { url, connectionId, headed, sessionName, autoUnblock, disableBlockDetection, run };
+  return {
+    url,
+    connectionId,
+    headed,
+    sessionName,
+    autoUnblock,
+    disableBlockDetection,
+    run,
+  };
 }
 
 export async function handleSession(args: string[]): Promise<void> {
   const subcommand = args[0];
 
   if (!subcommand) {
-    return output({ error: 'Missing session subcommand. Run "aluvia help" for usage.' }, 1);
+    return output(
+      { error: 'Missing session subcommand. Run "aluvia help" for usage.' },
+      1,
+    );
   }
 
   switch (subcommand) {
-    case 'start':
+    case "start":
       return handleSessionStart(args.slice(1));
-    case 'close':
+    case "close":
       return handleSessionClose(args.slice(1));
-    case 'list':
+    case "list":
       return handleSessionList();
-    case 'get':
+    case "get":
       return handleSessionGet(args.slice(1));
-    case 'rotate-ip':
+    case "rotate-ip":
       return handleSessionRotateIp(args.slice(1));
-    case 'set-geo':
+    case "set-geo":
       return handleSessionSetGeo(args.slice(1));
-    case 'set-rules':
+    case "set-rules":
       return handleSessionSetRules(args.slice(1));
     default:
-      return output({ error: `Unknown session subcommand: '${subcommand}'. Run "aluvia help" for usage.` }, 1);
+      return output(
+        {
+          error: `Unknown session subcommand: '${subcommand}'. Run "aluvia help" for usage.`,
+        },
+        1,
+      );
   }
 }
 
@@ -85,7 +110,7 @@ async function handleSessionStart(args: string[]): Promise<void> {
 
   if (!parsed.url) {
     return output(
-      { error: 'URL is required. Usage: aluvia session start <url> [options]' },
+      { error: "URL is required. Usage: aluvia session start <url> [options]" },
       1,
     );
   }
@@ -109,10 +134,10 @@ async function handleSessionClose(args: string[]): Promise<void> {
   let all = false;
 
   for (let i = 0; i < args.length; i++) {
-    if (args[i] === '--browser-session' && args[i + 1]) {
+    if (args[i] === "--browser-session" && args[i + 1]) {
       sessionName = args[i + 1];
       i++;
-    } else if (args[i] === '--all') {
+    } else if (args[i] === "--all") {
       all = true;
     }
   }
@@ -140,7 +165,7 @@ async function handleSessionGet(args: string[]): Promise<void> {
   let sessionName: string | undefined;
 
   for (let i = 0; i < args.length; i++) {
-    if (args[i] === '--browser-session' && args[i + 1]) {
+    if (args[i] === "--browser-session" && args[i + 1]) {
       sessionName = args[i + 1];
       i++;
     }
@@ -180,7 +205,7 @@ async function handleSessionRotateIp(args: string[]): Promise<void> {
   let sessionName: string | undefined;
 
   for (let i = 0; i < args.length; i++) {
-    if (args[i] === '--browser-session' && args[i + 1]) {
+    if (args[i] === "--browser-session" && args[i + 1]) {
       sessionName = args[i + 1];
       i++;
     }
@@ -190,7 +215,7 @@ async function handleSessionRotateIp(args: string[]): Promise<void> {
   const connId = requireConnectionId(lock, session);
   const api = requireApi();
 
-  const newSessionId = crypto.randomUUID().replace(/-/g, '');
+  const newSessionId = crypto.randomUUID().replace(/-/g, "");
   await api.account.connections.patch(connId, { session_id: newSessionId });
 
   return output({
@@ -206,22 +231,34 @@ async function handleSessionSetGeo(args: string[]): Promise<void> {
   let clear = false;
 
   for (let i = 0; i < args.length; i++) {
-    if (args[i] === '--browser-session' && args[i + 1]) {
+    if (args[i] === "--browser-session" && args[i + 1]) {
       sessionName = args[i + 1];
       i++;
-    } else if (args[i] === '--clear') {
+    } else if (args[i] === "--clear") {
       clear = true;
-    } else if (!geo && !args[i].startsWith('--')) {
+    } else if (!geo && !args[i].startsWith("--")) {
       geo = args[i];
     }
   }
 
   if (!geo && !clear) {
-    return output({ error: 'Geo code is required. Usage: aluvia session set-geo <geo> [--browser-session <name>]' }, 1);
+    return output(
+      {
+        error:
+          "Geo code is required. Usage: aluvia session set-geo <geo> [--browser-session <name>]",
+      },
+      1,
+    );
   }
 
   if (geo && !geo.trim()) {
-    return output({ error: 'Geo code cannot be empty. Provide a valid geo code or use --clear.' }, 1);
+    return output(
+      {
+        error:
+          "Geo code cannot be empty. Provide a valid geo code or use --clear.",
+      },
+      1,
+    );
   }
 
   const { session, lock } = resolveSession(sessionName);
@@ -244,23 +281,35 @@ async function handleSessionSetRules(args: string[]): Promise<void> {
   let appendRules: string | undefined;
 
   for (let i = 0; i < args.length; i++) {
-    if (args[i] === '--browser-session' && args[i + 1]) {
+    if (args[i] === "--browser-session" && args[i + 1]) {
       sessionName = args[i + 1];
       i++;
-    } else if (args[i] === '--remove' && args[i + 1]) {
+    } else if (args[i] === "--remove" && args[i + 1]) {
       removeRules = args[i + 1];
       i++;
-    } else if (!appendRules && !args[i].startsWith('--')) {
+    } else if (!appendRules && !args[i].startsWith("--")) {
       appendRules = args[i];
     }
   }
 
   if (!appendRules && !removeRules) {
-    return output({ error: 'Rules are required. Usage: aluvia session set-rules <rules> [--browser-session <name>]' }, 1);
+    return output(
+      {
+        error:
+          "Rules are required. Usage: aluvia session set-rules <rules> [--browser-session <name>]",
+      },
+      1,
+    );
   }
 
   if (appendRules && removeRules) {
-    return output({ error: 'Cannot both append and remove rules. Use either <rules> or --remove <rules>, not both.' }, 1);
+    return output(
+      {
+        error:
+          "Cannot both append and remove rules. Use either <rules> or --remove <rules>, not both.",
+      },
+      1,
+    );
   }
 
   const { session, lock } = resolveSession(sessionName);
@@ -275,11 +324,19 @@ async function handleSessionSetRules(args: string[]): Promise<void> {
 
   if (removeRules) {
     // Remove mode: filter out specified rules
-    const toRemove = new Set(removeRules.split(',').map((r) => r.trim()).filter(Boolean));
+    const toRemove = new Set(
+      removeRules
+        .split(",")
+        .map((r) => r.trim())
+        .filter(Boolean),
+    );
     newRules = currentRules.filter((r) => !toRemove.has(r));
   } else {
     // Append mode: add new rules to existing (deduplicate)
-    const toAdd = appendRules!.split(',').map((r) => r.trim()).filter(Boolean);
+    const toAdd = appendRules!
+      .split(",")
+      .map((r) => r.trim())
+      .filter(Boolean);
     const existing = new Set(currentRules);
     newRules = [...currentRules, ...toAdd.filter((r) => !existing.has(r))];
   }

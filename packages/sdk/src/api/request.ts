@@ -1,10 +1,15 @@
-import { ApiError } from '../errors.js';
+import { ApiError } from "../errors.js";
 
-export type HttpMethod = 'GET' | 'POST' | 'PATCH' | 'DELETE';
+export type HttpMethod = "GET" | "POST" | "PATCH" | "DELETE";
 
 export type RequestQuery = Record<
   string,
-  string | number | boolean | null | undefined | Array<string | number | boolean>
+  | string
+  | number
+  | boolean
+  | null
+  | undefined
+  | Array<string | number | boolean>
 >;
 
 export type RequestCoreOptions = {
@@ -29,13 +34,13 @@ export type RequestCoreResult = {
 const DEFAULT_TIMEOUT_MS = 30_000;
 
 function joinUrl(baseUrl: string, path: string): string {
-  const base = baseUrl.replace(/\/+$/, '');
-  const p = path.startsWith('/') ? path : `/${path}`;
+  const base = baseUrl.replace(/\/+$/, "");
+  const p = path.startsWith("/") ? path : `/${path}`;
   return `${base}${p}`;
 }
 
 function buildQueryString(query: RequestQuery | undefined): string {
-  if (!query) return '';
+  if (!query) return "";
 
   const params = new URLSearchParams();
 
@@ -51,32 +56,34 @@ function buildQueryString(query: RequestQuery | undefined): string {
   }
 
   const qs = params.toString();
-  return qs ? `?${qs}` : '';
+  return qs ? `?${qs}` : "";
 }
 
 function isJsonResponse(contentType: string | null): boolean {
   if (!contentType) return false;
-  return contentType.toLowerCase().includes('application/json');
+  return contentType.toLowerCase().includes("application/json");
 }
 
-export async function requestCore(options: RequestCoreOptions): Promise<RequestCoreResult> {
+export async function requestCore(
+  options: RequestCoreOptions,
+): Promise<RequestCoreResult> {
   const url = `${joinUrl(options.apiBaseUrl, options.path)}${buildQueryString(options.query)}`;
   const fetchImpl = options.fetch ?? globalThis.fetch;
 
-  if (typeof fetchImpl !== 'function') {
-    throw new Error('globalThis.fetch is not available; Node 18+ is required');
+  if (typeof fetchImpl !== "function") {
+    throw new Error("globalThis.fetch is not available; Node 18+ is required");
   }
 
   const headers: Record<string, string> = {
-    Accept: 'application/json',
+    Accept: "application/json",
     Authorization: `Bearer ${options.apiKey}`,
     ...(options.headers ?? {}),
   };
 
-  if (options.ifNoneMatch) headers['If-None-Match'] = options.ifNoneMatch;
+  if (options.ifNoneMatch) headers["If-None-Match"] = options.ifNoneMatch;
 
   const hasJsonBody = options.body !== undefined && options.body !== null;
-  if (hasJsonBody) headers['Content-Type'] = 'application/json';
+  if (hasJsonBody) headers["Content-Type"] = "application/json";
 
   const controller = new AbortController();
   const timeoutMs = options.timeoutMs ?? DEFAULT_TIMEOUT_MS;
@@ -100,13 +107,13 @@ export async function requestCore(options: RequestCoreOptions): Promise<RequestC
       throw new ApiError(`Network request failed: ${message}`);
     }
 
-    const etag = response.headers.get('etag');
+    const etag = response.headers.get("etag");
 
     if (response.status === 204 || response.status === 304) {
       return { status: response.status, etag, body: null };
     }
 
-    const contentType = response.headers.get('content-type');
+    const contentType = response.headers.get("content-type");
     if (!isJsonResponse(contentType)) {
       return { status: response.status, etag, body: null };
     }
@@ -123,5 +130,3 @@ export async function requestCore(options: RequestCoreOptions): Promise<RequestC
     clearTimeout(timeoutId);
   }
 }
-
-

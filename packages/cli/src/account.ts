@@ -1,5 +1,5 @@
-import { requireApi } from './api-helpers.js';
-import { output } from './cli.js';
+import { requireApi } from "./api-helpers.js";
+import { output } from "./cli.js";
 
 export async function handleAccount(args: string[]): Promise<void> {
   const subcommand = args[0];
@@ -10,15 +10,15 @@ export async function handleAccount(args: string[]): Promise<void> {
     return output({ account });
   }
 
-  if (subcommand === 'usage') {
+  if (subcommand === "usage") {
     let start: string | undefined;
     let end: string | undefined;
 
     for (let i = 1; i < args.length; i++) {
-      if (args[i] === '--start' && args[i + 1]) {
+      if (args[i] === "--start" && args[i + 1]) {
         start = args[i + 1];
         i++;
-      } else if (args[i] === '--end' && args[i + 1]) {
+      } else if (args[i] === "--end" && args[i + 1]) {
         end = args[i + 1];
         i++;
       }
