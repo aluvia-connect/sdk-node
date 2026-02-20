@@ -21,6 +21,7 @@
 
 ## Table of Contents
 
+- [Get an Aluvia API Key](#-get-an-aluvia-api-key)
 - [Quick Start](#-quick-start)
 - [Requirements](#-requirements)
 - [Installation](#-installation)
@@ -33,6 +34,18 @@
 
 ---
 
+## Get an Aluvia API Key
+
+You need an API key to run the MCP server. Get one from the [Aluvia dashboard](https://dashboard.aluvia.io):
+
+1. Sign up or sign in at [dashboard.aluvia.io](https://dashboard.aluvia.io)
+2. In your account, open the API & SDKs section
+3. Copy your API key
+
+Use it as an environment variable: `export ALUVIA_API_KEY="your-api-key"` or add `ALUVIA_API_KEY=your-api-key` to a `.env` file (never commit it).
+
+---
+
 ## Quick Start
 
 ```bash
@@ -41,14 +54,14 @@ export ALUVIA_API_KEY="your-api-key"
 npx aluvia-mcp
 ```
 
-Get your API key at [dashboard.aluvia.io](https://dashboard.aluvia.io). The server runs on **stdio** (stdin/stdout JSON-RPC) — MCP clients spawn it and communicate over stdio.
+The server runs on **stdio** (stdin/stdout JSON-RPC) — MCP clients spawn it and communicate over stdio.
 
 ---
 
 ## Requirements
 
 - **Node.js** 18+
-- **Aluvia API key** — [Sign up](https://dashboard.aluvia.io) and copy from the dashboard
+- **Aluvia API key** — See [Get an Aluvia API Key](#-get-an-aluvia-api-key)
 - **Playwright** — Required for session tools (`session_start`, etc.); install with `npm install playwright`
 
 ---
@@ -159,7 +172,7 @@ All tools return JSON. On success, `isError` is `false`. On failure, `isError` i
 | `session_list`      | List active sessions (PIDs, URLs, CDP URLs, connection IDs)                                                                                                        |
 | `session_get`       | Full session details including block detection state and connection config. **Params**: `browserSession`                                                           |
 | `session_rotate_ip` | Rotate IP for a session (new session ID). **Params**: `browserSession`                                                                                             |
-| `session_set_geo`   | Set or clear geo-targeting (e.g. `US`, `us_ca`, `us_ny`). **Params**: `geo`, `clear`, `browserSession`                                                             |
+| `session_set_geo`   | Set or clear geo-targeting (e.g. `us`, `us_ca`, `us_ny`). **Params**: `geo`, `clear`, `browserSession`                                                             |
 | `session_set_rules` | Append or remove proxy routing rules (comma-separated hostnames). **Params**: `rules`, `remove`, `browserSession`                                                  |
 
 ### Account Tools
@@ -207,13 +220,13 @@ Full parameter and response details: [MCP Server Guide — Tool Reference](https
 
 ## Links
 
-| Resource             | URL                                                                                                       |
-| -------------------- | --------------------------------------------------------------------------------------------------------- |
-| **Aluvia Dashboard** | [dashboard.aluvia.io](https://dashboard.aluvia.io)                                                        |
-| **npm**              | [npmjs.com/package/@aluvia/mcp](https://www.npmjs.com/package/@aluvia/mcp)                                |
-| **Full MCP Guide**   | [docs/mcp-server-guide.md](https://github.com/aluvia-connect/sdk-node/blob/main/docs/mcp-server-guide.md) |
-| **Aluvia SDK**       | [@aluvia/sdk](https://github.com/aluvia-connect/sdk-node)                                                 |
-| **MCP Protocol**     | [modelcontextprotocol.io](https://modelcontextprotocol.io)                                                |
+| Resource             | URL                                                                                                                                                  |
+| -------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Aluvia Dashboard** | [dashboard.aluvia.io](https://dashboard.aluvia.io)                                                                                                   |
+| **npm**              | [npmjs.com/package/@aluvia/mcp](https://www.npmjs.com/package/@aluvia/mcp)                                                                           |
+| **Full MCP Guide**   | [docs/mcp-server-guide.md](https://github.com/aluvia-connect/sdk-node/blob/main/docs/mcp-server-guide.md)                                            |
+| **Aluvia SDK**       | [@aluvia/sdk](https://github.com/aluvia-connect/sdk-node) — CLI, adapters, and [quick start](https://github.com/aluvia-connect/sdk-node#quick-start) |
+| **MCP Protocol**     | [modelcontextprotocol.io](https://modelcontextprotocol.io)                                                                                           |
 
 ---
 
