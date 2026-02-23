@@ -21,6 +21,10 @@
   ],
   "scripts": {
     "build": "npm run build -w @aluvia/sdk && npm run build -w @aluvia/cli && npm run build -w @aluvia/mcp",
+    "publish:dry-run": "npm publish --dry-run -w @aluvia/sdk && npm publish --dry-run -w @aluvia/cli && npm publish --dry-run -w @aluvia/mcp",
+    "publish:cli": "npm publish -w @aluvia/cli",
+    "publish:mcp": "npm publish -w @aluvia/mcp",
+    "publish:sdk": "npm publish -w @aluvia/sdk",
     "build:sdk": "npm run build -w @aluvia/sdk",
     "build:cli": "npm run build -w @aluvia/cli",
     "build:mcp": "npm run build -w @aluvia/mcp",
