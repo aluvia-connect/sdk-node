@@ -28,7 +28,7 @@
     "build:sdk": "npm run build -w @aluvia/sdk",
     "build:cli": "npm run build -w @aluvia/cli",
     "build:mcp": "npm run build -w @aluvia/mcp",
-    "test": "npm test -w @aluvia/sdk && npm test -w @aluvia/mcp",
+    "test:all": "npm test -w @aluvia/sdk && npm test -w @aluvia/mcp",
     "test:sdk": "npm test -w @aluvia/sdk",
     "test:mcp": "npm test -w @aluvia/mcp",
     "lint": "npm run lint -w @aluvia/sdk && npm run lint -w @aluvia/cli",

@@ -31,7 +31,7 @@ jobs:
         run: npm run lint
 
       - name: Build
-        run: npm run build
+        run: npm run build:all
 
       - name: Run tests
-        run: npm test
+        run: npm run test:all
