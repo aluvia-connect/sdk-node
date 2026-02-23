@@ -1,4 +1,4 @@
-declare module "proxy-chain" {
+declare module 'proxy-chain' {
   export type PrepareRequestFunctionParams = {
     request: {
       url?: string;
@@ -9,15 +9,11 @@ declare module "proxy-chain" {
     isHttp?: boolean;
   };
 
-  export type PrepareRequestFunctionResult =
-    | { upstreamProxyUrl: string }
-    | undefined;
+  export type PrepareRequestFunctionResult = { upstreamProxyUrl: string } | undefined;
 
   export type PrepareRequestFunction =
     | ((params: PrepareRequestFunctionParams) => PrepareRequestFunctionResult)
-    | ((
-        params: PrepareRequestFunctionParams,
-      ) => Promise<PrepareRequestFunctionResult>);
+    | ((params: PrepareRequestFunctionParams) => Promise<PrepareRequestFunctionResult>);
 
   export type ServerOptions = {
     host?: string;
@@ -30,7 +26,7 @@ declare module "proxy-chain" {
     listen(): Promise<void>;
     close(force?: boolean): Promise<void>;
     server: {
-      address(): import("net").AddressInfo | string | null;
+      address(): import('net').AddressInfo | string | null;
     };
   }
 }

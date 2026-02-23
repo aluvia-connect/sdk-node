@@ -1,29 +1,18 @@
-import {
-  removeLock,
-  isProcessAlive,
-  listSessions,
-  toLockData,
-} from "@aluvia/sdk";
-import type { LockData } from "@aluvia/sdk";
-import { output } from "./cli.js";
+import { removeLock, isProcessAlive, listSessions, toLockData } from '@aluvia/sdk';
+import type { LockData } from '@aluvia/sdk';
+import { output } from './cli.js';
 
-export async function handleClose(
-  sessionName?: string,
-  closeAll?: boolean,
-): Promise<void> {
+export async function handleClose(sessionName?: string, closeAll?: boolean): Promise<void> {
   if (closeAll) {
     const sessions = listSessions();
     if (sessions.length === 0) {
-      return output(
-        { error: "No running browser sessions found.", closed: [], count: 0 },
-        1,
-      );
+      return output({ error: 'No running browser sessions found.', closed: [], count: 0 }, 1);
     }
 
     // Send SIGTERM to all sessions
     for (const s of sessions) {
       try {
-        process.kill(s.pid, "SIGTERM");
+        process.kill(s.pid, 'SIGTERM');
       } catch {
         // ignore
       }
@@ -44,7 +33,7 @@ export async function handleClose(
     // Force-kill any survivors
     for (const pid of alive) {
       try {
-        process.kill(pid, "SIGKILL");
+        process.kill(pid, 'SIGKILL');
       } catch {
         // ignore
       }
@@ -58,7 +47,7 @@ export async function handleClose(
     }
 
     return output({
-      message: "All browser sessions closed.",
+      message: 'All browser sessions closed.',
       closed,
       count: closed.length,
     });
@@ -68,13 +57,12 @@ export async function handleClose(
   if (!sessionName) {
     const sessions = listSessions();
     if (sessions.length === 0) {
-      return output({ error: "No running browser sessions found." }, 1);
+      return output({ error: 'No running browser sessions found.' }, 1);
     }
     if (sessions.length > 1) {
       return output(
         {
-          error:
-            "Multiple sessions running. Specify --browser-session <name> or --all.",
+          error: 'Multiple sessions running. Specify --browser-session <name> or --all.',
           browserSessions: sessions.map((s) => s.session),
         },
         1,
@@ -94,7 +82,7 @@ export async function handleClose(
     return output(
       {
         browserSession: sessionName,
-        error: "No running browser session found.",
+        error: 'No running browser session found.',
       },
       1,
     );
@@ -103,20 +91,17 @@ export async function handleClose(
   return closeSession(sessionName, toLockData(match));
 }
 
-async function closeSession(
-  sessionName: string,
-  lock: LockData,
-): Promise<void> {
+async function closeSession(sessionName: string, lock: LockData): Promise<void> {
   if (!isProcessAlive(lock.pid)) {
     removeLock(sessionName);
     return output({
       browserSession: sessionName,
-      message: "Browser process was not running. Lock file cleaned up.",
+      message: 'Browser process was not running. Lock file cleaned up.',
     });
   }
 
   try {
-    process.kill(lock.pid, "SIGTERM");
+    process.kill(lock.pid, 'SIGTERM');
   } catch (err: any) {
     return output(
       {
@@ -136,7 +121,7 @@ async function closeSession(
       return output({
         browserSession: sessionName,
         pid: lock.pid,
-        message: "Browser session closed.",
+        message: 'Browser session closed.',
         startUrl: lock.url ?? null,
         cdpUrl: lock.cdpUrl ?? null,
         connectionId: lock.connectionId ?? null,
@@ -146,7 +131,7 @@ async function closeSession(
 
   // Force kill if still alive
   try {
-    process.kill(lock.pid, "SIGKILL");
+    process.kill(lock.pid, 'SIGKILL');
   } catch {
     // ignore
   }
@@ -154,7 +139,7 @@ async function closeSession(
   return output({
     browserSession: sessionName,
     pid: lock.pid,
-    message: "Browser session force-killed.",
+    message: 'Browser session force-killed.',
     startUrl: lock.url ?? null,
     cdpUrl: lock.cdpUrl ?? null,
     connectionId: lock.connectionId ?? null,

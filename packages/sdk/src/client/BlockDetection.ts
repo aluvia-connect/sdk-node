@@ -1,11 +1,11 @@
 // BlockDetection - Website block detection with weighted scoring
 
-import type { Logger } from "./logger.js";
+import type { Logger } from './logger.js';
 
 /**
  * Detection block status based on scoring
  */
-export type DetectionBlockStatus = "blocked" | "suspected" | "clear";
+export type DetectionBlockStatus = 'blocked' | 'suspected' | 'clear';
 
 /**
  * A single detection signal with weight
@@ -14,7 +14,7 @@ export type DetectionSignal = {
   name: string;
   weight: number;
   details: string;
-  source: "fast" | "full";
+  source: 'fast' | 'full';
 };
 
 /**
@@ -34,7 +34,7 @@ export type BlockDetectionResult = {
   blockStatus: DetectionBlockStatus;
   score: number;
   signals: DetectionSignal[];
-  pass: "fast" | "full";
+  pass: 'fast' | 'full';
   persistentBlock: boolean;
   redirectChain: RedirectHop[];
 };
@@ -50,61 +50,46 @@ export type BlockDetectionConfig = {
   networkIdleTimeoutMs?: number;
   autoUnblock?: boolean;
   autoUnblockOnSuspected?: boolean;
-  onDetection?: (
-    result: BlockDetectionResult,
-    page: any,
-  ) => void | Promise<void>;
+  onDetection?: (result: BlockDetectionResult, page: any) => void | Promise<void>;
 };
 
 const DEFAULT_CHALLENGE_SELECTORS = [
-  "#challenge-form",
-  "#challenge-running",
-  ".cf-browser-verification",
+  '#challenge-form',
+  '#challenge-running',
+  '.cf-browser-verification',
   'iframe[src*="recaptcha"]',
-  ".g-recaptcha",
-  "#px-captcha",
+  '.g-recaptcha',
+  '#px-captcha',
   'iframe[src*="hcaptcha"]',
-  ".h-captcha",
+  '.h-captcha',
 ];
 
 const TITLE_KEYWORDS = [
-  "access denied",
-  "blocked",
-  "forbidden",
-  "security check",
-  "attention required",
-  "just a moment",
+  'access denied',
+  'blocked',
+  'forbidden',
+  'security check',
+  'attention required',
+  'just a moment',
 ];
 
-const STRONG_TEXT_KEYWORDS = [
-  "captcha",
-  "access denied",
-  "verify you are human",
-  "bot detection",
-];
+const STRONG_TEXT_KEYWORDS = ['captcha', 'access denied', 'verify you are human', 'bot detection'];
 
-const WEAK_TEXT_KEYWORDS = [
-  "blocked",
-  "forbidden",
-  "cloudflare",
-  "please verify",
-  "unusual activity",
-];
+const WEAK_TEXT_KEYWORDS = ['blocked', 'forbidden', 'cloudflare', 'please verify', 'unusual activity'];
 
 function escapeRegex(str: string): string {
-  return str.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  return str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 }
 
-const WEAK_TEXT_REGEXES: Array<{ keyword: string; regex: RegExp }> =
-  WEAK_TEXT_KEYWORDS.map((keyword) => ({
-    keyword,
-    regex: new RegExp("\\b" + escapeRegex(keyword) + "\\b", "i"),
-  }));
+const WEAK_TEXT_REGEXES: Array<{ keyword: string; regex: RegExp }> = WEAK_TEXT_KEYWORDS.map((keyword) => ({
+  keyword,
+  regex: new RegExp('\\b' + escapeRegex(keyword) + '\\b', 'i'),
+}));
 
 const CHALLENGE_DOMAIN_PATTERNS = [
-  "/cdn-cgi/challenge-platform/",
-  "challenges.cloudflare.com",
-  "geo.captcha-delivery.com",
+  '/cdn-cgi/challenge-platform/',
+  'challenges.cloudflare.com',
+  'geo.captcha-delivery.com',
 ];
 
 /**
@@ -120,10 +105,7 @@ export class BlockDetection {
     networkIdleTimeoutMs: number;
     autoUnblock: boolean;
     autoUnblockOnSuspected: boolean;
-    onDetection?: (
-      result: BlockDetectionResult,
-      page: any,
-    ) => void | Promise<void>;
+    onDetection?: (result: BlockDetectionResult, page: any) => void | Promise<void>;
   };
   private logger: Logger;
 
@@ -139,8 +121,7 @@ export class BlockDetection {
     this.logger = logger;
     this.config = {
       enabled: config.enabled ?? true,
-      challengeSelectors:
-        config.challengeSelectors ?? DEFAULT_CHALLENGE_SELECTORS,
+      challengeSelectors: config.challengeSelectors ?? DEFAULT_CHALLENGE_SELECTORS,
       extraKeywords: config.extraKeywords ?? [],
       extraStatusCodes: config.extraStatusCodes ?? [],
       networkIdleTimeoutMs: config.networkIdleTimeoutMs ?? 3000,
@@ -162,9 +143,7 @@ export class BlockDetection {
     return this.config.enabled;
   }
 
-  getOnDetection():
-    | ((result: BlockDetectionResult, page: any) => void | Promise<void>)
-    | undefined {
+  getOnDetection(): ((result: BlockDetectionResult, page: any) => void | Promise<void>) | undefined {
     return this.config.onDetection;
   }
 
@@ -182,11 +161,9 @@ export class BlockDetection {
     score: number;
     blockStatus: DetectionBlockStatus;
   } {
-    if (signals.length === 0) return { score: 0, blockStatus: "clear" };
-    const score =
-      1 - signals.reduce((product, s) => product * (1 - s.weight), 1);
-    const blockStatus =
-      score >= 0.7 ? "blocked" : score >= 0.4 ? "suspected" : "clear";
+    if (signals.length === 0) return { score: 0, blockStatus: 'clear' };
+    const score = 1 - signals.reduce((product, s) => product * (1 - s.weight), 1);
+    const blockStatus = score >= 0.7 ? 'blocked' : score >= 0.4 ? 'suspected' : 'clear';
     return { score, blockStatus };
   }
 
@@ -201,16 +178,16 @@ export class BlockDetection {
         name: `http_status_${status}`,
         weight: 0.85,
         details: `HTTP ${status} response`,
-        source: "fast",
+        source: 'fast',
       };
     }
 
     if (status === 503) {
       return {
-        name: "http_status_503",
+        name: 'http_status_503',
         weight: 0.6,
-        details: "HTTP 503 response",
-        source: "fast",
+        details: 'HTTP 503 response',
+        source: 'fast',
       };
     }
 
@@ -224,23 +201,23 @@ export class BlockDetection {
     try {
       const headers = response.headers?.() ?? {};
 
-      const cfMitigated = headers["cf-mitigated"];
-      if (cfMitigated && cfMitigated.toLowerCase().includes("challenge")) {
+      const cfMitigated = headers['cf-mitigated'];
+      if (cfMitigated && cfMitigated.toLowerCase().includes('challenge')) {
         signals.push({
-          name: "waf_header_cf_mitigated",
+          name: 'waf_header_cf_mitigated',
           weight: 0.9,
           details: `cf-mitigated: ${cfMitigated}`,
-          source: "fast",
+          source: 'fast',
         });
       }
 
-      const server = headers["server"];
-      if (server && server.toLowerCase().includes("cloudflare")) {
+      const server = headers['server'];
+      if (server && server.toLowerCase().includes('cloudflare')) {
         signals.push({
-          name: "waf_header_cloudflare",
+          name: 'waf_header_cloudflare',
           weight: 0.1,
           details: `server: ${server}`,
-          source: "fast",
+          source: 'fast',
         });
       }
     } catch (err: any) {
@@ -252,18 +229,16 @@ export class BlockDetection {
 
   // --- Full-pass Signal Detectors ---
 
-  private async detectTitleKeywords(
-    page: any,
-  ): Promise<DetectionSignal | null> {
+  private async detectTitleKeywords(page: any): Promise<DetectionSignal | null> {
     try {
       const title = (await page.title()).toLowerCase();
       for (const keyword of this.allTitleKeywords) {
         if (title.includes(keyword.toLowerCase())) {
           return {
-            name: "title_keyword",
+            name: 'title_keyword',
             weight: 0.8,
             details: `Title contains "${keyword}"`,
-            source: "full",
+            source: 'full',
           };
         }
       }
@@ -273,9 +248,7 @@ export class BlockDetection {
     return null;
   }
 
-  private async detectChallengeSelectors(
-    page: any,
-  ): Promise<DetectionSignal | null> {
+  private async detectChallengeSelectors(page: any): Promise<DetectionSignal | null> {
     try {
       const selectors = this.config.challengeSelectors;
       const found = await page.evaluate((sels: string[]) => {
@@ -287,10 +260,10 @@ export class BlockDetection {
 
       if (found) {
         return {
-          name: "challenge_selector",
+          name: 'challenge_selector',
           weight: 0.8,
           details: `Challenge selector found: ${found}`,
-          source: "full",
+          source: 'full',
         };
       }
     } catch (err: any) {
@@ -299,40 +272,34 @@ export class BlockDetection {
     return null;
   }
 
-  private async detectVisibleText(
-    page: any,
-    useInnerText = false,
-  ): Promise<DetectionSignal[]> {
+  private async detectVisibleText(page: any, useInnerText = false): Promise<DetectionSignal[]> {
     const signals: DetectionSignal[] = [];
     try {
       const text: string = useInnerText
-        ? await page.evaluate(() => document.body?.innerText ?? "")
-        : await page.evaluate(() => document.body?.textContent ?? "");
+        ? await page.evaluate(() => document.body?.innerText ?? '')
+        : await page.evaluate(() => document.body?.textContent ?? '');
 
       const textLower = text.toLowerCase();
 
       if (text.length < 50) {
         signals.push({
-          name: "visible_text_short",
+          name: 'visible_text_short',
           weight: 0.2,
           details: `Visible text very short (${text.length} chars)`,
-          source: "full",
+          source: 'full',
         });
       }
 
       // Strong keywords (substring match, short page < 500 chars)
       if (text.length < 500) {
-        const allStrong = [
-          ...STRONG_TEXT_KEYWORDS,
-          ...this.config.extraKeywords,
-        ];
+        const allStrong = [...STRONG_TEXT_KEYWORDS, ...this.config.extraKeywords];
         for (const keyword of allStrong) {
           if (textLower.includes(keyword.toLowerCase())) {
             signals.push({
-              name: "visible_text_keyword_strong",
+              name: 'visible_text_keyword_strong',
               weight: 0.6,
               details: `Strong keyword "${keyword}" on short page`,
-              source: "full",
+              source: 'full',
             });
             break;
           }
@@ -343,10 +310,10 @@ export class BlockDetection {
       for (const { keyword, regex } of WEAK_TEXT_REGEXES) {
         if (regex.test(text)) {
           signals.push({
-            name: "visible_text_keyword_weak",
+            name: 'visible_text_keyword_weak',
             weight: 0.15,
             details: `Weak keyword "${keyword}" found with word boundary`,
-            source: "full",
+            source: 'full',
           });
           break;
         }
@@ -357,25 +324,20 @@ export class BlockDetection {
     return signals;
   }
 
-  private async detectTextToHtmlRatio(
-    page: any,
-  ): Promise<DetectionSignal | null> {
+  private async detectTextToHtmlRatio(page: any): Promise<DetectionSignal | null> {
     try {
       const result = await page.evaluate(() => {
-        const html = document.documentElement?.outerHTML ?? "";
-        const text = document.body?.textContent ?? "";
+        const html = document.documentElement?.outerHTML ?? '';
+        const text = document.body?.textContent ?? '';
         return { htmlLength: html.length, textLength: text.length };
       });
 
-      if (
-        result.htmlLength >= 1000 &&
-        result.textLength / result.htmlLength < 0.03
-      ) {
+      if (result.htmlLength >= 1000 && result.textLength / result.htmlLength < 0.03) {
         return {
-          name: "low_text_ratio",
+          name: 'low_text_ratio',
           weight: 0.2,
           details: `Low text/HTML ratio: ${result.textLength}/${result.htmlLength}`,
-          source: "full",
+          source: 'full',
         };
       }
     } catch (err: any) {
@@ -403,7 +365,7 @@ export class BlockDetection {
         if (!redirectedFrom) break;
         const redirectResponse = redirectedFrom.response?.();
         hops.push({
-          url: redirectedFrom.url?.() ?? "",
+          url: redirectedFrom.url?.() ?? '',
           statusCode: redirectResponse?.status?.() ?? 0,
         });
         req = redirectedFrom;
@@ -418,10 +380,10 @@ export class BlockDetection {
         for (const pattern of CHALLENGE_DOMAIN_PATTERNS) {
           if (hop.url.includes(pattern)) {
             signals.push({
-              name: "redirect_to_challenge",
+              name: 'redirect_to_challenge',
               weight: 0.7,
               details: `Redirect through challenge domain: ${hop.url}`,
-              source: "full",
+              source: 'full',
             });
             return { signals, chain };
           }
@@ -429,14 +391,14 @@ export class BlockDetection {
       }
 
       // Also check the final response URL
-      const finalUrl = response.url?.() ?? "";
+      const finalUrl = response.url?.() ?? '';
       for (const pattern of CHALLENGE_DOMAIN_PATTERNS) {
         if (finalUrl.includes(pattern)) {
           signals.push({
-            name: "redirect_to_challenge",
+            name: 'redirect_to_challenge',
             weight: 0.7,
             details: `Final URL is challenge domain: ${finalUrl}`,
-            source: "full",
+            source: 'full',
           });
           break;
         }
@@ -453,7 +415,7 @@ export class BlockDetection {
       const refreshUrl = await page.evaluate(() => {
         const meta = document.querySelector('meta[http-equiv="refresh"]');
         if (!meta) return null;
-        const content = meta.getAttribute("content") ?? "";
+        const content = meta.getAttribute('content') ?? '';
         const match = content.match(/url\s*=\s*(.+)/i);
         return match ? match[1].trim() : null;
       });
@@ -462,10 +424,10 @@ export class BlockDetection {
         for (const pattern of CHALLENGE_DOMAIN_PATTERNS) {
           if (refreshUrl.includes(pattern)) {
             return {
-              name: "meta_refresh_challenge",
+              name: 'meta_refresh_challenge',
               weight: 0.65,
               details: `Meta refresh to challenge URL: ${refreshUrl}`,
-              source: "full",
+              source: 'full',
             };
           }
         }
@@ -487,7 +449,7 @@ export class BlockDetection {
     const hostname = this.extractHostname(url);
 
     if (!this.config.enabled) {
-      return this.makeResult(url, hostname, [], "fast", []);
+      return this.makeResult(url, hostname, [], 'fast', []);
     }
 
     const signals: DetectionSignal[] = [];
@@ -498,7 +460,7 @@ export class BlockDetection {
     const headerSignals = this.detectResponseHeaders(response);
     signals.push(...headerSignals);
 
-    const result = this.makeResult(url, hostname, signals, "fast", []);
+    const result = this.makeResult(url, hostname, signals, 'fast', []);
     this.logResult(result);
     return result;
   }
@@ -508,14 +470,13 @@ export class BlockDetection {
    * Shared by analyzeFull and analyzeSpa.
    */
   private async runContentDetectors(page: any): Promise<DetectionSignal[]> {
-    const [titleSignal, challengeSignal, textSignals, ratioSignal, metaSignal] =
-      await Promise.all([
-        this.detectTitleKeywords(page),
-        this.detectChallengeSelectors(page),
-        this.detectVisibleText(page, false),
-        this.detectTextToHtmlRatio(page),
-        this.detectMetaRefresh(page),
-      ]);
+    const [titleSignal, challengeSignal, textSignals, ratioSignal, metaSignal] = await Promise.all([
+      this.detectTitleKeywords(page),
+      this.detectChallengeSelectors(page),
+      this.detectVisibleText(page, false),
+      this.detectTextToHtmlRatio(page),
+      this.detectMetaRefresh(page),
+    ]);
 
     const signals: DetectionSignal[] = [];
     if (titleSignal) signals.push(titleSignal);
@@ -538,13 +499,11 @@ export class BlockDetection {
     const hostname = this.extractHostname(url);
 
     if (!this.config.enabled) {
-      return this.makeResult(url, hostname, [], "full", []);
+      return this.makeResult(url, hostname, [], 'full', []);
     }
 
     // Start with fast-pass signals
-    const signals: DetectionSignal[] = fastResult
-      ? [...fastResult.signals]
-      : [];
+    const signals: DetectionSignal[] = fastResult ? [...fastResult.signals] : [];
 
     // If no fast pass was done and we have a response, run fast detectors
     if (!fastResult && response) {
@@ -557,8 +516,7 @@ export class BlockDetection {
 
     signals.push(...(await this.runContentDetectors(page)));
 
-    const { signals: redirectSignals, chain } =
-      this.detectRedirectChain(response);
+    const { signals: redirectSignals, chain } = this.detectRedirectChain(response);
     signals.push(...redirectSignals);
 
     return this.reEvaluateIfSuspected(page, url, hostname, signals, chain);
@@ -572,7 +530,7 @@ export class BlockDetection {
     const hostname = this.extractHostname(url);
 
     if (!this.config.enabled) {
-      return this.makeResult(url, hostname, [], "full", []);
+      return this.makeResult(url, hostname, [], 'full', []);
     }
 
     const signals = await this.runContentDetectors(page);
@@ -588,30 +546,16 @@ export class BlockDetection {
   ): Promise<BlockDetectionResult> {
     const preliminary = this.computeScore(signals);
     if (preliminary.score >= 0.4 && preliminary.score < 0.7) {
-      const nonTextSignals = signals.filter(
-        (s) => !s.name.startsWith("visible_text_"),
-      );
+      const nonTextSignals = signals.filter((s) => !s.name.startsWith('visible_text_'));
       const innerTextSignals = await this.detectVisibleText(page, true);
       nonTextSignals.push(...innerTextSignals);
 
-      const result = this.makeResult(
-        url,
-        hostname,
-        nonTextSignals,
-        "full",
-        redirectChain,
-      );
+      const result = this.makeResult(url, hostname, nonTextSignals, 'full', redirectChain);
       this.logResult(result);
       return result;
     }
 
-    const result = this.makeResult(
-      url,
-      hostname,
-      signals,
-      "full",
-      redirectChain,
-    );
+    const result = this.makeResult(url, hostname, signals, 'full', redirectChain);
     this.logResult(result);
     return result;
   }
@@ -622,7 +566,7 @@ export class BlockDetection {
     url: string,
     hostname: string,
     signals: DetectionSignal[],
-    pass: "fast" | "full",
+    pass: 'fast' | 'full',
     redirectChain: RedirectHop[],
   ): BlockDetectionResult {
     const { score, blockStatus } = this.computeScore(signals);

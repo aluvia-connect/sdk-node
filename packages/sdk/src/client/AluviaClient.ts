@@ -1,14 +1,9 @@
 // AluviaClient - Main public class for Aluvia Client
 
-import type {
-  AluviaClientConnection,
-  AluviaClientOptions,
-  GatewayProtocol,
-  LogLevel,
-} from "./types.js";
-import { ConfigManager } from "./ConfigManager.js";
-import { ProxyServer } from "./ProxyServer.js";
-import { ApiError, MissingApiKeyError } from "../errors.js";
+import type { AluviaClientConnection, AluviaClientOptions, GatewayProtocol, LogLevel } from './types.js';
+import { ConfigManager } from './ConfigManager.js';
+import { ProxyServer } from './ProxyServer.js';
+import { ApiError, MissingApiKeyError } from '../errors.js';
 import {
   createNodeProxyAgents,
   createUndiciDispatcher,
@@ -18,11 +13,11 @@ import {
   toPlaywrightProxySettings,
   toPuppeteerArgs,
   toSeleniumArgs,
-} from "./adapters.js";
-import { Logger } from "./logger.js";
-import { AluviaApi } from "../api/AluviaApi.js";
-import { BlockDetection, type BlockDetectionResult } from "./BlockDetection.js";
-import * as net from "node:net";
+} from './adapters.js';
+import { Logger } from './logger.js';
+import { AluviaApi } from '../api/AluviaApi.js';
+import { BlockDetection, type BlockDetectionResult } from './BlockDetection.js';
+import * as net from 'node:net';
 
 /**
  * AluviaClient is the main entry point for the Aluvia Client.
@@ -57,27 +52,25 @@ export class AluviaClient {
   }
 
   constructor(options: AluviaClientOptions) {
-    const apiKey = String(options.apiKey ?? "").trim();
+    const apiKey = String(options.apiKey ?? '').trim();
     if (!apiKey) {
-      throw new MissingApiKeyError("Aluvia apiKey is required");
+      throw new MissingApiKeyError('Aluvia apiKey is required');
     }
 
     const strict = options.strict ?? true;
     this.options = { ...options, apiKey, strict };
 
-    const connectionId =
-      options.connectionId != null ? Number(options.connectionId) : undefined;
+    const connectionId = options.connectionId != null ? Number(options.connectionId) : undefined;
     if (connectionId !== undefined && !Number.isFinite(connectionId)) {
-      throw new Error("connectionId must be a finite number");
+      throw new Error('connectionId must be a finite number');
     }
 
-    const apiBaseUrl = options.apiBaseUrl ?? "https://api.aluvia.io/v1";
+    const apiBaseUrl = options.apiBaseUrl ?? 'https://api.aluvia.io/v1';
     const pollIntervalMs = Math.max(options.pollIntervalMs ?? 5000, 1000);
     const timeoutMs = options.timeoutMs;
-    const gatewayProtocol: GatewayProtocol = options.gatewayProtocol ?? "http";
-    const gatewayPort =
-      options.gatewayPort ?? (gatewayProtocol === "https" ? 8443 : 8080);
-    const logLevel: LogLevel = options.logLevel ?? "info";
+    const gatewayProtocol: GatewayProtocol = options.gatewayProtocol ?? 'http';
+    const gatewayPort = options.gatewayPort ?? (gatewayProtocol === 'https' ? 8443 : 8080);
+    const logLevel: LogLevel = options.logLevel ?? 'info';
 
     this.logger = new Logger(logLevel);
 
@@ -104,7 +97,7 @@ export class AluviaClient {
 
     // Initialize block detection if configured
     if (options.blockDetection !== undefined || options.startPlaywright) {
-      this.logger.debug("Initializing block detection");
+      this.logger.debug('Initializing block detection');
       const detectionConfig = options.blockDetection ?? { enabled: true };
       this.blockDetection = new BlockDetection(detectionConfig, this.logger);
     }
@@ -123,12 +116,9 @@ export class AluviaClient {
     this.pageStates.set(page, pageState);
 
     // Capture navigation responses on main frame
-    page.on("response", (response: any) => {
+    page.on('response', (response: any) => {
       try {
-        if (
-          response.request().isNavigationRequest() &&
-          response.request().frame() === page.mainFrame()
-        ) {
+        if (response.request().isNavigationRequest() && response.request().frame() === page.mainFrame()) {
           pageState.lastResponse = response;
           pageState.skipFullPass = false;
           pageState.fastResult = null;
@@ -139,13 +129,10 @@ export class AluviaClient {
     });
 
     // Fast pass at domcontentloaded
-    page.on("domcontentloaded", async () => {
+    page.on('domcontentloaded', async () => {
       if (!this.blockDetection) return;
       try {
-        const result = await this.blockDetection.analyzeFast(
-          page,
-          pageState.lastResponse,
-        );
+        const result = await this.blockDetection.analyzeFast(page, pageState.lastResponse);
         pageState.fastResult = result;
         pageState.lastAnalysisTs = Date.now();
 
@@ -159,12 +146,12 @@ export class AluviaClient {
     });
 
     // Full pass at load
-    page.on("load", async () => {
+    page.on('load', async () => {
       if (!this.blockDetection || pageState.skipFullPass) return;
       try {
         // Wait for networkidle with timeout cap
         try {
-          await page.waitForLoadState("networkidle", {
+          await page.waitForLoadState('networkidle', {
             timeout: this.blockDetection.getNetworkIdleTimeoutMs(),
           });
         } catch {
@@ -185,7 +172,7 @@ export class AluviaClient {
     });
 
     // SPA detection via framenavigated
-    page.on("framenavigated", async (frame: any) => {
+    page.on('framenavigated', async (frame: any) => {
       if (!this.blockDetection) return;
       try {
         // Only handle main frame
@@ -214,7 +201,7 @@ export class AluviaClient {
    * Attaches page listeners to all existing and future pages in a context.
    */
   private attachBlockDetectionListener(context: any): void {
-    this.logger.debug("Attaching block detection listener to context");
+    this.logger.debug('Attaching block detection listener to context');
 
     // Attach to existing pages
     try {
@@ -222,16 +209,14 @@ export class AluviaClient {
       for (const page of existingPages) {
         this.attachPageListeners(page);
         // Check if page has already loaded (not about:blank)
-        if (page.url() !== "about:blank" && this.blockDetection) {
+        if (page.url() !== 'about:blank' && this.blockDetection) {
           this.blockDetection
             .analyzeFull(page, null)
             .then((result: BlockDetectionResult) => {
               return this.handleDetectionResult(result, page);
             })
             .catch((error: any) => {
-              this.logger.warn(
-                `Error analyzing existing page: ${error.message}`,
-              );
+              this.logger.warn(`Error analyzing existing page: ${error.message}`);
             });
         }
       }
@@ -240,7 +225,7 @@ export class AluviaClient {
     }
 
     // Attach to future pages
-    context.on("page", (page: any) => {
+    context.on('page', (page: any) => {
       this.logger.debug(`New page detected: ${page.url()}`);
       this.attachPageListeners(page);
     });
@@ -253,10 +238,7 @@ export class AluviaClient {
    * is serialized via a promise-based mutex to prevent concurrent calls from reading stale
    * state and producing duplicate rule additions or missed persistent-block escalation.
    */
-  private async handleDetectionResult(
-    result: BlockDetectionResult,
-    page: any,
-  ): Promise<void> {
+  private async handleDetectionResult(result: BlockDetectionResult, page: any): Promise<void> {
     if (!this.blockDetection) return;
 
     // Fire user's onDetection callback for all tiers (including clear).
@@ -279,9 +261,8 @@ export class AluviaClient {
 
     // Check if auto-reload should fire for this blockStatus
     const shouldReload =
-      result.blockStatus === "blocked" ||
-      (result.blockStatus === "suspected" &&
-        this.blockDetection.isAutoUnblockOnSuspected());
+      result.blockStatus === 'blocked' ||
+      (result.blockStatus === 'suspected' && this.blockDetection.isAutoUnblockOnSuspected());
 
     if (!shouldReload) return;
 
@@ -305,10 +286,7 @@ export class AluviaClient {
   /**
    * Auto-unblock critical section. Must only be called under _detectionMutex.
    */
-  private async _handleAutoUnblock(
-    result: BlockDetectionResult,
-    page: any,
-  ): Promise<void> {
+  private async _handleAutoUnblock(result: BlockDetectionResult, page: any): Promise<void> {
     const url = result.url;
     const hostname = result.hostname;
 
@@ -323,9 +301,7 @@ export class AluviaClient {
       // Second block for this URL - mark hostname as persistent
       result.persistentBlock = true;
       this.blockDetection!.persistentHostnames.add(hostname);
-      this.logger.warn(
-        `Persistent block detected for ${hostname} after retry of ${url}`,
-      );
+      this.logger.warn(`Persistent block detected for ${hostname} after retry of ${url}`);
       return;
     }
 
@@ -346,9 +322,7 @@ export class AluviaClient {
         await this.updateRules([...currentRules, hostname]);
       }
     } catch (error: any) {
-      this.logger.warn(
-        `Failed to auto-add rule for ${hostname}: ${error.message}`,
-      );
+      this.logger.warn(`Failed to auto-add rule for ${hostname}: ${error.message}`);
     }
 
     // Reload page
@@ -356,9 +330,7 @@ export class AluviaClient {
       this.logger.info(`Reloading page after adding ${hostname} to rules`);
       await page.reload();
     } catch (error: any) {
-      this.logger.warn(
-        `Failed to reload page for ${hostname}: ${error.message}`,
-      );
+      this.logger.warn(`Failed to reload page for ${hostname}: ${error.message}`);
     }
   }
 
@@ -385,21 +357,16 @@ export class AluviaClient {
       // Fetch initial configuration (may throw InvalidApiKeyError or ApiError)
       await this.configManager.init();
 
-      const browserInstance = this.options.startPlaywright
-        ? await this._initPlaywright()
-        : undefined;
+      const browserInstance = this.options.startPlaywright ? await this._initPlaywright() : undefined;
 
       // Keep config fresh so routing decisions update without restarting.
       this.configManager.startPolling();
 
       try {
-        const { host, port, url } = await this.proxyServer.start(
-          this.options.localPort,
-        );
+        const { host, port, url } = await this.proxyServer.start(this.options.localPort);
 
         let nodeAgents: ReturnType<typeof createNodeProxyAgents> | null = null;
-        let undiciDispatcher: ReturnType<typeof createUndiciDispatcher> | null =
-          null;
+        let undiciDispatcher: ReturnType<typeof createUndiciDispatcher> | null = null;
         let undiciFetchFn: ReturnType<typeof createUndiciFetch> | null = null;
 
         const getNodeAgents = () => {
@@ -420,9 +387,9 @@ export class AluviaClient {
           const d: any = undiciDispatcher as any;
           if (!d) return;
           try {
-            if (typeof d.close === "function") {
+            if (typeof d.close === 'function') {
               await d.close();
-            } else if (typeof d.destroy === "function") {
+            } else if (typeof d.destroy === 'function') {
               d.destroy();
             }
           } finally {
@@ -459,11 +426,8 @@ export class AluviaClient {
               browserCdpUrl = `http://127.0.0.1:${cdpPort}`;
               break;
             } catch (err: any) {
-              if (attempt === 2 || !err.message?.includes("EADDRINUSE"))
-                throw err;
-              this.logger.debug(
-                `Port ${cdpPort} taken, retrying browser launch`,
-              );
+              if (attempt === 2 || !err.message?.includes('EADDRINUSE')) throw err;
+              this.logger.debug(`Port ${cdpPort} taken, retrying browser launch`);
             }
           }
 
@@ -614,19 +578,19 @@ export class AluviaClient {
    */
   private async _initPlaywright(): Promise<any> {
     try {
-      const pw = await import("playwright");
+      const pw = await import('playwright');
       // @ts-ignore
       return pw.chromium;
     } catch {
       // Playwright not installed — attempt auto-install
-      this.logger.info("Playwright not found. Installing playwright...");
-      const { execSync } = await import("node:child_process");
+      this.logger.info('Playwright not found. Installing playwright...');
+      const { execSync } = await import('node:child_process');
       try {
-        execSync("npm install playwright", {
-          stdio: "inherit",
+        execSync('npm install playwright', {
+          stdio: 'inherit',
           cwd: process.cwd(),
         });
-        const pw = await import("playwright");
+        const pw = await import('playwright');
         // @ts-ignore
         return pw.chromium;
       } catch (installError: any) {
@@ -644,12 +608,12 @@ export class AluviaClient {
   private static findFreePort(): Promise<number> {
     return new Promise((resolve, reject) => {
       const server = net.createServer();
-      server.listen(0, "127.0.0.1", () => {
+      server.listen(0, '127.0.0.1', () => {
         const addr = server.address();
-        const port = typeof addr === "object" && addr ? addr.port : 0;
+        const port = typeof addr === 'object' && addr ? addr.port : 0;
         server.close(() => resolve(port));
       });
-      server.on("error", reject);
+      server.on('error', reject);
     });
   }
 }

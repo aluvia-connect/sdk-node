@@ -2,21 +2,15 @@
 // Main entry point
 
 // Public class
-export { AluviaClient } from "./client/AluviaClient.js";
-export { AluviaApi } from "./api/AluviaApi.js";
+export { AluviaClient } from './client/AluviaClient.js';
+export { AluviaApi } from './api/AluviaApi.js';
 
 // Connect helper
-export { connect } from "./connect.js";
-export type { ConnectResult } from "./connect.js";
+export { connect } from './connect.js';
+export type { ConnectResult } from './connect.js';
 
 // Public error classes
-export {
-  MissingApiKeyError,
-  InvalidApiKeyError,
-  ApiError,
-  ProxyStartError,
-  ConnectError,
-} from "./errors.js";
+export { MissingApiKeyError, InvalidApiKeyError, ApiError, ProxyStartError, ConnectError } from './errors.js';
 
 // Session lock utilities (used by CLI)
 export {
@@ -29,9 +23,9 @@ export {
   generateSessionName,
   listSessions,
   toLockData,
-} from "./session/lock.js";
+} from './session/lock.js';
 
-export type { LockData, LockDetection, SessionInfo } from "./session/lock.js";
+export type { LockData, LockDetection, SessionInfo } from './session/lock.js';
 
 // Public types
 export type {
@@ -45,7 +39,7 @@ export type {
   DetectionBlockStatus,
   DetectionSignal,
   RedirectHop,
-} from "./client/types.js";
+} from './client/types.js';
 
 export type {
   Account,
@@ -57,4 +51,4 @@ export type {
   SuccessEnvelope,
   ErrorEnvelope,
   Envelope,
-} from "./api/types.js";
+} from './api/types.js';

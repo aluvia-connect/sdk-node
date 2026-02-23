@@ -1,8 +1,8 @@
-import { requestCore } from "./request.js";
-import { createAccountApi } from "./account.js";
-import { createGeosApi } from "./geos.js";
-import { MissingApiKeyError } from "../errors.js";
-import type { AluviaApiRequestArgs } from "./apiUtils.js";
+import { requestCore } from './request.js';
+import { createAccountApi } from './account.js';
+import { createGeosApi } from './geos.js';
+import { MissingApiKeyError } from '../errors.js';
+import type { AluviaApiRequestArgs } from './apiUtils.js';
 
 export type { AluviaApiRequestArgs };
 
@@ -23,19 +23,19 @@ export class AluviaApi {
   public readonly geos: ReturnType<typeof createGeosApi>;
 
   constructor(options: AluviaApiOptions) {
-    const apiKey = String(options.apiKey ?? "").trim();
+    const apiKey = String(options.apiKey ?? '').trim();
     if (!apiKey) {
-      throw new MissingApiKeyError("Aluvia apiKey is required");
+      throw new MissingApiKeyError('Aluvia apiKey is required');
     }
 
     this.apiKey = apiKey;
-    this.apiBaseUrl = options.apiBaseUrl ?? "https://api.aluvia.io/v1";
+    this.apiBaseUrl = options.apiBaseUrl ?? 'https://api.aluvia.io/v1';
     this.timeoutMs = options.timeoutMs;
     this.fetchImpl = options.fetch;
 
     const ctx = {
       request: async (args: {
-        method: "GET" | "POST" | "PATCH" | "DELETE";
+        method: 'GET' | 'POST' | 'PATCH' | 'DELETE';
         path: string;
         query?: Record<string, string | number | boolean | null | undefined>;
         body?: unknown;

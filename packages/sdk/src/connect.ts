@@ -1,10 +1,5 @@
-import {
-  readLock,
-  listSessions,
-  isProcessAlive,
-  removeLock,
-} from "./session/lock.js";
-import { ConnectError } from "./errors.js";
+import { readLock, listSessions, isProcessAlive, removeLock } from './session/lock.js';
+import { ConnectError } from './errors.js';
 
 export type ConnectResult = {
   browser: any;
@@ -28,11 +23,9 @@ export async function connect(sessionName?: string): Promise<ConnectResult> {
   // 1. Import Playwright
   let pw: any;
   try {
-    pw = await import("playwright");
+    pw = await import('playwright');
   } catch {
-    throw new ConnectError(
-      "Playwright is required for connect(). Install it: npm install playwright",
-    );
+    throw new ConnectError('Playwright is required for connect(). Install it: npm install playwright');
   }
 
   // 2. Resolve session
@@ -44,11 +37,11 @@ export async function connect(sessionName?: string): Promise<ConnectResult> {
     const sessions = listSessions();
     if (sessions.length === 0) {
       throw new ConnectError(
-        "No running Aluvia sessions found. Start one with: npx aluvia-sdk session start <url>",
+        'No running Aluvia sessions found. Start one with: npx aluvia-sdk session start <url>',
       );
     }
     if (sessions.length > 1) {
-      const names = sessions.map((s) => s.session).join(", ");
+      const names = sessions.map((s) => s.session).join(', ');
       throw new ConnectError(
         `Multiple Aluvia sessions running (${names}). Specify which one: connect('${sessions[0].session}')`,
       );
@@ -66,15 +59,11 @@ export async function connect(sessionName?: string): Promise<ConnectResult> {
 
   if (!isProcessAlive(lock.pid)) {
     removeLock(resolvedName);
-    throw new ConnectError(
-      `Session '${resolvedName}' is no longer running. Stale lock file removed.`,
-    );
+    throw new ConnectError(`Session '${resolvedName}' is no longer running. Stale lock file removed.`);
   }
 
   if (!lock.ready) {
-    throw new ConnectError(
-      `Session '${resolvedName}' is still starting up. Try again shortly.`,
-    );
+    throw new ConnectError(`Session '${resolvedName}' is still starting up. Try again shortly.`);
   }
 
   if (!lock.cdpUrl) {

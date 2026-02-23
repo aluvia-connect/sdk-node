@@ -8,7 +8,7 @@
  * Uses AsyncLocalStorage so concurrent MCP tool calls don't interfere.
  */
 
-import { AsyncLocalStorage } from "node:async_hooks";
+import { AsyncLocalStorage } from 'node:async_hooks';
 
 /**
  * Thrown by output() when in capture mode.
@@ -40,7 +40,7 @@ export async function captureOutput(
       await fn();
       // Handler completed without calling output() — shouldn't happen for CLI handlers
       return {
-        data: { error: "Handler did not produce output" },
+        data: { error: 'Handler did not produce output' },
         isError: true,
       };
     } catch (err) {

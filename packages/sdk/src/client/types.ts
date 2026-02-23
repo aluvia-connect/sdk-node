@@ -6,17 +6,17 @@ import type {
   DetectionBlockStatus,
   DetectionSignal,
   RedirectHop,
-} from "./BlockDetection.js";
+} from './BlockDetection.js';
 
 /**
  * Protocol used to connect to the Aluvia gateway.
  */
-export type GatewayProtocol = "http" | "https";
+export type GatewayProtocol = 'http' | 'https';
 
 /**
  * Log level for the client.
  */
-export type LogLevel = "silent" | "info" | "debug";
+export type LogLevel = 'silent' | 'info' | 'debug';
 
 export type PlaywrightProxySettings = {
   server: string;
@@ -179,8 +179,8 @@ export type AluviaClientConnection = {
    * Useful for: Axios, got, node-fetch (legacy).
    */
   asNodeAgents(): {
-    http: import("node:http").Agent;
-    https: import("node:http").Agent;
+    http: import('node:http').Agent;
+    https: import('node:http').Agent;
   };
 
   /**
@@ -191,8 +191,8 @@ export type AluviaClientConnection = {
    */
   asAxiosConfig(): {
     proxy: false;
-    httpAgent: import("node:http").Agent;
-    httpsAgent: import("node:http").Agent;
+    httpAgent: import('node:http').Agent;
+    httpsAgent: import('node:http').Agent;
   };
 
   /**
@@ -202,8 +202,8 @@ export type AluviaClientConnection = {
    */
   asGotOptions(): {
     agent: {
-      http: import("node:http").Agent;
-      https: import("node:http").Agent;
+      http: import('node:http').Agent;
+      https: import('node:http').Agent;
     };
   };
 
@@ -211,7 +211,7 @@ export type AluviaClientConnection = {
    * undici proxy dispatcher (for undici fetch / undici clients).
    */
   // @ts-ignore
-  asUndiciDispatcher(): import("undici").Dispatcher;
+  asUndiciDispatcher(): import('undici').Dispatcher;
 
   /**
    * Returns a `fetch` function powered by undici that uses the proxy dispatcher per request.
@@ -263,4 +263,4 @@ export type {
   DetectionBlockStatus,
   DetectionSignal,
   RedirectHop,
-} from "./BlockDetection.js";
+} from './BlockDetection.js';
