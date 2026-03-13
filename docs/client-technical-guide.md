@@ -393,11 +393,11 @@ await client.updateSessionId('beta');
 ### Update Geo Targeting
 
 ```ts
-// Target California IPs
-await client.updateTargetGeo('us_ca');
+// Target United States IPs
+await client.updateTargetGeo('us');
 
-// Target New York IPs
-await client.updateTargetGeo('us_ny');
+// Target United Kingdom IPs
+await client.updateTargetGeo('gb');
 
 // Clear geo targeting
 await client.updateTargetGeo(null);
