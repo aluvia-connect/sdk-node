@@ -511,7 +511,7 @@ for (const geo of geos) {
 
 ```ts
 [
-  { code: "us", label: "United States (any)" },
+  { code: "us", label: "United States" },
   { code: "us", label: "United States" },
   { code: "gb", label: "United Kingdom" },
   { code: "gb", label: "United Kingdom" },

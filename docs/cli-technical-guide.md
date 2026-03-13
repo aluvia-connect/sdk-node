@@ -659,7 +659,7 @@ aluvia geos
 ```json
 {
   "geos": [
-    { "code": "us", "label": "United States (any)" },
+    { "code": "us", "label": "United States" },
     { "code": "us", "label": "United States" },
     { "code": "gb", "label": "United Kingdom" }
   ],
