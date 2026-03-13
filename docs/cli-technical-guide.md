@@ -408,7 +408,7 @@ Auto-selects if only one session is running.
     "proxy_password": "pass456",
     "rules": ["example.com"],
     "session_id": "abc-123",
-    "target_geo": "us_ca"
+    "target_geo": "us"
   }
 }
 ```
@@ -484,7 +484,7 @@ Either `<geo>` or `--clear` must be provided.
 {
   "browserSession": "swift-falcon",
   "connectionId": 3449,
-  "targetGeo": "us_ca"
+  "targetGeo": "us"
 }
 ```
 
@@ -512,7 +512,7 @@ When cleared:
 
 ```bash
 aluvia session set-geo US
-aluvia session set-geo us_ca --browser-session swift-falcon
+aluvia session set-geo us --browser-session swift-falcon
 aluvia session set-geo --clear
 ```
 
@@ -660,8 +660,8 @@ aluvia geos
 {
   "geos": [
     { "code": "us", "label": "United States (any)" },
-    { "code": "us_ny", "label": "United States - New York" },
-    { "code": "us_ca", "label": "United States - California" }
+    { "code": "us", "label": "United States" },
+    { "code": "gb", "label": "United Kingdom" }
   ],
   "count": 3
 }
@@ -1037,7 +1037,7 @@ API errors from the Aluvia REST API are caught and output as `{ "error": "<messa
 ### Geo codes
 
 - Non-empty string after trimming.
-- Examples: `US`, `us_ca`, `us_ny`, `GB`, `DE`.
+- Examples: `US`, `GB`, `DE`.
 - Actual validation happens server-side via the API.
 
 ### Rules

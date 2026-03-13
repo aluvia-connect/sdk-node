@@ -131,7 +131,7 @@ aluvia session set-geo <geo_code> [--browser-session <name>]
 aluvia session set-geo --clear
 ```
 
-- `<geo_code>`: A geo code (e.g., `us`, `us_ca`, `us_ny`). See `aluvia geos` for a full list.
+- `<geo_code>`: A geo code (e.g., `us`, `gb`, `de`). See `aluvia geos` for a full list.
 - `--clear`: Remove geo targeting (use any available IP).
 
 ### `session set-rules`

@@ -274,7 +274,7 @@ Get detailed information about a running session including proxy URLs, connectio
     "connection_id": "3449",
     "rules": ["example.com"],
     "session_id": "abc-123",
-    "target_geo": "us_ca"
+    "target_geo": "us"
   }
 }
 ```
@@ -311,7 +311,7 @@ Set or clear the target geographic region for a running session.
 
 | Parameter | Type | Required | Description |
 |-----------|------|----------|-------------|
-| `geo` | string | no | Geo code to set (e.g., `"US"`, `"us_ca"`) |
+| `geo` | string | no | Geo code to set (e.g., `"US"`, `"GB"`) |
 | `clear` | boolean | no | Clear the target geo instead of setting one |
 | `browserSession` | string | no | Name of session (auto-selects if only one) |
 
@@ -323,7 +323,7 @@ Provide either `geo` or `clear`, not both.
 {
   "browserSession": "swift-falcon",
   "connectionId": 3449,
-  "targetGeo": "us_ca"
+  "targetGeo": "us"
 }
 ```
 
@@ -421,8 +421,8 @@ List all available geographic regions for proxy targeting.
 {
   "geos": [
     { "code": "us", "label": "United States (any)" },
-    { "code": "us_ny", "label": "United States - New York" },
-    { "code": "us_ca", "label": "United States - California" },
+    { "code": "us", "label": "United States" },
+    { "code": "gb", "label": "United Kingdom" },
     { "code": "gb", "label": "United Kingdom" }
   ],
   "count": 4

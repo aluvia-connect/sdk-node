@@ -116,7 +116,7 @@ await disconnect(); // the session keeps running
 aluvia session list          # list active sessions
 aluvia session get           # full session details + block detection state
 aluvia session rotate-ip     # get a new IP address
-aluvia session set-geo us_ca # target California IPs
+aluvia session set-geo us # target United States IPs
 aluvia session close         # stop the session
 ```
 

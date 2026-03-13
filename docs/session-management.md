@@ -255,7 +255,7 @@ Generates a new UUID session ID, which causes the Aluvia gateway to assign a new
 ### Change geo targeting
 
 ```bash
-aluvia session set-geo us_ca [--browser-session <name>]
+aluvia session set-geo us [--browser-session <name>]
 aluvia session set-geo --clear [--browser-session <name>]
 ```
 
@@ -275,7 +275,7 @@ aluvia session set-rules --remove "example.com"
 // Via AluviaClient (when using programmatic sessions)
 await client.updateRules(["example.com", "*.google.com"]);
 await client.updateSessionId("new-session-uuid");
-await client.updateTargetGeo("us_ca");
+await client.updateTargetGeo("us");
 await client.updateTargetGeo(null); // clear geo
 ```
 
@@ -409,8 +409,8 @@ aluvia session start https://site-b.com --browser-session scraper-b --auto-unblo
 aluvia session list
 
 # Target specific sessions
-aluvia session set-geo us_ca --browser-session scraper-a
-aluvia session set-geo us_ny --browser-session scraper-b
+aluvia session set-geo us --browser-session scraper-a
+aluvia session set-geo gb --browser-session scraper-b
 
 # Connect from code
 const connA = await connect("scraper-a");
@@ -437,7 +437,7 @@ aluvia session get
 aluvia session rotate-ip
 
 # 6. Agent changes geo targeting
-aluvia session set-geo us_ny
+aluvia session set-geo gb
 
 # 7. Clean up
 aluvia session close
@@ -457,7 +457,7 @@ session_get()
 session_rotate_ip()
 → returns new session ID
 
-session_set_geo(geo: "us_ny")
+session_set_geo(geo: "gb")
 → confirms geo update
 
 session_close()
