@@ -163,12 +163,12 @@ Returns session info enriched with block detection history and the full connecti
 aluvia session rotate-ip [--browser-session <name>]
 ```
 
-### `session set-geo` — Target a specific region
+### `session set-geo` — Target a specific country
 
 ```bash
-aluvia session set-geo US                          # target US IPs
-aluvia session set-geo us                          # target United States
-aluvia session set-geo --clear                     # clear geo targeting
+aluvia session set-geo US                          # target United States
+aluvia session set-geo GB                          # target United Kingdom
+aluvia session set-geo --clear                     # clear country targeting
 ```
 
 ### `session set-rules` — Update routing rules

@@ -202,7 +202,7 @@ Full parameter and response details: [MCP Server Guide — Tool Reference](https
 | **Monitor usage**               | `account_get`, `account_usage`                   | Check balance and data consumed                                                 |
 | **Multi-session automation**    | `session_start`, `session_close`, `session_list` | Name sessions via `browserSession`, manage multiple browsers                    |
 
-**Example agent prompt:** _"Open target-site.com. If you get blocked, rotate the IP to California and try again."_
+**Example agent prompt:** _"Open target-site.com. If you get blocked, rotate the IP to a US-based address and try again."_
 
 → Agent calls `session_start` with `autoUnblock: true`, then `session_set_geo` with `geo: "us"` if needed.
 
