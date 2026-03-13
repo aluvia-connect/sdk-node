@@ -660,7 +660,6 @@ aluvia geos
 {
   "geos": [
     { "code": "us", "label": "United States" },
-    { "code": "us", "label": "United States" },
     { "code": "gb", "label": "United Kingdom" }
   ],
   "count": 3
