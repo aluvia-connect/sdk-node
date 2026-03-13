@@ -17,13 +17,19 @@
 
 ---
 
+## Architecture
+
+```ts
 // Target United States IPs
 await client.updateTargetGeo('us');
 
-The client is split into two independent **planes**:
 // Target United Kingdom IPs
 await client.updateTargetGeo('gb');
 ```
+
+The client is split into two independent **planes**:
+
+```text
 ┌─────────────────────────────────────────────────────────────────┐
 │                        AluviaClient                             │
 ├─────────────────────────────┬───────────────────────────────────┤
