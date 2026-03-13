@@ -323,7 +323,7 @@ Provide either `geo` or `clear`, not both.
 {
   "browserSession": "swift-falcon",
   "connectionId": 3449,
-  "targetGeo": "us"
+  "targetGeo": "US"
 }
 ```
 
