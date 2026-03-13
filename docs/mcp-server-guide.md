@@ -422,7 +422,8 @@ List all available geographic regions for proxy targeting.
   "geos": [
     { "code": "us", "label": "United States" },
     { "code": "gb", "label": "United Kingdom" },
-    { "code": "gb", "label": "United Kingdom" }
+    { "code": "ca", "label": "Canada" },
+    { "code": "de", "label": "Germany" }
   ],
   "count": 4
 }
