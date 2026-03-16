@@ -163,12 +163,12 @@ Returns session info enriched with block detection history and the full connecti
 aluvia session rotate-ip [--browser-session <name>]
 ```
 
-### `session set-geo` — Target a specific region
+### `session set-geo` — Target a specific country
 
 ```bash
-aluvia session set-geo US                          # target US IPs
-aluvia session set-geo us_ca                       # target California
-aluvia session set-geo --clear                     # clear geo targeting
+aluvia session set-geo US                          # target United States
+aluvia session set-geo GB                          # target United Kingdom
+aluvia session set-geo --clear                     # clear country targeting
 ```
 
 ### `session set-rules` — Update routing rules
@@ -295,7 +295,7 @@ While your agent is running, update routing, rotate IPs, or change geo — no re
 ```ts
 await client.updateRules(["blocked-site.com"]); // proxy this hostname
 await client.updateSessionId("new-session-id"); // rotate to a new IP
-await client.updateTargetGeo("us_ca"); // target California IPs
+await client.updateTargetGeo("us"); // target United States IPs
 ```
 
 ### Constructor options
@@ -541,7 +541,7 @@ console.log("Balance:", account.balance_gb, "GB");
 const conn = await api.account.connections.create({
   description: "pricing-scraper",
   rules: ["competitor-site.com"],
-  target_geo: "us_ca",
+  target_geo: "us",
 });
 console.log("Created connection:", conn.connection_id);
 

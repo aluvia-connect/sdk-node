@@ -125,7 +125,7 @@ Update rules, rotate IP, or change geo without restarting:
 ```typescript
 await client.updateRules(['blocked-site.com']);
 await client.updateSessionId('new-session-id');
-await client.updateTargetGeo('us_ca');
+await client.updateTargetGeo('us');
 ```
 
 ### Rule patterns

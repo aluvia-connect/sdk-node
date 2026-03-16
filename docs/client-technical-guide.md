@@ -19,9 +19,17 @@
 
 ## Architecture
 
+```ts
+// Target United States IPs
+await client.updateTargetGeo('us');
+
+// Target United Kingdom IPs
+await client.updateTargetGeo('gb');
+```
+
 The client is split into two independent **planes**:
 
-```
+```text
 ┌─────────────────────────────────────────────────────────────────┐
 │                        AluviaClient                             │
 ├─────────────────────────────┬───────────────────────────────────┤
@@ -147,8 +155,9 @@ await client.updateSessionId('session-abc-123');
 Updates geo targeting. Pass `null` to clear.
 
 ```ts
-await client.updateTargetGeo('us_ca');  // Target California IPs
-await client.updateTargetGeo(null);    // Clear geo targeting
+await client.updateTargetGeo('us');  // Target United States IPs
+await client.updateTargetGeo('gb');  // Target United Kingdom IPs
+await client.updateTargetGeo(null);  // Clear geo targeting
 ```
 
 #### `getBlockedHostnames(): string[]`
@@ -390,11 +399,11 @@ await client.updateSessionId('beta');
 ### Update Geo Targeting
 
 ```ts
-// Target California IPs
-await client.updateTargetGeo('us_ca');
+// Target United States IPs
+await client.updateTargetGeo('us');
 
-// Target New York IPs
-await client.updateTargetGeo('us_ny');
+// Target United Kingdom IPs
+await client.updateTargetGeo('gb');
 
 // Clear geo targeting
 await client.updateTargetGeo(null);

@@ -172,7 +172,7 @@ All tools return JSON. On success, `isError` is `false`. On failure, `isError` i
 | `session_list`      | List active sessions (PIDs, URLs, CDP URLs, connection IDs)                                                                                                        |
 | `session_get`       | Full session details including block detection state and connection config. **Params**: `browserSession`                                                           |
 | `session_rotate_ip` | Rotate IP for a session (new session ID). **Params**: `browserSession`                                                                                             |
-| `session_set_geo`   | Set or clear geo-targeting (e.g. `us`, `us_ca`, `us_ny`). **Params**: `geo`, `clear`, `browserSession`                                                             |
+| `session_set_geo`   | Set or clear geo-targeting (e.g. `us`, `gb`, `de`). **Params**: `geo`, `clear`, `browserSession`                                                             |
 | `session_set_rules` | Append or remove proxy routing rules (comma-separated hostnames). **Params**: `rules`, `remove`, `browserSession`                                                  |
 
 ### Account Tools
@@ -186,7 +186,7 @@ All tools return JSON. On success, `isError` is `false`. On failure, `isError` i
 
 | Tool        | Description                                                              |
 | ----------- | ------------------------------------------------------------------------ |
-| `geos_list` | List available geo-targeting regions (e.g. `us`, `us_ny`, `us_ca`, `gb`) |
+| `geos_list` | List available geo-targeting countries (e.g. `us`, `gb`, `de`) |
 
 Full parameter and response details: [MCP Server Guide — Tool Reference](https://github.com/aluvia-connect/sdk-node/blob/main/docs/mcp-server-guide.md#tool-reference).
 
@@ -197,14 +197,14 @@ Full parameter and response details: [MCP Server Guide — Tool Reference](https
 | Scenario                        | Tools Used                                       | Flow                                                                            |
 | ------------------------------- | ------------------------------------------------ | ------------------------------------------------------------------------------- |
 | **Scrape a protected site**     | `session_start`, `session_list`                  | Start with `autoUnblock: true`; agent receives CDP URL for Playwright/Puppeteer |
-| **Bypass regional restriction** | `session_start`, `session_set_geo`               | Set `geo: "us_ca"` to access California-only content                            |
+| **Bypass regional restriction** | `session_start`, `session_set_geo`               | Set `geo: "us"` to access United States-only content                            |
 | **Recover from block**          | `session_rotate_ip`, `session_set_rules`         | Rotate IP or add hostname to proxy rules at runtime                             |
 | **Monitor usage**               | `account_get`, `account_usage`                   | Check balance and data consumed                                                 |
 | **Multi-session automation**    | `session_start`, `session_close`, `session_list` | Name sessions via `browserSession`, manage multiple browsers                    |
 
-**Example agent prompt:** _"Open target-site.com. If you get blocked, rotate the IP to California and try again."_
+**Example agent prompt:** _"Open target-site.com. If you get blocked, rotate the IP to a US-based address and try again."_
 
-→ Agent calls `session_start` with `autoUnblock: true`, then `session_set_geo` with `geo: "us_ca"` if needed.
+→ Agent calls `session_start` with `autoUnblock: true`, then `session_set_geo` with `geo: "us"` if needed.
 
 ---
 
@@ -213,7 +213,7 @@ Full parameter and response details: [MCP Server Guide — Tool Reference](https
 - **Mobile carrier IPs** — Same IPs real users use; sites trust them
 - **Block detection** — Detects 403s, WAF challenges, CAPTCHAs; auto-reloads through Aluvia when blocked
 - **Smart routing** — Proxy only hostnames that block you; everything else goes direct (saves cost and latency)
-- **Geo-targeting** — Target US regions (e.g. `us_ca`, `us_ny`) for localized content
+- **Geo-targeting** — Target countries (e.g. `us`, `gb`, `de`) for localized content
 - **Runtime updates** — Add rules, rotate IPs, change geo without restarting
 
 ---

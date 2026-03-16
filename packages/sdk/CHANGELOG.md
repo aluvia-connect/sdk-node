@@ -1,5 +1,11 @@
 # Changelog
 
+## [2.0.1] - 2026-03-16
+
+### Changed
+- Updated all geo-targeting documentation and examples to use country codes (e.g., `us`, `gb`, `de`) instead of subregion codes (e.g., `us_ca`, `us_ny`).
+- Clarified that geo codes are now country-level only; subregion codes are no longer shown in docs or examples.
+
 All notable changes to `@aluvia/sdk` are documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
