@@ -186,7 +186,7 @@ All tools return JSON. On success, `isError` is `false`. On failure, `isError` i
 
 | Tool        | Description                                                              |
 | ----------- | ------------------------------------------------------------------------ |
-| `geos_list` | List available geo-targeting regions (e.g. `us`, `gb`, `de`) |
+| `geos_list` | List available geo-targeting countries (e.g. `us`, `gb`, `de`) |
 
 Full parameter and response details: [MCP Server Guide — Tool Reference](https://github.com/aluvia-connect/sdk-node/blob/main/docs/mcp-server-guide.md#tool-reference).
 

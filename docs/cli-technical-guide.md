@@ -662,7 +662,7 @@ aluvia geos
     { "code": "us", "label": "United States" },
     { "code": "gb", "label": "United Kingdom" }
   ],
-  "count": 3
+  "count": 2
 }
 ```
 

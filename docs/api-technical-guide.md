@@ -512,10 +512,10 @@ for (const geo of geos) {
 ```ts
 [
   { code: "us", label: "United States" },
-  { code: "us", label: "United States" },
-  { code: "gb", label: "United Kingdom" },
   { code: "gb", label: "United Kingdom" },
   { code: "de", label: "Germany" },
+  { code: "fr", label: "France" },
+  { code: "jp", label: "Japan" },
   // ...
 ]
 ```
