@@ -44,17 +44,27 @@ function openBrowser(url: string): void {
   try {
     let command: string;
     let args: string[];
+    let windowsVerbatimArguments = false;
     if (process.platform === 'darwin') {
       command = 'open';
       args = [url];
     } else if (process.platform === 'win32') {
-      command = 'cmd';
-      args = ['/c', 'start', '', url];
+      // cmd.exe treats `&` as a command separator, so a URL with query params
+      // gets truncated at the first `&`. Escape it as `^&` and pass the args
+      // verbatim so Node's own quoting doesn't re-corrupt the URL. The `""` is
+      // start's (empty) window-title argument.
+      command = 'cmd.exe';
+      args = ['/c', 'start', '""', url.replace(/&/g, '^&')];
+      windowsVerbatimArguments = true;
     } else {
       command = 'xdg-open';
       args = [url];
     }
-    const child = spawn(command, args, { stdio: 'ignore', detached: true });
+    const child = spawn(command, args, {
+      stdio: 'ignore',
+      detached: true,
+      windowsVerbatimArguments,
+    });
     child.on('error', () => {
       /* opener not available — link is printed as fallback */
     });
