@@ -1,5 +1,7 @@
 #!/usr/bin/env node
 
+import { realpathSync } from 'node:fs';
+import { pathToFileURL } from 'node:url';
 import { handleOpenDaemon } from './open.js';
 import { handleSession, parseSessionArgs } from './session.js';
 import type { ParsedSessionArgs } from './session.js';
@@ -263,8 +265,12 @@ async function main(): Promise<void> {
 }
 
 // Only run CLI when this file is the direct entry point (not when imported by MCP server).
-// Check if process.argv[1] resolves to this CLI file rather than another entry point.
-const isCli = process.argv[1]?.match(/(?:cli)\.[jt]s$/);
+// Resolve process.argv[1] through any symlinks (e.g. npm's global bin -> dist/esm/cli.js)
+// and compare to this module's URL. This is symlink-safe, unlike a filename regex which
+// fails when launched via the extension-less `aluvia` bin symlink.
+const entry = process.argv[1] ? pathToFileURL(realpathSync(process.argv[1])).href : '';
+// @ts-ignore - import.meta.url exists at runtime in ESM (the only build the bin/main uses)
+const isCli = entry === import.meta.url;
 if (isCli) {
   main().catch((err) => {
     output({ error: err.message }, 1);
