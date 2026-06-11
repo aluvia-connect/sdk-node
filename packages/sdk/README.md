@@ -25,9 +25,9 @@ This package provides the programmatic API: `AluviaClient`, `AluviaApi`, `connec
 
 ## Get an Aluvia API Key
 
-You need an API key to use the SDK. Get one from the [Aluvia dashboard](https://dashboard.aluvia.io):
+You need an API key to use the SDK. Get one from the [Aluvia dashboard](https://dashboard.aluvia.io/login?ref=https%3A%2F%2Fwww.npmjs.com%2Fpackage%2F%40aluvia%2Fsdk):
 
-1. Sign up or sign in at [dashboard.aluvia.io](https://dashboard.aluvia.io)
+1. Sign up or sign in at [dashboard.aluvia.io](https://dashboard.aluvia.io/login?ref=https%3A%2F%2Fwww.npmjs.com%2Fpackage%2F%40aluvia%2Fsdk)
 2. In your account, open the API & SDKs section
 3. Copy your API key
 
@@ -269,7 +269,7 @@ try {
 | **Main SDK README**        | [github.com/aluvia-connect/sdk-node](https://github.com/aluvia-connect/sdk-node)                                      |
 | **Client Technical Guide** | [docs/client-technical-guide.md](https://github.com/aluvia-connect/sdk-node/blob/main/docs/client-technical-guide.md) |
 | **API Technical Guide**    | [docs/api-technical-guide.md](https://github.com/aluvia-connect/sdk-node/blob/main/docs/api-technical-guide.md)       |
-| **Aluvia Dashboard**       | [dashboard.aluvia.io](https://dashboard.aluvia.io)                                                                    |
+| **Aluvia Dashboard**       | [dashboard.aluvia.io](https://dashboard.aluvia.io/login?ref=https%3A%2F%2Fwww.npmjs.com%2Fpackage%2F%40aluvia%2Fsdk)                                                                    |
 
 ---
 
