@@ -45,7 +45,7 @@ This repository is organized as a monorepo with three packages:
 
 ### 1. Get Aluvia API key
 
-[Aluvia dashboard](https://dashboard.aluvia.io)
+[Aluvia dashboard](https://dashboard.aluvia.io/login?ref=https%3A%2F%2Fgithub.com%2Faluvia-connect%2Faluvia%2Fblob%2Fmain%2FREADME.md)
 
 ### 2. Install
 
